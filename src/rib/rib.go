@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
 
 func localAddresses() {
@@ -25,5 +27,7 @@ func localAddresses() {
 }
 
 func main() {
+	log.Printf("IP version: %v", ipv4.Version)
+
 	localAddresses()
 }
