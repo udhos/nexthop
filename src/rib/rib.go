@@ -23,7 +23,7 @@ func localAddresses() {
 			continue
 		}
 		for _, a := range addrs {
-			log.Printf("%v %v %v\n", i.Index, i.Name, a)
+			log.Printf("index=%v iface=%v addr=[%v]\n", i.Index, i.Name, a)
 		}
 	}
 }
