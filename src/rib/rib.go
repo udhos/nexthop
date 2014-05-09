@@ -6,6 +6,8 @@ import (
 	"net"
 
 	"code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
+
+	"rib/iface"
 )
 
 func localAddresses() {
@@ -15,13 +17,13 @@ func localAddresses() {
 		return
 	}
 	for _, i := range ifaces {
-		addrs, err := i.Addrs()
+		addrs, err := iface.GetInterfaceAddrs(i)
 		if err != nil {
 			log.Print(fmt.Errorf("localAddresses: %v\n", err.Error()))
 			continue
 		}
 		for _, a := range addrs {
-			log.Printf("%v %v\n", i.Name, a)
+			log.Printf("%v %v %v\n", i.Index, i.Name, a)
 		}
 	}
 }
