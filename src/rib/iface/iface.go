@@ -83,45 +83,42 @@ func getMask(info *adapterInfo, index int, addr net.IPAddr) (net.IPNet, error) {
 	v4 := ipIsIPv4(addr.IP)
 
 	for ai := info.head; ai != nil; ai = ai.Next {
-		if index == int(ai.Index) {
-			for ipl := &ai.IpAddressList; ipl != nil; ipl = ipl.Next {
+		if index != int(ai.Index) {
+			continue
+		}
 
-				ip := parseIP(ipl.IpAddress.String)
-				if ip == nil {
-					return ipNet, fmt.Errorf("getMask: parse error: [%v]", ip)
-				}
+		for ipl := &ai.IpAddressList; ipl != nil; ipl = ipl.Next {
 
-				if !ip.Equal(addr.IP) {
-					continue
-				}
-
-				// match
-				//log.Printf("found: index=%v addr=[%s] mask=[%s]\n", index, ipl.IpAddress.String, ipl.IpMask.String)
-
-				mask := parseIP(ipl.IpMask.String)
-				if mask == nil {
-					return ipNet, fmt.Errorf("getMask: parse error: [%v]", mask)
-				}
-
-				ipNet.IP = addr.IP
-
-				if v4 {
-					m := mask.To4() // convert mask into 4-byte
-					ipNet.Mask = net.IPv4Mask(m[0], m[1], m[2], m[3])
-				} else {
-					// IPv6 mask
-					ipNet.Mask = net.IPMask{
-						mask[0], mask[1], mask[2], mask[3],
-						mask[4], mask[5], mask[6], mask[7],
-						mask[8], mask[9], mask[10], mask[11],
-						mask[12], mask[13], mask[14], mask[15],
-					}
-				}
-
-				//log.Printf("ipNet: [%v]", ipNet)
-
-				return ipNet, nil
+			ip := parseIP(ipl.IpAddress.String)
+			if ip == nil {
+				return ipNet, fmt.Errorf("getMask: parse error: [%v]", ip)
 			}
+
+			if !ip.Equal(addr.IP) {
+				continue
+			}
+
+			mask := parseIP(ipl.IpMask.String)
+			if mask == nil {
+				return ipNet, fmt.Errorf("getMask: parse error: [%v]", mask)
+			}
+
+			ipNet.IP = addr.IP
+
+			if v4 {
+				m := mask.To4() // convert mask into 4-byte
+				ipNet.Mask = net.IPv4Mask(m[0], m[1], m[2], m[3])
+			} else {
+				// IPv6 mask
+				ipNet.Mask = net.IPMask{
+					mask[0], mask[1], mask[2], mask[3],
+					mask[4], mask[5], mask[6], mask[7],
+					mask[8], mask[9], mask[10], mask[11],
+					mask[12], mask[13], mask[14], mask[15],
+				}
+			}
+
+			return ipNet, nil
 		}
 	}
 
@@ -151,7 +148,7 @@ func GetInterfaceAddrs(i net.Interface) ([]net.Addr, error) {
 			result = append(result, a)
 		case *net.IPAddr:
 			// windows: missing netmask
-			log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
+			//log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
 			ipNet, err := getMask(&info, i.Index, *ad)
 			if err != nil {
 				log.Printf("GetInterfaceAddrs: net.IPAddr: %v: error: %v", err)
