@@ -4,13 +4,23 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
+	//"strings"
 	"syscall"
 	"unsafe"
 )
 
 type adapterInfo struct {
 	head *syscall.IpAdapterInfo
+}
+
+// From: https://code.google.com/p/go/source/browse/src/pkg/net/interface_windows.go
+func bytePtrToString(p *uint8) string {
+	a := (*[1000]uint8)(unsafe.Pointer(p))
+	i := 0
+	for a[i] != 0 {
+		i++
+	}
+	return string(a[:i])
 }
 
 // From: https://code.google.com/p/go/source/browse/src/pkg/net/interface_windows.go
@@ -33,6 +43,11 @@ func getAdapterList() (*syscall.IpAdapterInfo, error) {
 	return a, nil
 }
 
+func ipIsIPv4(ip net.IP) bool {
+	p4 := ip.To4()
+	return len(p4) == net.IPv4len
+}
+
 // getMask: get net.IPNet from net.IPAddr
 func getMask(info *adapterInfo, index int, addr net.IPAddr) (net.IPNet, error) {
 
@@ -46,27 +61,41 @@ func getMask(info *adapterInfo, index int, addr net.IPAddr) (net.IPNet, error) {
 		}
 	}
 
+	v4 := ipIsIPv4(addr.IP)
+
 	for ai := info.head; ai != nil; ai = ai.Next {
 		if index == int(ai.Index) {
 			for ipl := &ai.IpAddressList; ipl != nil; ipl = ipl.Next {
 				// match
-				log.Printf("found: index=%v addr=[%s] mask=[%s]\n", index, ipl.IpAddress.String, ipl.IpMask.String)
+				//log.Printf("found: index=%v addr=[%s] mask=[%s]\n", index, ipl.IpAddress.String, ipl.IpMask.String)
 
-				str := strings.TrimSpace(string(ipl.IpMask.String[:]))
-				log.Printf("mask: [%v]", str)
+				str := bytePtrToString(&ipl.IpMask.String[0])
+				log.Printf("mask: [%v]\n", str)
 
 				mask := net.ParseIP(str)
 				if mask == nil {
-					log.Printf("UGH mask: [%v]", mask)
+					log.Printf("getMask UGH: mask: [%v]", mask)
 					return ipNet, nil
 				}
 
-				// see https://code.google.com/p/go/source/browse/src/pkg/net/interface_linux.go
 				ipNet.IP = addr.IP
-				ipNet.Mask = net.IPv4Mask(mask[0], mask[1], mask[2], mask[3])
+
+				if v4 {
+					m := mask.To4() // convert mask into 4-byte
+					ipNet.Mask = net.IPv4Mask(m[0], m[1], m[2], m[3])
+				} else {
+					// IPv6 mask
+					ipNet.Mask = net.IPMask{
+						mask[0], mask[1], mask[2], mask[3],
+						mask[4], mask[5], mask[6], mask[7],
+						mask[8], mask[9], mask[10], mask[11],
+						mask[12], mask[13], mask[14], mask[15],
+					}
+				}
+
+				//log.Printf("ipNet: [%v]", ipNet)
 
 				return ipNet, nil
-
 			}
 		}
 	}
@@ -92,7 +121,7 @@ func GetInterfaceAddrs(i net.Interface) ([]net.Addr, error) {
 			result = append(result, a)
 		case *net.IPAddr:
 			// windows: missing netmask
-			log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
+			//log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
 			ipNet, err := getMask(&info, i.Index, *ad)
 			if err != nil {
 				log.Printf("GetInterfaceAddrs: net.IPAddr: %v: error: %v", err)
