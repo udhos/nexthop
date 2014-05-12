@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"runtime"
 
 	"code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 
 	"rib/iface"
+	"rib/route"
 )
 
 func localAddresses() {
@@ -29,7 +31,11 @@ func localAddresses() {
 }
 
 func main() {
+	log.Printf("runtime operating system: [%v]", runtime.GOOS)
+
 	log.Printf("IP version: %v", ipv4.Version)
 
 	localAddresses()
+
+	route.Routes()
 }
