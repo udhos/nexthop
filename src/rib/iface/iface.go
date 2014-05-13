@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+
+	"rib/util"
 )
 
 type adapterInfo struct {
@@ -46,11 +48,6 @@ func getAdapterList() (*syscall.IpAdapterInfo, error) {
 	return a, nil
 }
 
-func ipIsIPv4(ip net.IP) bool {
-	p4 := ip.To4()
-	return len(p4) == net.IPv4len
-}
-
 func toString(p []byte) string {
 	for i, b := range p {
 		if b == 0 {
@@ -80,7 +77,7 @@ func getMask(info *adapterInfo, index int, addr net.IPAddr) (net.IPNet, error) {
 		}
 	}
 
-	v4 := ipIsIPv4(addr.IP)
+	v4 := util.IpIsIPv4(addr.IP)
 
 	for ai := info.head; ai != nil; ai = ai.Next {
 		if index != int(ai.Index) {
