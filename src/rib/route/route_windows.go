@@ -212,6 +212,9 @@ func scanLines(input io.ReadCloser) error {
 }
 
 func scanRoutes() {
+	//
+	// Another option: netsh interface ipv4 show route
+	//
 	cmd := exec.Command("netstat", "-nvr", "5")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
