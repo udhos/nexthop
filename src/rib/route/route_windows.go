@@ -15,13 +15,19 @@ import (
 	"rib/util"
 )
 
+const (
+	S_NEW    = 0
+	S_ERASED = 1
+	S_NONE   = 2
+)
+
 type Route struct {
 	Net           net.IP
 	PrefixLen     int
 	NextHop       net.IP
 	InterfaceAddr net.IP
 	Metric        int
-	erased        bool
+	Status        int
 }
 
 func (r1 Route) Equal(r2 Route) bool {
@@ -39,6 +45,17 @@ var (
 
 func parseRoute(cols []string, route *Route) error {
 	//log.Printf("parseRoute: cols=[%v]", cols)
+
+	n := len(cols)
+
+	/*
+		route.Net = net.ParseIP(cols[2])
+		if route.Net != nil && !util.IpIsIPv4(route.Net) {
+			log.Printf("IPv6: [%v]", route.Net)
+			// IPv6
+			return nil
+		}
+	*/
 
 	route.Net = net.ParseIP(cols[0])
 	if route.Net == nil {
@@ -66,10 +83,25 @@ func parseRoute(cols []string, route *Route) error {
 			route.NextHop = net.IPv4zero
 		}
 
-		route.InterfaceAddr = net.ParseIP(cols[3])
+		var metricCol int
+
+		switch n {
+		case 6:
+			route.InterfaceAddr = net.ParseIP(cols[4])
+			metricCol = 5
+		case 5:
+			route.InterfaceAddr = net.ParseIP(cols[3])
+			metricCol = 4
+		case 4:
+			metricCol = 3
+		default:
+			return fmt.Errorf("parse error")
+		}
+
+		//log.Printf("cols=%d: %v", len(cols), cols)
 
 		var err error
-		route.Metric, err = strconv.Atoi(cols[4])
+		route.Metric, err = strconv.Atoi(cols[metricCol])
 		if err != nil {
 			route.Metric = -1
 		}
@@ -79,36 +111,47 @@ func parseRoute(cols []string, route *Route) error {
 		return nil
 	}
 
-	// IPv6
-
 	return fmt.Errorf("parse IPv6")
 }
 
-func sendDeleted(routeTable []Route) {
+func removeErased(routeTable *[]Route) {
+	for i := 0; i < len(*routeTable); {
+		if (*routeTable)[i].Status == S_ERASED {
+			last := len(*routeTable) - 1
+			(*routeTable)[i], *routeTable = (*routeTable)[last], (*routeTable)[:last]
+			continue
+		}
+		i++
+	}
+}
+
+func sendUpdates(routeTable []Route) {
+	log.Printf("table size=%d", len(routeTable))
+
 	for _, r := range routeTable {
-		if r.erased {
-			log.Printf("sendDeleted: [%v]", r)
+		switch r.Status {
+		case S_ERASED:
 			routeDel <- r
+		case S_NEW:
+			routeAdd <- r
 		}
 	}
 }
 
 func markToDelete(routeTable []Route) {
-	for _, r := range routeTable {
-		r.erased = true
+	for i := range routeTable {
+		routeTable[i].Status = S_ERASED
 	}
 }
 
 func refreshRoute(routeTable *[]Route, route Route) {
-	for _, r := range *routeTable {
+	for i, r := range *routeTable {
 		if route.Equal(r) {
-			log.Printf("refreshed: [%v]", r)
-			r.erased = false // refresh route
+			(*routeTable)[i].Status = S_NONE
 			return
 		}
 	}
 	*routeTable = append(*routeTable, route)
-	log.Printf("new: [%v]", route)
 }
 
 func scanLines(input io.ReadCloser) error {
@@ -122,21 +165,21 @@ func scanLines(input io.ReadCloser) error {
 		line := scanner.Text()
 		//log.Printf("scanLines: line=[%v]\n", line)
 
-		if line == "IPv4 Route Table" {
+		if line == "IPv4 Route Table" || line == "Tabela de rotas IPv4" {
 			scanningIPv4 = true
 			markToDelete(routeTable)
 			continue
 		}
 
-		if line == "IPv6 Route Table" {
+		if line == "IPv6 Route Table" || line == "Tabela de rotas IPv6" {
 			scanningIPv4 = false
 			continue
 		}
 
-		if line == "Persistent Routes:" {
+		if line == "Persistent Routes:" || line == "Rotas persistentes:" {
 			if !scanningIPv4 {
-				log.Printf("send table updates")
-				sendDeleted(routeTable)
+				sendUpdates(routeTable)
+				removeErased(&routeTable)
 			}
 			continue
 		}
@@ -149,7 +192,7 @@ func scanLines(input io.ReadCloser) error {
 			continue
 		}
 
-		route := Route{erased: false}
+		route := Route{Status: S_NEW}
 
 		if err := parseRoute(cols, &route); err != nil {
 			log.Printf("parse error: %v", err)
@@ -160,7 +203,7 @@ func scanLines(input io.ReadCloser) error {
 			continue
 		}
 
-		log.Printf("route: [%v]", route)
+		//log.Printf("route: [%v]", route)
 
 		refreshRoute(&routeTable, route)
 	}
