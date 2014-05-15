@@ -35,6 +35,8 @@ func main() {
 
 	log.Printf("IP version: %v", ipv4.Version)
 
+	go listenTelnet(":1234")
+
 	localAddresses()
 
 	route.Routes()
