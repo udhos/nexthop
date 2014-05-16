@@ -40,4 +40,20 @@ func main() {
 	localAddresses()
 
 	route.Routes()
+
+	for {
+		select {
+		case r, ok := <-route.RouteAdd:
+			if !ok {
+				log.Printf("Routes: quit")
+				break
+			}
+			log.Printf("route add: %v", r)
+		case r := <-route.RouteDel:
+			log.Printf("route del: %v", r)
+		case c := <-cmdInput:
+			log.Printf("command: [%v]", c.line)
+			c.client.userOut <- fmt.Sprintf("echo: [%v]\r\n", c.line)
+		}
+	}
 }

@@ -38,11 +38,6 @@ func (r1 Route) Equal(r2 Route) bool {
 		r1.InterfaceAddr.Equal(r2.InterfaceAddr)
 }
 
-var (
-	routeAdd = make(chan Route)
-	routeDel = make(chan Route)
-)
-
 func parseRoute(cols []string, route *Route) error {
 	//log.Printf("parseRoute: cols=[%v]", cols)
 
@@ -131,9 +126,9 @@ func sendUpdates(routeTable []Route) {
 	for _, r := range routeTable {
 		switch r.Status {
 		case S_ERASED:
-			routeDel <- r
+			RouteDel <- r
 		case S_NEW:
-			routeAdd <- r
+			RouteAdd <- r
 		}
 	}
 }
@@ -212,6 +207,9 @@ func scanLines(input io.ReadCloser) error {
 }
 
 func scanRoutes() {
+
+	log.Printf("route.Routes: scanning route table")
+
 	//
 	// Another option: netsh interface ipv4 show route
 	//
@@ -232,7 +230,7 @@ func scanRoutes() {
 
 	log.Printf("scanLines: unexpected end")
 
-	close(routeAdd)
+	close(RouteAdd)
 
 	if err := cmd.Wait(); err != nil {
 		log.Printf("scanRoutes: wait: %v", err)
@@ -240,23 +238,7 @@ func scanRoutes() {
 }
 
 func Routes() {
-	log.Printf("compile-time operating system: windows")
+	log.Printf("route.Routes: compile-time operating system: windows")
 
 	go scanRoutes()
-
-	log.Printf("Routes: scanning route table")
-
-	for {
-		select {
-		case r, ok := <-routeAdd:
-			if !ok {
-				break
-			}
-			log.Printf("route add: %v", r)
-		case r := <-routeDel:
-			log.Printf("route del: %v", r)
-		}
-	}
-
-	log.Printf("Routes: quit")
 }

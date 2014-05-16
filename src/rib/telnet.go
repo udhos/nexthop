@@ -8,12 +8,54 @@ import (
 	"telnet"
 )
 
-func inputLoop(rd *bufio.Reader) {
-	log.Printf("FIXME WRITEME inputLoop")
+type TelnetClient struct {
+	rd      *bufio.Reader
+	wr      *bufio.Writer
+	userOut chan string // outputLoop: read from userOut and write into wr
 }
 
-func outputLoop(wr *bufio.Writer) {
-	log.Printf("FIXME WRITEME outputLoop")
+type Command struct {
+	client *TelnetClient
+	line   string
+}
+
+var cmdInput = make(chan Command)
+
+func inputLoop(client *TelnetClient) {
+	//loop:
+	//	- read from rd and feed into cli interpreter
+	//	- watch idle timeout
+	//	- watch quitInput channel
+
+	scanner := bufio.NewScanner(client.rd)
+	for scanner.Scan() {
+		line := scanner.Text()
+		log.Printf("inputLoop: [%v]", line)
+		cmdInput <- Command{client, line}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("inputLoop: %v", err)
+	}
+
+	log.Printf("inputLoop: exiting")
+}
+
+func outputLoop(client *TelnetClient) {
+	//loop:
+	//	- read from userOut channel and write into wr
+	//	- watch quitOutput channel
+
+	for msg := range client.userOut {
+		if n, err := client.wr.WriteString(msg); err != nil {
+			log.Printf("outputLoop: written=%d from=%d: %v", n, len(msg), err)
+		}
+		if err := client.wr.Flush(); err != nil {
+			log.Printf("outputLoop: flush: %v", err)
+		}
+	}
+
+	log.Printf("outputLoop: exiting")
 }
 
 func handleTelnet(conn net.Conn) {
@@ -21,20 +63,15 @@ func handleTelnet(conn net.Conn) {
 
 	rd, wr := bufio.NewReader(conn), bufio.NewWriter(conn)
 
-	//create userOut channel: will send messages to user
+	client := TelnetClient{rd, wr, make(chan string)}
+
+	defer close(client.userOut)
 
 	//create cli interpreter: will write to userOut channel when needed
 
-	//go routine loop:
-	//	- read from userOut channel and write into wr
-	//	- watch quitOutput channel
-	go inputLoop(rd)
+	go inputLoop(&client)
 
-	//loop:
-	//	- read from rd and feed into cli interpreter
-	//	- watch idle timeout
-	//	- watch quitInput channel
-	outputLoop(wr)
+	outputLoop(&client)
 }
 
 func listenTelnet(addr string) {
