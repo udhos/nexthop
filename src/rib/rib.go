@@ -67,7 +67,25 @@ func sendPrompt(out chan string, status int) {
 	out <- fmt.Sprintf("\r\n%s%s ", host, p)
 }
 
-func execute(c *TelnetClient, line string) {
+func cmdQuit(c *TelnetClient, line string) {
+	c.userOut <- fmt.Sprintf("bye\r\n")
+	c.status = QUIT
+	close(c.quit)
+}
+
+func cmdShowInt(c *TelnetClient, line string) {
+}
+
+func cmdShowIPAddr(c *TelnetClient, line string) {
+}
+
+func cmdShowIPInt(c *TelnetClient, line string) {
+}
+
+func cmdShowIPRoute(c *TelnetClient, line string) {
+}
+
+func execute(root *CmdNode, c *TelnetClient, line string) {
 	log.Printf("execute: [%v]", line)
 	c.userOut <- fmt.Sprintf("echo: [%v]\r\n", line)
 
@@ -76,13 +94,25 @@ func execute(c *TelnetClient, line string) {
 	}
 
 	if strings.HasPrefix("quit", line) {
-		c.userOut <- fmt.Sprintf("bye\r\n")
-		c.status = QUIT
-		close(c.quit)
+		cmdQuit(c, line)
+		return
 	}
+
+	node, err := cmdFind(root, line, c.status)
+	if err != nil {
+		c.userOut <- fmt.Sprintf("command not found: %s\r\n", err)
+		return
+	}
+
+	if node.Handler == nil {
+		c.userOut <- fmt.Sprintf("command missing handler: [%s]\r\n", line)
+		return
+	}
+
+	node.Handler(c, line)
 }
 
-func command(c *TelnetClient, line string) {
+func command(root *CmdNode, c *TelnetClient, line string) {
 	//log.Printf("command: [%v]", line)
 	//c.userOut <- fmt.Sprintf("echo: [%v]\r\n", line)
 
@@ -96,7 +126,7 @@ func command(c *TelnetClient, line string) {
 	case PASS:
 		c.status = EXEC
 	case EXEC, ENAB, CONF:
-		execute(c, line)
+		execute(root, c, line)
 	default:
 		log.Printf("unknown state for command: [%s]", line)
 		c.userOut <- fmt.Sprintf("unknown state for command: [%s]\r\n", line)
@@ -109,6 +139,14 @@ func main() {
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)
 
 	log.Printf("IP version: %v", ipv4.Version)
+
+	cmdRoot := CmdNode{Path: "", MinLevel: EXEC, Handler: nil}
+
+	cmdInstall(&cmdRoot, "quit", EXEC, cmdQuit, "Quit session")
+	cmdInstall(&cmdRoot, "show interface", EXEC, cmdShowInt, "Show interfaces")
+	cmdInstall(&cmdRoot, "show ip address", EXEC, cmdShowIPAddr, "Show interfaces' addresses")
+	cmdInstall(&cmdRoot, "show ip interface", EXEC, cmdShowIPInt, "Show interfaces")
+	cmdInstall(&cmdRoot, "show ip route", EXEC, cmdShowIPRoute, "Show routing table")
 
 	go listenTelnet(":1234")
 
@@ -128,7 +166,7 @@ LOOP:
 		case r := <-routeDel:
 			log.Printf("route del: %v", r)
 		case cmd := <-cmdInput:
-			command(cmd.client, cmd.line)
+			command(&cmdRoot, cmd.client, cmd.line)
 		}
 	}
 }
