@@ -120,15 +120,15 @@ func removeErased(routeTable *[]Route) {
 	}
 }
 
-func sendUpdates(routeTable []Route) {
+func sendUpdates(routeTable []Route, routeAdd, routeDel chan Route) {
 	log.Printf("table size=%d", len(routeTable))
 
 	for _, r := range routeTable {
 		switch r.Status {
 		case S_ERASED:
-			RouteDel <- r
+			routeDel <- r
 		case S_NEW:
-			RouteAdd <- r
+			routeAdd <- r
 		}
 	}
 }
@@ -149,7 +149,7 @@ func refreshRoute(routeTable *[]Route, route Route) {
 	*routeTable = append(*routeTable, route)
 }
 
-func scanLines(input io.ReadCloser) error {
+func scanLines(input io.ReadCloser, routeAdd, routeDel chan Route) error {
 
 	routeTable := []Route{}
 
@@ -173,7 +173,7 @@ func scanLines(input io.ReadCloser) error {
 
 		if line == "Persistent Routes:" || line == "Rotas persistentes:" {
 			if !scanningIPv4 {
-				sendUpdates(routeTable)
+				sendUpdates(routeTable, routeAdd, routeDel)
 				removeErased(&routeTable)
 			}
 			continue
@@ -206,7 +206,7 @@ func scanLines(input io.ReadCloser) error {
 	return scanner.Err()
 }
 
-func scanRoutes() {
+func scanRoutes(routeAdd, routeDel chan Route) {
 
 	log.Printf("route.Routes: scanning route table")
 
@@ -224,21 +224,25 @@ func scanRoutes() {
 		return
 	}
 
-	if err := scanLines(stdout); err != nil {
+	if err := scanLines(stdout, routeAdd, routeDel); err != nil {
 		log.Printf("scanRoutes: scan lines: %v", err)
 	}
 
 	log.Printf("scanLines: unexpected end")
 
-	close(RouteAdd)
+	close(routeAdd)
 
 	if err := cmd.Wait(); err != nil {
 		log.Printf("scanRoutes: wait: %v", err)
 	}
 }
 
-func Routes() {
+func Routes() (chan Route, chan Route) {
 	log.Printf("route.Routes: compile-time operating system: windows")
 
-	go scanRoutes()
+	routeAdd, routeDel := make(chan Route), make(chan Route)
+
+	go scanRoutes(routeAdd, routeDel)
+
+	return routeAdd, routeDel
 }

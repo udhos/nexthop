@@ -13,6 +13,19 @@ import (
 	"rib/route"
 )
 
+/*
+TODO: Fetch interfaces names on windows:
+
+C:\>netsh interface ipv4 show interfaces
+
+Idx     Met         MTU          State                Name
+---  ----------  ----------  ------------  ---------------------------
+  1          50  4294967295  connected     Loopback Pseudo-Interface 1
+ 14          20        1500  connected     Local Area Connection
+ 10           5        1400  disconnected  Local Area Connection* 22
+ 19          20        1500  connected     VirtualBox Host-Only Network
+*/
+
 func localAddresses() {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -101,17 +114,18 @@ func main() {
 
 	localAddresses()
 
-	route.Routes()
+	routeAdd, routeDel := route.Routes()
 
+LOOP:
 	for {
 		select {
-		case r, ok := <-route.RouteAdd:
+		case r, ok := <-routeAdd:
 			if !ok {
 				log.Printf("Routes: quit")
-				break
+				break LOOP
 			}
 			log.Printf("route add: %v", r)
-		case r := <-route.RouteDel:
+		case r := <-routeDel:
 			log.Printf("route del: %v", r)
 		case cmd := <-cmdInput:
 			command(cmd.client, cmd.line)
