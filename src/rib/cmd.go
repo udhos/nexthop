@@ -18,6 +18,17 @@ type CmdNode struct {
 	Children []*CmdNode
 }
 
+func firstToken(path string) string {
+	// fixme with tokenizer
+	return strings.Fields(path)[0]
+}
+
+func lastToken(path string) string {
+	// fixme with tokenizer
+	f := strings.Fields(path)
+	return f[len(f)-1]
+}
+
 func cmdInstall(root *CmdNode, path string, min int, cmd CmdFunc, desc string) {
 	log.Printf("cmdInstall: [%s]", path)
 
