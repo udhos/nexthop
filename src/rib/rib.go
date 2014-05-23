@@ -74,12 +74,12 @@ func cmdQuit(root *CmdNode, c *TelnetClient, line string) {
 }
 
 func list(node *CmdNode, c *TelnetClient, depth int) {
-	handler := "no"
+	handler := "----"
 	if node.Handler != nil {
-		handler = "yes"
+		handler = "LEAF"
 	}
 	ident := strings.Repeat(" ", 4*depth)
-	c.userOut <- fmt.Sprintf("%v %s[%s] min=%d hand=%s desc=[%s]\r\n", &node, ident, node.Path, node.MinLevel, handler, node.Desc)
+	c.userOut <- fmt.Sprintf("%s %d %s[%s] desc=[%s]\r\n", handler, node.MinLevel, ident, node.Path, node.Desc)
 	for _, n := range node.Children {
 		list(n, c, depth+1)
 	}
@@ -87,6 +87,9 @@ func list(node *CmdNode, c *TelnetClient, depth int) {
 
 func cmdList(root *CmdNode, c *TelnetClient, line string) {
 	list(root, c, 0)
+}
+
+func cmdReload(root *CmdNode, c *TelnetClient, line string) {
 }
 
 func cmdShowInt(root *CmdNode, c *TelnetClient, line string) {
@@ -102,22 +105,24 @@ func cmdShowIPRoute(root *CmdNode, c *TelnetClient, line string) {
 }
 
 func execute(root *CmdNode, c *TelnetClient, line string) {
-	log.Printf("execute: [%v]", line)
-	c.userOut <- fmt.Sprintf("echo: [%v]\r\n", line)
+	//log.Printf("execute: [%v]", line)
+	//c.userOut <- fmt.Sprintf("echo: [%v]\r\n", line)
 
 	if line == "" {
 		return
 	}
 
-	if strings.HasPrefix("list", line) {
-		cmdList(root, c, line)
-		return
-	}
+	/*
+		if strings.HasPrefix("list", line) {
+			cmdList(root, c, line)
+			return
+		}
 
-	if strings.HasPrefix("quit", line) {
-		cmdQuit(root, c, line)
-		return
-	}
+		if strings.HasPrefix("quit", line) {
+			cmdQuit(root, c, line)
+			return
+		}
+	*/
 
 	node, err := cmdFind(root, line, c.status)
 	if err != nil {
@@ -127,6 +132,11 @@ func execute(root *CmdNode, c *TelnetClient, line string) {
 
 	if node.Handler == nil {
 		c.userOut <- fmt.Sprintf("command missing handler: [%s]\r\n", line)
+		return
+	}
+
+	if node.MinLevel > c.status {
+		c.userOut <- fmt.Sprintf("command level prohibited: [%s]\r\n", line)
 		return
 	}
 
@@ -165,9 +175,13 @@ func main() {
 
 	cmdInstall(&cmdRoot, "list", EXEC, cmdList, "List command tree")
 	cmdInstall(&cmdRoot, "quit", EXEC, cmdQuit, "Quit session")
+	cmdInstall(&cmdRoot, "reload", ENAB, cmdReload, "Reload")
+	cmdInstall(&cmdRoot, "reload", ENAB, cmdReload, "Ugh") // duplicated command
 	cmdInstall(&cmdRoot, "show interface", EXEC, cmdShowInt, "Show interfaces")
-	cmdInstall(&cmdRoot, "show ip address", EXEC, cmdShowIPAddr, "Show interfaces' addresses")
+	cmdInstall(&cmdRoot, "show", EXEC, cmdShowInt, "Ugh") // duplicated command
+	cmdInstall(&cmdRoot, "show ip address", EXEC, cmdShowIPAddr, "Show addresses")
 	cmdInstall(&cmdRoot, "show ip interface", EXEC, cmdShowIPInt, "Show interfaces")
+	cmdInstall(&cmdRoot, "show ip interface detail", EXEC, cmdShowIPInt, "Show interface detail")
 	cmdInstall(&cmdRoot, "show ip route", EXEC, cmdShowIPRoute, "Show routing table")
 
 	go listenTelnet(":1234")
