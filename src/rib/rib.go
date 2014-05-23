@@ -67,22 +67,38 @@ func sendPrompt(out chan string, status int) {
 	out <- fmt.Sprintf("\r\n%s%s ", host, p)
 }
 
-func cmdQuit(c *TelnetClient, line string) {
+func cmdQuit(root *CmdNode, c *TelnetClient, line string) {
 	c.userOut <- fmt.Sprintf("bye\r\n")
 	c.status = QUIT
 	close(c.quit)
 }
 
-func cmdShowInt(c *TelnetClient, line string) {
+func list(node *CmdNode, c *TelnetClient, depth int) {
+	handler := "no"
+	if node.Handler != nil {
+		handler = "yes"
+	}
+	ident := strings.Repeat(" ", 4*depth)
+	c.userOut <- fmt.Sprintf("%v %s[%s] min=%d hand=%s desc=[%s]\r\n", &node, ident, node.Path, node.MinLevel, handler, node.Desc)
+	for _, n := range node.Children {
+		list(n, c, depth+1)
+	}
 }
 
-func cmdShowIPAddr(c *TelnetClient, line string) {
+func cmdList(root *CmdNode, c *TelnetClient, line string) {
+	list(root, c, 0)
 }
 
-func cmdShowIPInt(c *TelnetClient, line string) {
+func cmdShowInt(root *CmdNode, c *TelnetClient, line string) {
 }
 
-func cmdShowIPRoute(c *TelnetClient, line string) {
+func cmdShowIPAddr(root *CmdNode, c *TelnetClient, line string) {
+}
+
+func cmdShowIPInt(root *CmdNode, c *TelnetClient, line string) {
+}
+
+func cmdShowIPRoute(root *CmdNode, c *TelnetClient, line string) {
 }
 
 func execute(root *CmdNode, c *TelnetClient, line string) {
@@ -93,8 +109,13 @@ func execute(root *CmdNode, c *TelnetClient, line string) {
 		return
 	}
 
+	if strings.HasPrefix("list", line) {
+		cmdList(root, c, line)
+		return
+	}
+
 	if strings.HasPrefix("quit", line) {
-		cmdQuit(c, line)
+		cmdQuit(root, c, line)
 		return
 	}
 
@@ -109,7 +130,7 @@ func execute(root *CmdNode, c *TelnetClient, line string) {
 		return
 	}
 
-	node.Handler(c, line)
+	node.Handler(root, c, line)
 }
 
 func command(root *CmdNode, c *TelnetClient, line string) {
@@ -142,6 +163,7 @@ func main() {
 
 	cmdRoot := CmdNode{Path: "", MinLevel: EXEC, Handler: nil}
 
+	cmdInstall(&cmdRoot, "list", EXEC, cmdList, "List command tree")
 	cmdInstall(&cmdRoot, "quit", EXEC, cmdQuit, "Quit session")
 	cmdInstall(&cmdRoot, "show interface", EXEC, cmdShowInt, "Show interfaces")
 	cmdInstall(&cmdRoot, "show ip address", EXEC, cmdShowIPAddr, "Show interfaces' addresses")
