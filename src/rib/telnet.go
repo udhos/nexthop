@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 
@@ -135,6 +136,13 @@ LOOP:
 
 				default:
 					// push non-commands bytes into line buffer
+
+					if size >= len(buf) {
+						client.userOut <- fmt.Sprintf("\r\nline buffer overflow: size=%d max=%d\r\n", size, len(buf))
+						client.userOut <- string(buf[:size]) // redisplay command to user
+						continue LOOP
+					}
+
 					//line = append(buf[:len(line)], b)
 					buf[size] = b
 					size++
