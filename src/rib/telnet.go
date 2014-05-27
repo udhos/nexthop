@@ -94,7 +94,8 @@ func inputLoop(client *TelnetClient) {
 
 	iac := IAC_NONE
 	buf := [30]byte{} // underlying buffer
-	line := buf[:0]   // position at underlying buffer
+	//line := buf[:0]   // position at underlying buffer
+	size := 0 // position at underlying buffer
 
 	read := reader(client.conn)
 
@@ -118,13 +119,25 @@ LOOP:
 					iac = IAC_CMD
 					continue
 				case '\r':
-					cmdLine := string(line) // string is safe for sharing (immutable)
+					// discard
+				case '\n':
+					//cmdLine := string(line) // string is safe for sharing (immutable)
+					cmdLine := string(buf[:size]) // string is safe for sharing (immutable)
 					log.Printf("inputLoop: cmdLine len=%d [%s]", len(cmdLine), cmdLine)
 					cmdInput <- Command{client, cmdLine}
-					line = buf[:0] // reset reading buffer position
+					//line = buf[:0] // reset reading buffer position
+					size = 0 // reset reading buffer position
+
+					// echo newline back to client
+					if client.serverEcho {
+						client.userOut <- "\r\n"
+					}
+
 				default:
 					// push non-commands bytes into line buffer
-					line = append(buf[:len(line)], b)
+					//line = append(buf[:len(line)], b)
+					buf[size] = b
+					size++
 
 					// echo char back to client
 					if client.serverEcho {
@@ -166,7 +179,7 @@ LOOP:
 
 		}
 
-		log.Printf("inputLoop: buf len=%d [%s]", len(line), line)
+		log.Printf("inputLoop: buf len=%d [%s]", size, buf[:size])
 	}
 
 	log.Printf("inputLoop: exiting")
