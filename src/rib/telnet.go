@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	cmdSE   = 240
+	cmdSB   = 250
 	cmdWill = 251
 	cmdWont = 252
 	cmdDo   = 253
@@ -20,6 +22,13 @@ const (
 	optEcho           = 1
 	optSupressGoAhead = 3
 	optLinemode       = 34
+)
+
+const (
+	IAC_NONE = iota
+	IAC_CMD  = iota
+	IAC_OPT  = iota
+	IAC_SUB  = iota
 )
 
 const (
@@ -38,6 +47,7 @@ type TelnetClient struct {
 	wr         *bufio.Writer
 	userOut    chan string // outputLoop: read from userOut and write into wr
 	quit       chan int
+	echo       chan bool
 	status     int
 	serverEcho bool
 }
@@ -49,59 +59,111 @@ type Command struct {
 
 var cmdInput = make(chan Command)
 
+func charReadLoop(conn net.Conn, read chan<- byte) {
+	input := make([]byte, 10) // last input
+
+	for {
+		rd, err := conn.Read(input)
+		if err != nil {
+			log.Printf("charReadLoop: net.Read: %v", err)
+			break
+		}
+		curr := input[:rd]
+		log.Printf("charReadLoop: read len=%d [%s]", rd, curr)
+		for _, b := range curr {
+			read <- b
+		}
+	}
+
+	log.Printf("charReadLoop: exiting")
+
+	close(read)
+}
+
+func reader(conn net.Conn) <-chan byte {
+	read := make(chan byte)
+	go charReadLoop(conn, read)
+	return read
+}
+
 func inputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from rd and feed into cli interpreter
 	//	- watch idle timeout
 	//	- watch quitInput channel
 
-	/*
-		scanner := bufio.NewScanner(client.rd)
-		for scanner.Scan() {
-			line := scanner.Text()
-			log.Printf("inputLoop: [%v]", line)
-			cmdInput <- Command{client, line}
-		}
-
-		if err := scanner.Err(); err != nil {
-			log.Printf("inputLoop: %v", err)
-		}
-	*/
-
-	iac := false
-	opt := false
+	iac := IAC_NONE
 	buf := [30]byte{} // underlying buffer
-	line := buf[:0] // position at underlying buffer
-	input := make([]byte, 10) // last input
+	line := buf[:0]   // position at underlying buffer
 
+	read := reader(client.conn)
+
+LOOP:
 	for {
-		rd, err := client.conn.Read(input)
-		if err != nil {
-			log.Printf("inputLoop: net.Read: %v", err)
-			break
-		}
-		curr := input[:rd]
-		log.Printf("inputLoop: read len=%d [%s]", rd, curr)
+		select {
+		case client.serverEcho = <-client.echo:
+			// do nothing
+		case b, ok := <-read:
+			if !ok {
+				log.Printf("inputLoop: closed channel")
+				break LOOP
+			}
 
-		for _, b := range curr {
-			if iac {
-				// consume telnet commands
-				if opt {
-					opt = false
-				} else {
-					switch b {
-					case cmdWill, cmdWont, cmdDo, cmdDont:
-						opt = true
-					}
-				}
-			} else {
-				if b == cmdIAC {
-					iac = true
-				} else {
+			switch iac {
+			case IAC_NONE:
+				switch b {
+				case cmdIAC:
+					// hit IAC mark?
+					log.Printf("inputLoop: telnet IAC begin")
+					iac = IAC_CMD
+					continue
+				case '\r':
+					cmdLine := string(line) // string is safe for sharing (immutable)
+					log.Printf("inputLoop: cmdLine len=%d [%s]", len(cmdLine), cmdLine)
+					cmdInput <- Command{client, cmdLine}
+					line = buf[:0] // reset reading buffer position
+				default:
 					// push non-commands bytes into line buffer
 					line = append(buf[:len(line)], b)
+
+					// echo char back to client
+					if client.serverEcho {
+						client.userOut <- string(b)
+					}
 				}
+
+			case IAC_CMD:
+
+				switch b {
+				case cmdSB:
+					log.Printf("inputLoop: telnet SUB begin")
+					iac = IAC_SUB
+				case cmdWill, cmdWont, cmdDo, cmdDont:
+					log.Printf("inputLoop: telnet OPT begin")
+					iac = IAC_OPT
+				default:
+					log.Printf("inputLoop: telnet IAC end")
+					iac = IAC_NONE
+				}
+
+			case IAC_OPT:
+
+				log.Printf("inputLoop: telnet OPT end")
+				log.Printf("inputLoop: telnet IAC end")
+				iac = IAC_NONE
+
+			case IAC_SUB:
+
+				if b == cmdSE {
+					log.Printf("inputLoop: telnet SUB end")
+					log.Printf("inputLoop: telnet IAC end")
+					iac = IAC_NONE
+				}
+
+			default:
+				log.Panicf("inputLoop: unexpected state iac=%d", iac)
 			}
+
 		}
 
 		log.Printf("inputLoop: buf len=%d [%s]", len(line), line)
@@ -152,7 +214,7 @@ func handleTelnet(conn net.Conn) {
 
 	charMode(conn)
 
-	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), MOTD, true}
+	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan bool), MOTD, true}
 
 	defer close(client.userOut)
 

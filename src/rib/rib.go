@@ -153,8 +153,10 @@ func command(root *CmdNode, c *TelnetClient, line string) {
 		c.userOut <- fmt.Sprintf("\r\nrib server ready\r\n")
 		c.status = USER
 	case USER:
+		c.echo <- false
 		c.status = PASS
 	case PASS:
+		c.echo <- true
 		c.status = EXEC
 	case EXEC, ENAB, CONF:
 		execute(root, c, line)
