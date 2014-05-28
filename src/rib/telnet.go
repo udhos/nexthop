@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"telnet"
 )
@@ -20,9 +21,34 @@ const (
 )
 
 const (
+	keyEscape    = 27
+	keyBackspace = 127
+)
+
+const (
 	optEcho           = 1
 	optSupressGoAhead = 3
 	optLinemode       = 34
+)
+
+const (
+	ctrlA = 'A' - '@'
+	ctrlB = 'B' - '@'
+	ctrlC = 'C' - '@'
+	ctrlD = 'D' - '@'
+	ctrlE = 'E' - '@'
+	ctrlF = 'F' - '@'
+	ctrlH = 'H' - '@'
+	ctrlK = 'K' - '@'
+	ctrlN = 'N' - '@'
+	ctrlP = 'P' - '@'
+	ctrlZ = 'Z' - '@'
+)
+
+const (
+	escNone = iota
+	escOne  = iota
+	escTwo  = iota
 )
 
 const (
@@ -51,6 +77,7 @@ type TelnetClient struct {
 	echo       chan bool
 	status     int
 	serverEcho bool
+	hist       []string
 }
 
 type Command struct {
@@ -70,7 +97,7 @@ func charReadLoop(conn net.Conn, read chan<- byte) {
 			break
 		}
 		curr := input[:rd]
-		log.Printf("charReadLoop: read len=%d [%s]", rd, curr)
+		log.Printf("charReadLoop: read len=%d [%v]", rd, curr)
 		for _, b := range curr {
 			read <- b
 		}
@@ -87,12 +114,21 @@ func reader(conn net.Conn) <-chan byte {
 	return read
 }
 
+func histPrevious() {
+	log.Printf("hist: previous")
+}
+
+func histNext() {
+	log.Printf("hist: next")
+}
+
 func inputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from rd and feed into cli interpreter
 	//	- watch idle timeout
 	//	- watch quitInput channel
 
+	escape := escNone
 	iac := IAC_NONE
 	buf := [30]byte{} // underlying buffer
 	//line := buf[:0]   // position at underlying buffer
@@ -113,26 +149,95 @@ LOOP:
 
 			switch iac {
 			case IAC_NONE:
-				switch b {
-				case cmdIAC:
+
+				switch escape {
+				case escNone:
+					// proceed below
+				case escOne:
+					switch b {
+					case '[':
+						escape = escTwo
+					default:
+						escape = escNone
+					}
+					continue
+				case escTwo:
+					switch b {
+					case 'A':
+						histPrevious()
+					case 'B':
+						histNext()
+					case 'C':
+						log.Printf("inputLoop: RIGHT")
+					case 'D':
+						log.Printf("inputLoop: LEFT")
+					}
+					escape = escNone
+					continue
+				default:
+					log.Printf("inputLoop: bad escape status: %d", escape)
+				}
+
+				switch {
+				case b == cmdIAC:
 					// hit IAC mark?
 					log.Printf("inputLoop: telnet IAC begin")
 					iac = IAC_CMD
-					continue
-				case '\r':
-					// discard
-				case '\n':
-					//cmdLine := string(line) // string is safe for sharing (immutable)
-					cmdLine := string(buf[:size]) // string is safe for sharing (immutable)
-					log.Printf("inputLoop: cmdLine len=%d [%s]", len(cmdLine), cmdLine)
-					cmdInput <- Command{client, cmdLine}
-					//line = buf[:0] // reset reading buffer position
-					size = 0 // reset reading buffer position
 
-					// echo newline back to client
-					if client.serverEcho {
-						client.userOut <- "\r\n"
+				case b == keyBackspace, b < 32:
+
+					// handle control char
+
+					switch b {
+					case '\r':
+						// discard
+					case '\n':
+						//cmdLine := string(line) // string is safe for sharing (immutable)
+						cmdLine := string(buf[:size]) // string is safe for sharing (immutable)
+						log.Printf("inputLoop: cmdLine len=%d [%s]", len(cmdLine), cmdLine)
+						cmdInput <- Command{client, cmdLine}
+
+						// save into history
+						if len(strings.TrimSpace(cmdLine)) > 0 {
+							hlen := len(client.hist)
+							if hlen >= 10 {
+								i := 0
+								copy(client.hist[i:], client.hist[i+1:]) // left shift at i
+								client.hist = client.hist[:hlen-1]       // shrink
+							}
+							client.hist = append(client.hist, cmdLine) // push
+
+							log.Printf("history: size=%d %v", len(client.hist), client.hist)
+						}
+
+						//line = buf[:0] // reset reading buffer position
+						size = 0 // reset reading buffer position
+
+						// echo newline back to client
+						if client.serverEcho {
+							client.userOut <- "\r\n"
+						}
+					case ctrlH, keyBackspace:
+						// backspace
+						if size <= 0 {
+							continue
+						}
+						size--
+						// echo backspace to client
+						if client.serverEcho {
+							client.userOut <- string(byte(keyBackspace))
+						}
+					case keyEscape:
+						escape = escOne
+					case ctrlP:
+						histPrevious()
+					case ctrlN:
+						histNext()
+					default:
+						log.Printf("inputLoop: unknown control: %d 0x%x", b, b)
 					}
+
+					continue
 
 				default:
 					// push non-commands bytes into line buffer
@@ -235,7 +340,7 @@ func handleTelnet(conn net.Conn) {
 
 	charMode(conn)
 
-	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan bool), MOTD, true}
+	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan bool), MOTD, true, []string{}}
 
 	defer close(client.userOut)
 
