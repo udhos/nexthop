@@ -28,6 +28,7 @@ const (
 const (
 	optEcho           = 1
 	optSupressGoAhead = 3
+	optNaws           = 31 // rfc1073
 	optLinemode       = 34
 )
 
@@ -52,10 +53,11 @@ const (
 )
 
 const (
-	IAC_NONE = iota
-	IAC_CMD  = iota
-	IAC_OPT  = iota
-	IAC_SUB  = iota
+	IAC_NONE    = iota
+	IAC_CMD     = iota
+	IAC_OPT     = iota
+	IAC_SUB     = iota
+	IAC_SUB_IAC = iota
 )
 
 const (
@@ -122,6 +124,35 @@ func histNext() {
 	log.Printf("hist: next")
 }
 
+func pushSub(buf []byte, size int, b byte) int {
+	max := len(buf)
+
+	//log.Printf("pushSub: size=%d cap=%d char=%d", size, max, b)
+
+	if max < 1 {
+		log.Printf("pushSub: bad subnegotiation buffer: max=%d", max)
+		return size
+	}
+
+	if size == 0 {
+		buf[0] = b
+		return 1
+	}
+
+	switch buf[0] {
+	case optNaws:
+		// we only care about window size
+		if size >= max {
+			log.Printf("pushSub: subnegotiation buffer overflow: max=%d char=%d", max, b)
+			return size
+		}
+		buf[size] = b
+		return size + 1
+	}
+
+	return size
+}
+
 func inputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from rd and feed into cli interpreter
@@ -133,6 +164,9 @@ func inputLoop(client *TelnetClient) {
 	buf := [30]byte{} // underlying buffer
 	//line := buf[:0]   // position at underlying buffer
 	size := 0 // position at underlying buffer
+
+	subBuf := [5]byte{}
+	subSize := 0
 
 	read := reader(client.conn)
 
@@ -263,6 +297,7 @@ LOOP:
 				switch b {
 				case cmdSB:
 					log.Printf("inputLoop: telnet SUB begin")
+					subSize = 0
 					iac = IAC_SUB
 				case cmdWill, cmdWont, cmdDo, cmdDont:
 					log.Printf("inputLoop: telnet OPT begin")
@@ -278,13 +313,45 @@ LOOP:
 				log.Printf("inputLoop: telnet IAC end")
 				iac = IAC_NONE
 
+			case IAC_SUB_IAC:
+
+				if b != cmdSE {
+					subSize = pushSub(subBuf[:], subSize, b)
+					iac = IAC_SUB
+					continue
+				}
+
+				// subnegotiation end
+
+				log.Printf("inputLoop: telnet SUB end")
+				log.Printf("inputLoop: telnet IAC end")
+				iac = IAC_NONE
+
+				if subSize < 1 {
+					log.Printf("inputLoop: no subnegotiation char received")
+					continue
+				}
+
+				if subBuf[0] == optNaws {
+					if subSize != 5 {
+						log.Printf("inputLoop: invalid telnet NAWS size=%d", subSize)
+						continue
+					}
+
+					width := int(subBuf[1])<<8 + int(subBuf[2])
+					height := int(subBuf[3])<<8 + int(subBuf[4])
+
+					log.Printf("inputLoop: window size: width=%d height=%d", width, height)
+				}
+
 			case IAC_SUB:
 
-				if b == cmdSE {
-					log.Printf("inputLoop: telnet SUB end")
-					log.Printf("inputLoop: telnet IAC end")
-					iac = IAC_NONE
+				if b == cmdIAC {
+					iac = IAC_SUB_IAC
+					continue
 				}
+
+				subSize = pushSub(subBuf[:], subSize, b)
 
 			default:
 				log.Panicf("inputLoop: unexpected state iac=%d", iac)
@@ -325,10 +392,14 @@ LOOP:
 
 func charMode(conn net.Conn) {
 	cmd := []byte{cmdIAC, cmdWill, optEcho, cmdIAC, cmdWill, optSupressGoAhead, cmdIAC, cmdDont, optLinemode}
-
 	wr, err := conn.Write(cmd)
-
 	log.Printf("charMode: len=%d err=%v", wr, err)
+}
+
+func windowSize(conn net.Conn) {
+	cmd := []byte{cmdIAC, cmdDo, optNaws}
+	wr, err := conn.Write(cmd)
+	log.Printf("windowSize: len=%d err=%v", wr, err)
 }
 
 func handleTelnet(conn net.Conn) {
@@ -339,6 +410,7 @@ func handleTelnet(conn net.Conn) {
 	//rd, wr := bufio.NewReader(conn), bufio.NewWriter(conn)
 
 	charMode(conn)
+	windowSize(conn)
 
 	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan bool), MOTD, true, []string{}}
 
