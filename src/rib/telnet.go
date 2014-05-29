@@ -75,7 +75,8 @@ type TelnetClient struct {
 	conn       net.Conn
 	wr         *bufio.Writer
 	userOut    chan string // outputLoop: read from userOut and write into wr
-	quit       chan int
+	quitInput  chan int
+	quitOutput chan int
 	echo       chan bool
 	status     int
 	serverEcho bool
@@ -90,6 +91,12 @@ type Command struct {
 var cmdInput = make(chan Command)
 
 func charReadLoop(conn net.Conn, read chan<- byte) {
+
+	// this is the only one sender on the channel.
+	// so we can use the channel close idiom for
+	// signaling EOF
+	defer close(read)
+
 	input := make([]byte, 10) // last input
 
 	for {
@@ -106,8 +113,6 @@ func charReadLoop(conn net.Conn, read chan<- byte) {
 	}
 
 	log.Printf("charReadLoop: exiting")
-
-	close(read)
 }
 
 func reader(conn net.Conn) <-chan byte {
@@ -175,6 +180,8 @@ LOOP:
 		select {
 		case client.serverEcho = <-client.echo:
 			// do nothing
+		case <-client.quitInput:
+			break LOOP
 		case b, ok := <-read:
 			if !ok {
 				log.Printf("inputLoop: closed channel")
@@ -380,10 +387,8 @@ LOOP:
 			if err := client.wr.Flush(); err != nil {
 				log.Printf("outputLoop: flush: %v", err)
 			}
-		case _, ok := <-client.quit:
-			if !ok {
-				break LOOP
-			}
+		case <-client.quitOutput:
+			break LOOP
 		}
 	}
 
@@ -412,9 +417,18 @@ func handleTelnet(conn net.Conn) {
 	charMode(conn)
 	windowSize(conn)
 
-	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan bool), MOTD, true, []string{}}
+	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan int), make(chan bool), MOTD, true, []string{}}
 
-	defer close(client.userOut)
+	/*
+		https://groups.google.com/d/msg/golang-nuts/JB_iiSQkmOk/dJNKSFQXUUQJ
+
+		There is nothing wrong with having arbitrary numbers of senders, but if
+		you do then it doesn't work to close the channel.  You need some other
+		way to indicate EOF.
+
+		Ian Lance Taylor
+	*/
+	//defer close(client.userOut)
 
 	cmdInput <- Command{&client, ""} // mock user input
 

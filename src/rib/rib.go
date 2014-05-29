@@ -70,7 +70,20 @@ func sendPrompt(out chan string, status int) {
 func cmdQuit(root *CmdNode, c *TelnetClient, line string) {
 	c.userOut <- fmt.Sprintf("bye\r\n")
 	c.status = QUIT
-	close(c.quit)
+
+	/*
+		https://groups.google.com/d/msg/golang-nuts/JB_iiSQkmOk/dJNKSFQXUUQJ
+
+		There is nothing wrong with having arbitrary numbers of senders, but if
+		you do then it doesn't work to close the channel.  You need some other
+		way to indicate EOF.
+
+		Ian Lance Taylor
+	*/
+	//close(c.quit)
+
+	c.quitInput <- 1
+	c.quitOutput <- 1
 }
 
 func list(node *CmdNode, c *TelnetClient, depth int) {
