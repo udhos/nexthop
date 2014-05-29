@@ -45,6 +45,7 @@ func localAddresses() {
 }
 
 func sendPrompt(out chan string, status int) {
+
 	host := "hostname"
 	var p string
 	switch status {
@@ -64,11 +65,15 @@ func sendPrompt(out chan string, status int) {
 	default:
 		p = "?"
 	}
+
+	// can't use send() since sendQueue() runs before sendPrompt().
+	// output is flushed by caller
 	out <- fmt.Sprintf("\r\n%s%s ", host, p)
 }
 
 func cmdQuit(root *CmdNode, c *TelnetClient, line string) {
-	c.userOut <- fmt.Sprintf("bye\r\n")
+	//c.userOut <- fmt.Sprintf("bye\r\n")
+	sendNow(c, "\r\nbye\r\n")
 	c.status = QUIT
 
 	/*
@@ -91,7 +96,8 @@ func list(node *CmdNode, c *TelnetClient, depth int) {
 		handler = "LEAF"
 	}
 	ident := strings.Repeat(" ", 4*depth)
-	c.userOut <- fmt.Sprintf("%s %d %s[%s] desc=[%s]\r\n", handler, node.MinLevel, ident, node.Path, node.Desc)
+	//c.userOut <- fmt.Sprintf("%s %d %s[%s] desc=[%s]\r\n", handler, node.MinLevel, ident, node.Path, node.Desc)
+	sendln(c, fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc))
 	for _, n := range node.Children {
 		list(n, c, depth+1)
 	}
@@ -138,17 +144,20 @@ func execute(root *CmdNode, c *TelnetClient, line string) {
 
 	node, err := cmdFind(root, line, c.status)
 	if err != nil {
-		c.userOut <- fmt.Sprintf("command not found: %s\r\n", err)
+		//c.userOut <- fmt.Sprintf("command not found: %s\r\n", err)
+		sendln(c, fmt.Sprintf("command not found: %s", err))
 		return
 	}
 
 	if node.Handler == nil {
-		c.userOut <- fmt.Sprintf("command missing handler: [%s]\r\n", line)
+		sendln(c, fmt.Sprintf("command missing handler: [%s]", line))
+		//c.userOut <- fmt.Sprintf("command missing handler: [%s]\r\n", line)
 		return
 	}
 
 	if node.MinLevel > c.status {
-		c.userOut <- fmt.Sprintf("command level prohibited: [%s]\r\n", line)
+		//c.userOut <- fmt.Sprintf("command level prohibited: [%s]\r\n", line)
+		sendln(c, fmt.Sprintf("command level prohibited: [%s]", line))
 		return
 	}
 
@@ -156,13 +165,15 @@ func execute(root *CmdNode, c *TelnetClient, line string) {
 }
 
 func command(root *CmdNode, c *TelnetClient, line string) {
-	//log.Printf("command: [%v]", line)
+	log.Printf("rib command(): [%v]", line)
 	//c.userOut <- fmt.Sprintf("echo: [%v]\r\n", line)
 
 	switch c.status {
 	case MOTD:
 		// hello banner
-		c.userOut <- fmt.Sprintf("\r\nrib server ready\r\n")
+		//c.userOut <- fmt.Sprintf("\r\nrib server ready\r\n")
+		sendln(c, "")
+		sendln(c, "rib server ready")
 		c.status = USER
 	case USER:
 		c.echo <- false
@@ -172,12 +183,47 @@ func command(root *CmdNode, c *TelnetClient, line string) {
 		c.status = EXEC
 	case EXEC, ENAB, CONF:
 		execute(root, c, line)
+		if c.status == QUIT {
+			// do not write anything to outputLoop, since it is no longer reading
+			return
+		}
 	default:
-		log.Printf("unknown state for command: [%s]", line)
-		c.userOut <- fmt.Sprintf("unknown state for command: [%s]\r\n", line)
+		msg := fmt.Sprintf("unknown state for command: [%s]", line)
+		log.Print(msg)
+		//c.userOut <- msg
+		sendln(c, msg)
 	}
 
+	log.Printf("rib command(): executed [%v]", line)
+
+	sendQueue(c)
+
+	log.Printf("rib command(): queue sent [%v]", line)
+
 	sendPrompt(c.userOut, c.status)
+
+	log.Printf("rib command(): prompt sent [%v]", line)
+
+	//c.userFlush <- 1 // flush user connection
+	flush(c)
+
+	log.Printf("rib command(): flushed [%v]", line)
+}
+
+func sendQueue(c *TelnetClient) {
+	for i, m := range c.outputQueue {
+		c.userOut <- m
+		c.outputQueue[i] = ""
+	}
+	c.outputQueue = c.outputQueue[:0]
+}
+
+func send(c *TelnetClient, line string) {
+	c.outputQueue = append(c.outputQueue, line)
+}
+
+func sendln(c *TelnetClient, line string) {
+	send(c, fmt.Sprintf("%s\r\n", line))
 }
 
 func main() {
@@ -206,16 +252,18 @@ func main() {
 
 LOOP:
 	for {
+		log.Printf("rib main: ready")
 		select {
 		case r, ok := <-routeAdd:
 			if !ok {
-				log.Printf("Routes: quit")
+				log.Printf("rib main: quit requested from Routes()")
 				break LOOP
 			}
-			log.Printf("route add: %v", r)
+			log.Printf("rib main: route add: %v", r)
 		case r := <-routeDel:
-			log.Printf("route del: %v", r)
+			log.Printf("rib main: route del: %v", r)
 		case cmd := <-cmdInput:
+			log.Printf("rib main: command: len=%d [%s]", len(cmd.line), cmd.line)
 			command(&cmdRoot, cmd.client, cmd.line)
 		}
 	}

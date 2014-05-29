@@ -72,15 +72,17 @@ const (
 
 type TelnetClient struct {
 	//rd      *bufio.Reader
-	conn       net.Conn
-	wr         *bufio.Writer
-	userOut    chan string // outputLoop: read from userOut and write into wr
-	quitInput  chan int
-	quitOutput chan int
-	echo       chan bool
-	status     int
-	serverEcho bool
-	hist       []string
+	conn        net.Conn
+	wr          *bufio.Writer
+	userOut     chan string // outputLoop: read from userOut and write into wr
+	userFlush   chan int
+	quitInput   chan int
+	quitOutput  chan int
+	echo        chan bool
+	status      int
+	serverEcho  bool
+	hist        []string
+	outputQueue []string
 }
 
 type Command struct {
@@ -100,6 +102,8 @@ func charReadLoop(conn net.Conn, read chan<- byte) {
 	// so we can use the channel close idiom for
 	// signaling EOF
 	defer close(read)
+
+	log.Printf("charReadLoop: starting")
 
 	input := make([]byte, 10) // last input
 
@@ -176,6 +180,21 @@ func onExit(quit chan<- int) {
 	log.Printf("inputLoop: exiting")
 }
 
+func flush(client *TelnetClient) {
+	client.userFlush <- 1
+}
+
+func sendNow(client *TelnetClient, line string) {
+	client.userOut <- line
+	flush(client)
+}
+
+func sendEcho(client *TelnetClient, line string) {
+	if client.serverEcho {
+		sendNow(client, line)
+	}
+}
+
 func inputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from rd and feed into cli interpreter
@@ -183,6 +202,8 @@ func inputLoop(client *TelnetClient) {
 	//	- watch quitInput channel
 
 	defer onExit(client.quitOutput)
+
+	log.Printf("inputLoop: starting")
 
 	escape := escNone
 	iac := IAC_NONE
@@ -275,9 +296,7 @@ LOOP:
 						size = 0 // reset reading buffer position
 
 						// echo newline back to client
-						if client.serverEcho {
-							client.userOut <- "\r\n"
-						}
+						sendEcho(client, "\r\n")
 					case ctrlH, keyBackspace:
 						// backspace
 						if size <= 0 {
@@ -285,9 +304,7 @@ LOOP:
 						}
 						size--
 						// echo backspace to client
-						if client.serverEcho {
-							client.userOut <- string(byte(keyBackspace))
-						}
+						sendEcho(client, string(byte(keyBackspace)))
 					case keyEscape:
 						escape = escOne
 					case ctrlP:
@@ -308,8 +325,12 @@ LOOP:
 					// push non-commands bytes into line buffer
 
 					if size >= len(buf) {
-						client.userOut <- fmt.Sprintf("\r\nline buffer overflow: size=%d max=%d\r\n", size, len(buf))
-						client.userOut <- string(buf[:size]) // redisplay command to user
+						/*
+							client.userOut <- fmt.Sprintf("\r\nline buffer overflow: size=%d max=%d\r\n", size, len(buf))
+							client.userOut <- string(buf[:size]) // redisplay command to user
+						*/
+						sendNow(client, fmt.Sprintf("\r\nline buffer overflow: size=%d max=%d\r\n", size, len(buf)))
+						sendNow(client, string(buf[:size]))
 						continue LOOP
 					}
 
@@ -318,9 +339,7 @@ LOOP:
 					size++
 
 					// echo char back to client
-					if client.serverEcho {
-						client.userOut <- string(b)
-					}
+					sendEcho(client, string(b))
 				}
 
 			case IAC_CMD:
@@ -406,6 +425,8 @@ func outputLoop(client *TelnetClient) {
 	// thus, termination of outputLoop is triggered when
 	// the inputLoop exits (for any reason)
 
+	log.Printf("outputLoop: starting")
+
 LOOP:
 	for {
 		select {
@@ -413,10 +434,12 @@ LOOP:
 			if n, err := client.wr.WriteString(msg); err != nil {
 				log.Printf("outputLoop: written=%d from=%d: %v", n, len(msg), err)
 			}
+		case <-client.userFlush:
 			if err := client.wr.Flush(); err != nil {
 				log.Printf("outputLoop: flush: %v", err)
 			}
 		case <-client.quitOutput:
+			log.Printf("outputLoop: quit requested")
 			break LOOP
 		}
 	}
@@ -441,14 +464,24 @@ func windowSize(conn net.Conn) {
 func handleTelnet(conn net.Conn) {
 	defer conn.Close()
 
-	log.Printf("new telnet connection from: %s", conn.RemoteAddr())
+	log.Printf("handleTelnet: new telnet connection from: %s", conn.RemoteAddr())
 
 	//rd, wr := bufio.NewReader(conn), bufio.NewWriter(conn)
 
 	charMode(conn)
 	windowSize(conn)
 
-	client := TelnetClient{conn, bufio.NewWriter(conn), make(chan string), make(chan int), make(chan int), make(chan bool), MOTD, true, []string{}}
+	client := TelnetClient{conn,
+		bufio.NewWriter(conn),
+		make(chan string),
+		make(chan int),
+		make(chan int),
+		make(chan int),
+		make(chan bool),
+		MOTD,
+		true,
+		[]string{},
+		[]string{}}
 
 	/*
 		https://groups.google.com/d/msg/golang-nuts/JB_iiSQkmOk/dJNKSFQXUUQJ
@@ -461,7 +494,11 @@ func handleTelnet(conn net.Conn) {
 	*/
 	//defer close(client.userOut)
 
+	log.Printf("handleTelnet: debug1 remote=%s", conn.RemoteAddr())
+
 	cmdInput <- Command{&client, ""} // mock user input
+
+	log.Printf("handleTelnet: debug2 remote=%s", conn.RemoteAddr())
 
 	go inputLoop(&client)
 
