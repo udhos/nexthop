@@ -170,11 +170,19 @@ func pushSub(buf []byte, size int, b byte) int {
 	return size
 }
 
+func onExit(quit chan<- int) {
+	log.Printf("inputLoop: requesting outputLoop to quit")
+	quit <- 1
+	log.Printf("inputLoop: exiting")
+}
+
 func inputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from rd and feed into cli interpreter
 	//	- watch idle timeout
 	//	- watch quitInput channel
+
+	defer onExit(client.quitOutput)
 
 	escape := escNone
 	iac := IAC_NONE
@@ -384,11 +392,6 @@ LOOP:
 
 		log.Printf("inputLoop: buf len=%d [%s]", size, buf[:size])
 	}
-
-	log.Printf("inputLoop: requesting outputLoop to quit")
-	client.quitOutput <- 1
-
-	log.Printf("inputLoop: exiting")
 }
 
 func outputLoop(client *TelnetClient) {
