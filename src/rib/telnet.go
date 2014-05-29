@@ -92,6 +92,10 @@ var cmdInput = make(chan Command)
 
 func charReadLoop(conn net.Conn, read chan<- byte) {
 
+	// when both inputLoop and outputLoop exit,
+	// the connection is closed, terminating us.
+	// see handleTelnet()
+
 	// this is the only one sender on the channel.
 	// so we can use the channel close idiom for
 	// signaling EOF
@@ -122,11 +126,19 @@ func reader(conn net.Conn) <-chan byte {
 }
 
 func histPrevious() {
-	log.Printf("hist: previous")
+	log.Printf("histPrevious")
 }
 
 func histNext() {
-	log.Printf("hist: next")
+	log.Printf("histNext")
+}
+
+func linePreviousChar() {
+	log.Printf("linePreviousChar")
+}
+
+func lineNextChar() {
+	log.Printf("lineNextChar")
 }
 
 func pushSub(buf []byte, size int, b byte) int {
@@ -209,9 +221,9 @@ LOOP:
 					case 'B':
 						histNext()
 					case 'C':
-						log.Printf("inputLoop: RIGHT")
+						lineNextChar()
 					case 'D':
-						log.Printf("inputLoop: LEFT")
+						linePreviousChar()
 					}
 					escape = escNone
 					continue
@@ -274,6 +286,10 @@ LOOP:
 						histPrevious()
 					case ctrlN:
 						histNext()
+					case ctrlB:
+						linePreviousChar()
+					case ctrlF:
+						lineNextChar()
 					default:
 						log.Printf("inputLoop: unknown control: %d 0x%x", b, b)
 					}
@@ -369,6 +385,9 @@ LOOP:
 		log.Printf("inputLoop: buf len=%d [%s]", size, buf[:size])
 	}
 
+	log.Printf("inputLoop: requesting outputLoop to quit")
+	client.quitOutput <- 1
+
 	log.Printf("inputLoop: exiting")
 }
 
@@ -376,6 +395,13 @@ func outputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from userOut channel and write into wr
 	//	- watch quitOutput channel
+
+	// the only way the outputLoop is terminated is thru
+	// request on the quitOutput channel.
+	// when the inputLoop detects the need to exit, it
+	// writes into the quitOutput channel.
+	// thus, termination of outputLoop is triggered when
+	// the inputLoop exits (for any reason)
 
 LOOP:
 	for {
@@ -397,14 +423,16 @@ LOOP:
 
 func charMode(conn net.Conn) {
 	cmd := []byte{cmdIAC, cmdWill, optEcho, cmdIAC, cmdWill, optSupressGoAhead, cmdIAC, cmdDont, optLinemode}
-	wr, err := conn.Write(cmd)
-	log.Printf("charMode: len=%d err=%v", wr, err)
+	if wr, err := conn.Write(cmd); err != nil {
+		log.Printf("charMode: len=%d err=%v", wr, err)
+	}
 }
 
 func windowSize(conn net.Conn) {
 	cmd := []byte{cmdIAC, cmdDo, optNaws}
-	wr, err := conn.Write(cmd)
-	log.Printf("windowSize: len=%d err=%v", wr, err)
+	if wr, err := conn.Write(cmd); err != nil {
+		log.Printf("windowSize: len=%d err=%v", wr, err)
+	}
 }
 
 func handleTelnet(conn net.Conn) {
@@ -435,6 +463,8 @@ func handleTelnet(conn net.Conn) {
 	go inputLoop(&client)
 
 	outputLoop(&client)
+
+	log.Printf("handleTelnet: terminating telnet client connection")
 }
 
 func listenTelnet(addr string) {

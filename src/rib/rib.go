@@ -82,8 +82,7 @@ func cmdQuit(root *CmdNode, c *TelnetClient, line string) {
 	*/
 	//close(c.quit)
 
-	c.quitInput <- 1
-	c.quitOutput <- 1
+	c.quitInput <- 1 // inputLoop will signal outputLoop to quit
 }
 
 func list(node *CmdNode, c *TelnetClient, depth int) {
