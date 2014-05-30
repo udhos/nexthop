@@ -91,6 +91,7 @@ type Command struct {
 }
 
 var cmdInput = make(chan Command)
+var inputClosed = make(chan TelnetClient)
 
 func charReadLoop(conn net.Conn, read chan<- byte) {
 
@@ -98,9 +99,9 @@ func charReadLoop(conn net.Conn, read chan<- byte) {
 	// the connection is closed, terminating us.
 	// see handleTelnet()
 
-	// this is the only one sender on the channel.
+	// we are the only one sender on this channel.
 	// so we can use the channel close idiom for
-	// signaling EOF
+	// signaling EOF.
 	defer close(read)
 
 	log.Printf("charReadLoop: starting")
@@ -174,12 +175,6 @@ func pushSub(buf []byte, size int, b byte) int {
 	return size
 }
 
-func onExit(quit chan<- int) {
-	log.Printf("inputLoop: requesting outputLoop to quit")
-	quit <- 1
-	log.Printf("inputLoop: exiting")
-}
-
 func flush(client *TelnetClient) {
 	client.userFlush <- 1
 }
@@ -195,13 +190,17 @@ func sendEcho(client *TelnetClient, line string) {
 	}
 }
 
+func inputLoopExit() {
+	log.Printf("inputLoop: exiting")
+}
+
 func inputLoop(client *TelnetClient) {
 	//loop:
 	//	- read from rd and feed into cli interpreter
 	//	- watch idle timeout
 	//	- watch quitInput channel
 
-	defer onExit(client.quitOutput)
+	defer inputLoopExit()
 
 	log.Printf("inputLoop: starting")
 
@@ -222,10 +221,31 @@ LOOP:
 		case client.serverEcho = <-client.echo:
 			// do nothing
 		case <-client.quitInput:
+			// main goroutine requested us to quit.
+			// we are about to finish.
+			// then we request outputLoop to quit as well.
+			// we can do so directly since the main goroutine won't
+			// send any further output to outputLoop channel.
+			log.Printf("inputLoop: requesting outputLoop to quit")
+			client.quitOutput <- 1
 			break LOOP
 		case b, ok := <-read:
 			if !ok {
-				log.Printf("inputLoop: closed channel")
+				// connection closed.
+				// we are about to finish.
+				// then we notify the main goroutine to terminate the outputLoop as well.
+				// we can't terminate outputLoop directly since the main goroutine may
+				// have output pending for the outputLoop (then it could try to write
+				// on a closed channel).
+				//
+				// FIXME: race
+				// suppose we have just sent the "quit" string to main goroutine.
+				// then we hit a closed connection here and exit leaving quitInput
+				// unnatended *before* the main goroutine can write to quitInput.
+				// main goroutine will block forever trying to write to the
+				// unnatended quitInput channel.
+				log.Printf("inputLoop: closed channel, notifying main gorouting")
+				inputClosed <- *client
 				break LOOP
 			}
 
@@ -420,10 +440,10 @@ func outputLoop(client *TelnetClient) {
 
 	// the only way the outputLoop is terminated is thru
 	// request on the quitOutput channel.
-	// when the inputLoop detects the need to exit, it
-	// writes into the quitOutput channel.
-	// thus, termination of outputLoop is triggered when
-	// the inputLoop exits (for any reason)
+	// quitOutput is always requested from the main
+	// goroutine.
+	// when the inputLoop hits a closed connection, it
+	// notifies the main goroutine.
 
 	log.Printf("outputLoop: starting")
 
@@ -504,7 +524,7 @@ func handleTelnet(conn net.Conn) {
 
 	outputLoop(&client)
 
-	log.Printf("handleTelnet: terminating telnet client connection")
+	log.Printf("handleTelnet: terminating telnet client connection: %s", conn.RemoteAddr())
 }
 
 func listenTelnet(addr string) {

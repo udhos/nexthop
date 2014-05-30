@@ -87,6 +87,7 @@ func cmdQuit(root *CmdNode, c *TelnetClient, line string) {
 	*/
 	//close(c.quit)
 
+	log.Printf("cmdQuit: requesting intputLoop to quit")
 	c.quitInput <- 1 // inputLoop will signal outputLoop to quit
 }
 
@@ -265,6 +266,12 @@ LOOP:
 		case cmd := <-cmdInput:
 			log.Printf("rib main: command: len=%d [%s]", len(cmd.line), cmd.line)
 			command(&cmdRoot, cmd.client, cmd.line)
+		case c := <-inputClosed:
+			// inputLoop hit closed connection. it's finished.
+			// we should discard pending output (if any) and request
+			// termination of output loop.
+			log.Printf("rib main: inputLoop hit closed connection. requesting outputLoop to quit")
+			c.quitOutput <- 1 // request outputLoop to quit
 		}
 	}
 }
