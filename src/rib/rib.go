@@ -44,7 +44,12 @@ func localAddresses() {
 	}
 }
 
-func sendPrompt(out chan string, status int) {
+func sendPrompt(out chan string, status int, paging bool) {
+
+	if paging {
+		out <- "\r\nENTER=more q=quit>"
+		return
+	}
 
 	host := "hostname"
 	var p string
@@ -194,27 +199,62 @@ func command(root *CmdNode, c *TelnetClient, line string) {
 		sendln(c, msg)
 	}
 
-	//log.Printf("rib command(): executed [%v]", line)
+	paging := sendQueue(c)
 
-	sendQueue(c)
+	c.sendLine <- !paging
 
-	//log.Printf("rib command(): queue sent [%v]", line)
-
-	sendPrompt(c.userOut, c.status)
-
-	//log.Printf("rib command(): prompt sent [%v]", line)
+	sendPrompt(c.userOut, c.status, paging)
 
 	flush(c)
 
 	log.Printf("rib command(): flushed [%v]", line)
 }
 
-func sendQueue(c *TelnetClient) {
+func keyCommand(root *CmdNode, c *TelnetClient, line string) {
+	log.Printf("rib keyCommand(): [%v]", line)
+
+	if line == "q" {
+		// discard output queue
+		c.outputQueue = c.outputQueue[:0]
+	}
+
+	c.userOut <- "\r\n"
+
+	paging := sendQueue(c)
+
+	log.Printf("rib keyCommand(): queue sent [%v]", line)
+
+	c.sendLine <- !paging
+
+	log.Printf("rib keyCommand(): send line mode sent [%v]", line)
+
+	sendPrompt(c.userOut, c.status, paging)
+
+	log.Printf("rib keyCommand(): prompt sent [%v]", line)
+
+	flush(c)
+
+	log.Printf("rib keyCommand(): flushed [%v]", line)
+}
+
+func sendQueue(c *TelnetClient) bool {
+	sent := 0
+	max := c.autoHeight - 2
+	if max < 1 {
+		max = 1
+	}
 	for i, m := range c.outputQueue {
+		if i >= max {
+			break
+		}
 		c.userOut <- m
 		c.outputQueue[i] = ""
+		sent++
 	}
-	c.outputQueue = c.outputQueue[:0]
+	//c.outputQueue = c.outputQueue[:0]
+	log.Printf("sendQueue: total=%d sent=%d pending=%d height=%d", len(c.outputQueue), sent, len(c.outputQueue)-sent, c.autoHeight)
+	c.outputQueue = c.outputQueue[sent:]
+	return len(c.outputQueue) > 0
 }
 
 func send(c *TelnetClient, line string) {
@@ -265,6 +305,9 @@ LOOP:
 		case cmd := <-cmdInput:
 			//log.Printf("rib main: command: len=%d [%s]", len(cmd.line), cmd.line)
 			command(&cmdRoot, cmd.client, cmd.line)
+		case cmd := <-keyInput:
+			log.Printf("rib main: key command: len=%d [%s]", len(cmd.line), cmd.line)
+			keyCommand(&cmdRoot, cmd.client, cmd.line)
 		case c := <-inputClosed:
 			// inputLoop hit closed connection. it's finished.
 			// we should discard pending output (if any) and request
@@ -272,6 +315,9 @@ LOOP:
 			log.Printf("rib main: inputLoop hit closed connection, requesting input/output to quit")
 			c.quitInput <- 1  // request inputLoop to quit
 			c.quitOutput <- 1 // request outputLoop to quit
+		case s := <-autoHeight:
+			s.client.autoHeight = s.height
+			log.Printf("rib main: auto height=%d", s.client.autoHeight)
 		}
 	}
 }

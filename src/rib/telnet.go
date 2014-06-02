@@ -80,10 +80,13 @@ type TelnetClient struct {
 	quitInput   chan int
 	quitOutput  chan int
 	echo        chan bool
+	sendLine    chan bool
+	onlyLine    bool
 	status      int
 	serverEcho  bool
 	hist        []string
 	outputQueue []string
+	autoHeight  int
 }
 
 type Command struct {
@@ -91,8 +94,15 @@ type Command struct {
 	line   string
 }
 
+type SetHeight struct {
+	client *TelnetClient
+	height int
+}
+
 var cmdInput = make(chan Command)
+var keyInput = make(chan Command)
 var inputClosed = make(chan TelnetClient)
+var autoHeight = make(chan SetHeight)
 
 func charReadLoop(conn net.Conn, read chan<- byte) {
 
@@ -242,6 +252,9 @@ LOOP:
 			break LOOP // keep waiting quitInput
 		case client.serverEcho = <-client.echo:
 			// do nothing
+		case client.onlyLine = <-client.sendLine:
+			log.Printf("inputLoop: send full line: %v", client.onlyLine)
+			// do nothing
 		case <-client.quitInput:
 			// main goroutine requested us to quit.
 			// we are about to finish.
@@ -311,6 +324,12 @@ LOOP:
 					case '\r':
 						// discard
 					case '\n':
+
+						if !client.onlyLine {
+							keyInput <- Command{client, ""}
+							continue LOOP
+						}
+
 						//cmdLine := string(line) // string is safe for sharing (immutable)
 						cmdLine := string(buf[:size]) // string is safe for sharing (immutable)
 						log.Printf("inputLoop: cmdLine len=%d [%s]", len(cmdLine), cmdLine)
@@ -360,6 +379,11 @@ LOOP:
 
 				default:
 					// push non-commands bytes into line buffer
+
+					if !client.onlyLine {
+						keyInput <- Command{client, string(b)}
+						continue LOOP
+					}
 
 					if size >= len(buf) {
 						/*
@@ -429,6 +453,8 @@ LOOP:
 					height := int(subBuf[3])<<8 + int(subBuf[4])
 
 					log.Printf("inputLoop: window size: width=%d height=%d", width, height)
+
+					autoHeight <- SetHeight{client, height}
 				}
 
 			case IAC_SUB:
@@ -525,10 +551,13 @@ func handleTelnet(conn net.Conn) {
 		make(chan int),
 		make(chan int),
 		make(chan bool),
+		make(chan bool),
+		true,
 		MOTD,
 		true,
 		[]string{},
-		[]string{}}
+		[]string{},
+		24}
 
 	/*
 		https://groups.google.com/d/msg/golang-nuts/JB_iiSQkmOk/dJNKSFQXUUQJ
