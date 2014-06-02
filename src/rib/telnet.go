@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 
 	"telnet"
 )
@@ -184,6 +185,10 @@ func sendNow(client *TelnetClient, line string) {
 	flush(client)
 }
 
+func sendlnNow(client *TelnetClient, line string) {
+	sendNow(client, fmt.Sprintf("%s\r\n", line))
+}
+
 func sendEcho(client *TelnetClient, line string) {
 	if client.serverEcho {
 		sendNow(client, line)
@@ -192,6 +197,11 @@ func sendEcho(client *TelnetClient, line string) {
 
 func inputLoopExit() {
 	log.Printf("inputLoop: exiting")
+}
+
+func resetReadTimeout(timer *time.Timer, d time.Duration) {
+	log.Printf("inputLoop: reset read timeout: %d secs", d/time.Second)
+	timer.Reset(d)
 }
 
 func inputLoop(client *TelnetClient) {
@@ -215,9 +225,21 @@ func inputLoop(client *TelnetClient) {
 
 	read := reader(client.conn)
 
+	timeout := time.Minute * 1
+	readTimer := time.NewTimer(timeout)
+
+	resetReadTimeout(readTimer, timeout)
+
 LOOP:
 	for {
 		select {
+		case <-readTimer.C:
+			// read timeout
+			log.Printf("inputLoop: read timeout, notifying main goroutine")
+			sendlnNow(client, "idle timeout")
+			client.conn.Close() // intentionally breaks charReadLoop
+			inputClosed <- *client
+			break LOOP // keep waiting quitInput
 		case client.serverEcho = <-client.echo:
 			// do nothing
 		case <-client.quitInput:
@@ -226,9 +248,9 @@ LOOP:
 			// then we request outputLoop to quit as well.
 			// we can do so directly since the main goroutine won't
 			// send any further output to outputLoop channel.
-			log.Printf("inputLoop: requesting outputLoop to quit")
+			log.Printf("inputLoop: hit quitInput, requesting outputLoop to quit")
 			client.quitOutput <- 1
-			break LOOP
+			return // exit immediately
 		case b, ok := <-read:
 			if !ok {
 				// connection closed.
@@ -237,17 +259,12 @@ LOOP:
 				// we can't terminate outputLoop directly since the main goroutine may
 				// have output pending for the outputLoop (then it could try to write
 				// on a closed channel).
-				//
-				// FIXME: race
-				// suppose we have just sent the "quit" string to main goroutine.
-				// then we hit a closed connection here and exit leaving quitInput
-				// unnatended *before* the main goroutine can write to quitInput.
-				// main goroutine will block forever trying to write to the
-				// unnatended quitInput channel.
-				log.Printf("inputLoop: closed channel, notifying main gorouting")
+				log.Printf("inputLoop: closed channel, notifying main goroutine")
 				inputClosed <- *client
-				break LOOP
+				break LOOP // keep waiting quitInput
 			}
+
+			resetReadTimeout(readTimer, timeout)
 
 			switch iac {
 			case IAC_NONE:
@@ -431,6 +448,16 @@ LOOP:
 
 		log.Printf("inputLoop: buf len=%d [%s]", size, buf[:size])
 	}
+
+	log.Printf("inputLoop: waiting quitInput")
+WAIT:
+	for {
+		select {
+		case <-client.quitInput:
+			log.Printf("inputLoop: quitInput received")
+			break WAIT
+		}
+	}
 }
 
 func outputLoop(client *TelnetClient) {
@@ -459,7 +486,7 @@ LOOP:
 				log.Printf("outputLoop: flush: %v", err)
 			}
 		case <-client.quitOutput:
-			log.Printf("outputLoop: quit requested")
+			log.Printf("outputLoop: quit received")
 			break LOOP
 		}
 	}
@@ -514,17 +541,17 @@ func handleTelnet(conn net.Conn) {
 	*/
 	//defer close(client.userOut)
 
-	log.Printf("handleTelnet: debug1 remote=%s", conn.RemoteAddr())
+	//log.Printf("handleTelnet: debug1 remote=%s", conn.RemoteAddr())
 
 	cmdInput <- Command{&client, ""} // mock user input
 
-	log.Printf("handleTelnet: debug2 remote=%s", conn.RemoteAddr())
+	//log.Printf("handleTelnet: debug2 remote=%s", conn.RemoteAddr())
 
 	go inputLoop(&client)
 
 	outputLoop(&client)
 
-	log.Printf("handleTelnet: terminating telnet client connection: %s", conn.RemoteAddr())
+	log.Printf("handleTelnet: terminating connection: remote=%s", conn.RemoteAddr())
 }
 
 func listenTelnet(addr string) {

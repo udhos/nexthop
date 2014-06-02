@@ -167,7 +167,6 @@ func execute(root *CmdNode, c *TelnetClient, line string) {
 
 func command(root *CmdNode, c *TelnetClient, line string) {
 	log.Printf("rib command(): [%v]", line)
-	//c.userOut <- fmt.Sprintf("echo: [%v]\r\n", line)
 
 	switch c.status {
 	case MOTD:
@@ -269,8 +268,9 @@ LOOP:
 		case c := <-inputClosed:
 			// inputLoop hit closed connection. it's finished.
 			// we should discard pending output (if any) and request
-			// termination of output loop.
-			log.Printf("rib main: inputLoop hit closed connection. requesting outputLoop to quit")
+			// termination of input/output loops.
+			log.Printf("rib main: inputLoop hit closed connection, requesting input/output to quit")
+			c.quitInput <- 1  // request inputLoop to quit
 			c.quitOutput <- 1 // request outputLoop to quit
 		}
 	}
