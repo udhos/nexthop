@@ -194,17 +194,16 @@ func command(root *CmdNode, c *TelnetClient, line string) {
 		sendln(c, msg)
 	}
 
-	log.Printf("rib command(): executed [%v]", line)
+	//log.Printf("rib command(): executed [%v]", line)
 
 	sendQueue(c)
 
-	log.Printf("rib command(): queue sent [%v]", line)
+	//log.Printf("rib command(): queue sent [%v]", line)
 
 	sendPrompt(c.userOut, c.status)
 
-	log.Printf("rib command(): prompt sent [%v]", line)
+	//log.Printf("rib command(): prompt sent [%v]", line)
 
-	//c.userFlush <- 1 // flush user connection
 	flush(c)
 
 	log.Printf("rib command(): flushed [%v]", line)
@@ -228,6 +227,7 @@ func sendln(c *TelnetClient, line string) {
 
 func main() {
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)
+	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
 
 	log.Printf("IP version: %v", ipv4.Version)
 
@@ -263,7 +263,7 @@ LOOP:
 		case r := <-routeDel:
 			log.Printf("rib main: route del: %v", r)
 		case cmd := <-cmdInput:
-			log.Printf("rib main: command: len=%d [%s]", len(cmd.line), cmd.line)
+			//log.Printf("rib main: command: len=%d [%s]", len(cmd.line), cmd.line)
 			command(&cmdRoot, cmd.client, cmd.line)
 		case c := <-inputClosed:
 			// inputLoop hit closed connection. it's finished.
