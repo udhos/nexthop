@@ -48,9 +48,10 @@ const (
 )
 
 const (
-	escNone = iota
-	escOne  = iota
-	escTwo  = iota
+	escNone  = iota
+	escOne   = iota
+	escTwo   = iota
+	escThree = iota
 )
 
 const (
@@ -139,6 +140,22 @@ func reader(conn net.Conn) <-chan byte {
 	read := make(chan byte)
 	go charReadLoop(conn, read)
 	return read
+}
+
+func lineBegin() {
+	log.Printf("lineBegin")
+}
+
+func lineEnd() {
+	log.Printf("lineEnd")
+}
+
+func lineHome() {
+	log.Printf("lineHome")
+}
+
+func lineDelChar() {
+	log.Printf("lineDelChar")
 }
 
 func histPrevious() {
@@ -290,19 +307,43 @@ LOOP:
 					case '[':
 						escape = escTwo
 					default:
+						log.Printf("inputLoop: unsupported char=%d for escape stage: %d", b, escape)
 						escape = escNone
 					}
 					continue
 				case escTwo:
 					switch b {
+					case '1':
+						lineHome()
+						escape = escThree
+					case '3':
+						lineDelChar()
+						escape = escThree
+					case '4':
+						lineEnd()
+						escape = escThree
 					case 'A':
 						histPrevious()
+						escape = escNone
 					case 'B':
 						histNext()
+						escape = escNone
 					case 'C':
 						lineNextChar()
+						escape = escNone
 					case 'D':
 						linePreviousChar()
+						escape = escNone
+					default:
+						log.Printf("inputLoop: unsupported char=%d for escape stage: %d", b, escape)
+						escape = escNone
+					}
+					continue
+				case escThree:
+					switch b {
+					case '~':
+					default:
+						log.Printf("inputLoop: unexpected char=%d for escape: %d", b, escape)
 					}
 					escape = escNone
 					continue
@@ -361,6 +402,10 @@ LOOP:
 						size--
 						// echo backspace to client
 						sendEcho(client, string(byte(keyBackspace)))
+					case ctrlA:
+						lineBegin()
+					case ctrlE:
+						lineEnd()
 					case keyEscape:
 						escape = escOne
 					case ctrlP:
@@ -473,7 +518,7 @@ LOOP:
 		}
 
 		log.Printf("inputLoop: buf len=%d [%s]", size, buf[:size])
-	}
+	} // for LOOP
 
 	log.Printf("inputLoop: waiting quitInput")
 WAIT:
