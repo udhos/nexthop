@@ -482,6 +482,10 @@ WAIT:
 		case <-client.quitInput:
 			log.Printf("inputLoop: quitInput received")
 			break WAIT
+		case <-client.echo:
+			// prevent main goroutine from blocking forever
+		case <-client.sendLine:
+			// prevent main goroutine from blocking forever
 		}
 	}
 }
