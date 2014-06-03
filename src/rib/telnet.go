@@ -416,6 +416,8 @@ LOOP:
 						linePreviousChar()
 					case ctrlF:
 						lineNextChar()
+					case ctrlD:
+						lineDelChar()
 					default:
 						log.Printf("inputLoop: unknown control: %d 0x%x", b, b)
 					}
