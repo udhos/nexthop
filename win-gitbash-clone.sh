@@ -15,4 +15,5 @@ go_get () {
 	go get $i
 }
 
-go_get code.google.com/p/go.net/ipv4
+#go_get code.google.com/p/go.net/ipv4
+go_get golang.org/x/net/ipv4

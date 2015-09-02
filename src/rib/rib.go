@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
+	"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 
 	"rib/iface"
 	"rib/route"
