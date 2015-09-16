@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"rib/util"
+	"rib-old/util"
 )
 
 type adapterInfo struct {

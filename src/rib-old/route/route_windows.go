@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"rib/util"
+	"rib-old/util"
 )
 
 const (

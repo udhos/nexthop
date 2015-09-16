@@ -7,6 +7,6 @@ set GOPATH=%NEXTHOP%
 gofmt -s -w %NEXTHOP%\src
 
 @rem build server
-go install rib cli rip
+go install rib-old rib cli rip
 
 @rem eof
