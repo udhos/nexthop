@@ -148,7 +148,7 @@ func GetInterfaceAddrs(i net.Interface) ([]net.Addr, error) {
 			//log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
 			ipNet, err := getMask(&info, i.Index, *ad)
 			if err != nil {
-				log.Printf("GetInterfaceAddrs: net.IPAddr: %v: error: %v", err)
+				log.Printf("GetInterfaceAddrs: net.IPAddr: %v: error: %v", ad, err)
 				result = append(result, a)
 				continue
 			}
