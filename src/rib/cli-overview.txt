@@ -5,15 +5,21 @@ cli should be renamed server?
 
 main <-> cli <-> clientList
                    client:
-                     cli.commandChannel <- inputLoop <- clientSocket
+                     cli.inputChannel <- inputLoop <- clientSocket
                      client.outputChannel -> outputLoop -> clientSocket
 
-inputLoop: read from socket, write to inputChannel(cmd)
-outputLoop: read from client.outputChannel(output), write to socket
-cli: manage multiple telnet sessions
-     read from inputChannel, write to cli.commandChannel
-	 can output to specific client.outputChannel(output)
-	 can broadcast to all client.outputChannel(output)
-main: read commands from commandChannel
-      write command outputs to cli.output(client, message)
-      read network route events
+goroutines:
+	telnetServer: accept connections, spawn inputLoop/outputLoop
+	inputLoop: read from clientSocket, write to cli.inputChannel
+	outputLoop: read from client.outputChannel, write to clientSocket
+	cli:
+	    package/library
+		manage multiple telnet sessions
+		read from cli.inputChannel, write to cli.commandChannel
+		can output to specific client.outputChannel(output)
+		can broadcast to all client.outputChannel(output)
+	main:
+	    actual application
+		read commands from cli.commandChannel
+		write command outputs to cli.output(client, message)
+		read network route events
