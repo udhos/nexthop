@@ -2,8 +2,34 @@ package main
 
 import (
 	"log"
+	"runtime"
+
+	"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
 
 func main() {
-	log.Println("rib")
+	log.Println("rib starting")
+	log.Printf("runtime operating system: [%v]", runtime.GOOS)
+	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
+	log.Printf("IP version: %v", ipv4.Version)
+
+	localAddresses()
+}
+
+func localAddresses() {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Print(fmt.Errorf("localAddresses: %v\n", err.Error()))
+		return
+	}
+	for _, i := range ifaces {
+		addrs, err := iface.GetInterfaceAddrs(i)
+		if err != nil {
+			log.Print(fmt.Errorf("localAddresses: %v\n", err.Error()))
+			continue
+		}
+		for _, a := range addrs {
+			log.Printf("index=%v iface=%v addr=[%v]\n", i.Index, i.Name, a)
+		}
+	}
 }
