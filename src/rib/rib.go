@@ -18,7 +18,6 @@ func main() {
 	go listenTelnet(":2001")
 
 	for {
-		log.Printf("rib main: ready")
 		select {
 		case <-time.After(time.Second * 3):
 			log.Printf("rib main: tick")
