@@ -26,12 +26,16 @@ const (
 	optLinemode       = 34
 )
 
-var cliServer *cli.Server
+//var cliServer *cli.Server
 
-func listenTelnet(addr string) {
-	cliServer = &cli.Server{}
+func listenTelnet(addr string, cliServer *cli.Server) {
+	//cliServer = &cli.Server{}
 
-	telnetServer := telnet.Server{Addr: addr, Handler: handleTelnet}
+	handler := func(conn net.Conn) {
+		handleTelnet(conn, cliServer)
+	}
+
+	telnetServer := telnet.Server{Addr: addr, Handler: handler}
 
 	log.Printf("serving telnet on TCP %s", addr)
 
@@ -40,7 +44,7 @@ func listenTelnet(addr string) {
 	}
 }
 
-func handleTelnet(conn net.Conn) {
+func handleTelnet(conn net.Conn, cliServer *cli.Server) {
 	defer conn.Close()
 
 	log.Printf("handleTelnet: new telnet connection from: %s", conn.RemoteAddr())

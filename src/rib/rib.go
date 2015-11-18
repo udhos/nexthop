@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"time"
 
+	"cli"
+
 	"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
 
@@ -15,12 +17,16 @@ func main() {
 	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
 	log.Printf("IP version: %v", ipv4.Version)
 
-	go listenTelnet(":2001")
+	cliServer := cli.NewServer()
+
+	go listenTelnet(":2001", cliServer)
 
 	for {
 		select {
 		case <-time.After(time.Second * 3):
 			log.Printf("rib main: tick")
+		case cmd := <-cliServer.CommandChannel:
+			log.Printf("rib main: command: isLine=%v len=%d [%s]", cmd.IsLine, len(cmd.Cmd), cmd.Cmd)
 		}
 	}
 }

@@ -7,16 +7,22 @@ import (
 )
 
 type Server struct {
-	commandChannel chan Command
+	CommandChannel chan Command
 }
 
 type Client struct {
-	conn net.Conn
+	conn          net.Conn
+	sendEveryChar bool
 }
 
 type Command struct {
-	client Client
-	cmd    string
+	client *Client
+	Cmd    string
+	IsLine bool // true=line false=char
+}
+
+func NewServer() *Server {
+	return &Server{CommandChannel: make(chan Command)}
 }
 
 func NewClient(conn net.Conn) *Client {
@@ -27,6 +33,9 @@ func InputLoop(s *Server, c *Client) {
 	log.Printf("cli.InputLoop: starting")
 
 	readCh := spawnReadLoop(c.conn)
+
+	lineBuf := [30]byte{} // underlying buffer
+	lineSize := 0         // position at underlying buffer
 
 LOOP:
 	for {
@@ -40,6 +49,39 @@ LOOP:
 				break LOOP
 			}
 			log.Printf("cli.InputLoop: input=[%v]", b)
+
+			switch {
+			case b == '\n':
+
+				if c.sendEveryChar {
+					s.CommandChannel <- Command{client: c, Cmd: "", IsLine: false}
+					continue LOOP
+				}
+
+				cmdLine := string(lineBuf[:lineSize]) // string is safe for sharing (immutable)
+				log.Printf("cli.InputLoop: size=%d cmdLine=[%v]", lineSize, cmdLine)
+				s.CommandChannel <- Command{client: c, Cmd: cmdLine, IsLine: true}
+				lineSize = 0 // reset reading buffer position
+			case b < 32:
+				// discard control bytes (includes '\r')
+			default:
+				// push non-commands bytes into line buffer
+
+				if c.sendEveryChar {
+					s.CommandChannel <- Command{client: c, Cmd: string(b), IsLine: false}
+					continue LOOP
+				}
+
+				if lineSize >= len(lineBuf) {
+					// line buffer overflow
+					continue LOOP
+				}
+
+				lineBuf[lineSize] = b
+				lineSize++
+
+				log.Printf("cli.InputLoop: line=[%v]", string(lineBuf[:lineSize]))
+			}
 		}
 	}
 
