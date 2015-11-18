@@ -3,6 +3,7 @@ package cli
 import (
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -10,13 +11,29 @@ type Server struct {
 	CommandChannel chan Command
 }
 
+// cli.Client is shared between 2 goroutines: cli.InputLoop and main
 type Client struct {
+	mutex         *sync.RWMutex
 	conn          net.Conn
 	sendEveryChar bool
 }
 
+func (c *Client) SendEveryChar() bool {
+	c.mutex.RLock()
+	result := c.sendEveryChar
+	c.mutex.RUnlock()
+	return result
+}
+
+func (c *Client) SetSendEveryChar(mode bool) {
+	c.mutex.Lock()
+	c.sendEveryChar = mode
+	c.mutex.Unlock()
+}
+
+// Command is copied from cli.InputLoop goroutine to main goroutine
 type Command struct {
-	client *Client
+	Client *Client
 	Cmd    string
 	IsLine bool // true=line false=char
 }
@@ -26,7 +43,7 @@ func NewServer() *Server {
 }
 
 func NewClient(conn net.Conn) *Client {
-	return &Client{conn: conn}
+	return &Client{mutex: &sync.RWMutex{}, conn: conn}
 }
 
 func InputLoop(s *Server, c *Client) {
@@ -53,22 +70,24 @@ LOOP:
 			switch {
 			case b == '\n':
 
-				if c.sendEveryChar {
-					s.CommandChannel <- Command{client: c, Cmd: "", IsLine: false}
+				everyChar := c.SendEveryChar()
+				if everyChar {
+					s.CommandChannel <- Command{Client: c, Cmd: "", IsLine: false}
 					continue LOOP
 				}
 
 				cmdLine := string(lineBuf[:lineSize]) // string is safe for sharing (immutable)
 				log.Printf("cli.InputLoop: size=%d cmdLine=[%v]", lineSize, cmdLine)
-				s.CommandChannel <- Command{client: c, Cmd: cmdLine, IsLine: true}
+				s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
 				lineSize = 0 // reset reading buffer position
-			case b < 32:
+			case b < 32, b > 127:
 				// discard control bytes (includes '\r')
 			default:
 				// push non-commands bytes into line buffer
 
-				if c.sendEveryChar {
-					s.CommandChannel <- Command{client: c, Cmd: string(b), IsLine: false}
+				everyChar := c.SendEveryChar()
+				if everyChar {
+					s.CommandChannel <- Command{Client: c, Cmd: string(b), IsLine: false}
 					continue LOOP
 				}
 

@@ -26,7 +26,19 @@ func main() {
 		case <-time.After(time.Second * 3):
 			log.Printf("rib main: tick")
 		case cmd := <-cliServer.CommandChannel:
-			log.Printf("rib main: command: isLine=%v len=%d [%s]", cmd.IsLine, len(cmd.Cmd), cmd.Cmd)
+			//log.Printf("rib main: command: isLine=%v len=%d [%s]", cmd.IsLine, len(cmd.Cmd), cmd.Cmd)
+			execute(cmd.Cmd, cmd.IsLine, cmd.Client)
 		}
 	}
+}
+
+func execute(cmd string, isLine bool, c *cli.Client) {
+	log.Printf("rib main: execute: isLine=%v cmd=[%s]", isLine, cmd)
+
+	if isLine {
+		// single-char command
+		return
+	}
+
+	// full-line command
 }
