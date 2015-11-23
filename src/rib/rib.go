@@ -41,7 +41,7 @@ func execute(root *command.CmdNode, line string, isLine bool, c *cli.Client) {
 
 	if isLine {
 		// full-line command
-		executeLine(root, line, c.Status())
+		executeLine(root, line, c)
 		return
 	}
 
@@ -49,13 +49,15 @@ func execute(root *command.CmdNode, line string, isLine bool, c *cli.Client) {
 	log.Printf("rib main: execute: isLine=%v cmd=[%s] single-char command", isLine, line)
 }
 
-func executeLine(root *command.CmdNode, line string, status int) {
+func executeLine(root *command.CmdNode, line string, c *cli.Client) {
 
 	/*
 		if line == "" {
 			return
 		}
 	*/
+
+	status := c.Status()
 
 	node, err := command.CmdFind(root, line, status)
 	if err != nil {
@@ -82,5 +84,5 @@ func executeLine(root *command.CmdNode, line string, status int) {
 		return
 	}
 
-	node.Handler(root, line)
+	node.Handler(root, line, c)
 }

@@ -16,7 +16,10 @@ const (
 	CONF = iota
 )
 
-type CmdFunc func(root *CmdNode, line string)
+type CmdClient interface {
+}
+
+type CmdFunc func(root *CmdNode, line string, c CmdClient)
 
 type CmdNode struct {
 	Path     string
