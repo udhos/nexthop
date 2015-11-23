@@ -5,6 +5,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"command"
 )
 
 type Server struct {
@@ -16,6 +18,7 @@ type Client struct {
 	mutex         *sync.RWMutex
 	conn          net.Conn
 	sendEveryChar bool
+	status        int
 }
 
 func (c *Client) SendEveryChar() bool {
@@ -31,6 +34,13 @@ func (c *Client) SetSendEveryChar(mode bool) {
 	c.mutex.Unlock()
 }
 
+func (c *Client) Status() int {
+	c.mutex.RLock()
+	result := c.status
+	c.mutex.RUnlock()
+	return result
+}
+
 // Command is copied from cli.InputLoop goroutine to main goroutine
 type Command struct {
 	Client *Client
@@ -43,7 +53,7 @@ func NewServer() *Server {
 }
 
 func NewClient(conn net.Conn) *Client {
-	return &Client{mutex: &sync.RWMutex{}, conn: conn}
+	return &Client{mutex: &sync.RWMutex{}, conn: conn, status: command.EXEC}
 }
 
 func InputLoop(s *Server, c *Client) {

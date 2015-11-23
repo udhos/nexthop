@@ -131,7 +131,7 @@ func matchChildren(children []*CmdNode, label string) []*CmdNode {
 	return c
 }
 
-func cmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
+func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 
 	var s scanner.Scanner
 	s.Error = func(s *scanner.Scanner, msg string) {
@@ -146,10 +146,10 @@ func cmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 		children := matchChildren(parent.Children, label)
 		size := len(children)
 		if size < 1 {
-			return nil, fmt.Errorf("cmdFind: not found: [%s] under [%s]", label, parent.Path)
+			return nil, fmt.Errorf("CmdFind: not found: [%s] under [%s]", label, parent.Path)
 		}
 		if size > 1 {
-			return nil, fmt.Errorf("cmdFind: ambiguous: [%s] under [%s]", label, parent.Path)
+			return nil, fmt.Errorf("CmdFind: ambiguous: [%s] under [%s]", label, parent.Path)
 		}
 		parent = children[0]
 	}
