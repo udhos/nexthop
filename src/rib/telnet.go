@@ -26,10 +26,7 @@ const (
 	optLinemode       = 34
 )
 
-//var cliServer *cli.Server
-
 func listenTelnet(addr string, cliServer *cli.Server) {
-	//cliServer = &cli.Server{}
 
 	handler := func(conn net.Conn) {
 		handleTelnet(conn, cliServer)
@@ -55,7 +52,7 @@ func handleTelnet(conn net.Conn, cliServer *cli.Server) {
 
 	go cli.InputLoop(cliServer, cliClient)
 
-	cli.OutputLoop(cliServer, cliClient)
+	cli.OutputLoop(cliClient)
 
 	log.Printf("handleTelnet: terminating connection: remote=%s", conn.RemoteAddr())
 }

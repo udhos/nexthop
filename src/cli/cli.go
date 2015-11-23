@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"log"
 	"net"
 	"sync"
@@ -19,6 +20,11 @@ type Client struct {
 	conn          net.Conn
 	sendEveryChar bool
 	status        int
+
+	outputChannel chan string // outputLoop: read from outputChannel and write into outputWriter
+	outputFlush   chan int    // request flush
+	outputQuit    chan int    // request quit
+	outputWriter  *bufio.Writer
 }
 
 func (c *Client) SendEveryChar() bool {
@@ -53,7 +59,7 @@ func NewServer() *Server {
 }
 
 func NewClient(conn net.Conn) *Client {
-	return &Client{mutex: &sync.RWMutex{}, conn: conn, status: command.EXEC}
+	return &Client{mutex: &sync.RWMutex{}, conn: conn, status: command.EXEC, outputWriter: bufio.NewWriter(conn)}
 }
 
 func InputLoop(s *Server, c *Client) {
@@ -150,12 +156,38 @@ func charReadLoop(conn net.Conn, readCh chan<- byte) {
 	log.Printf("charReadLoop: exiting")
 }
 
-func OutputLoop(s *Server, c *Client) {
-	log.Printf("cli.InputLoop: starting")
+func OutputLoop(c *Client) {
+	//loop:
+	//	- read from userOut channel and write into wr
+	//	- watch quitOutput channel
+
+	// the only way the outputLoop is terminated is thru
+	// request on the quitOutput channel.
+	// quitOutput is always requested from the main
+	// goroutine.
+	// when the inputLoop hits a closed connection, it
+	// notifies the main goroutine.
+
+	log.Printf("cli.OutputLoop: starting")
+
+LOOP:
 	for {
 		select {
 		case <-time.After(time.Second * 3):
-			log.Printf("cli.OutputLoop: tick")
+			log.Printf("cli.OutputLoop: tick ERASEME")
+		case msg := <-c.outputChannel:
+			if n, err := c.outputWriter.WriteString(msg); err != nil {
+				log.Printf("cli.OutputLoop: written=%d from=%d: %v", n, len(msg), err)
+			}
+		case <-c.outputFlush:
+			if err := c.outputWriter.Flush(); err != nil {
+				log.Printf("cli.OutputLoop: flush: %v", err)
+			}
+		case <-c.outputQuit:
+			log.Printf("cli.OutputLoop: quit received")
+			break LOOP
 		}
 	}
+
+	log.Printf("cli.OutputLoop: exiting")
 }
