@@ -9,8 +9,10 @@ import (
 	"telnet"
 )
 
+// https://tools.ietf.org/html/rfc854 TELNET PROTOCOL SPECIFICATION
 const (
 	cmdSE   = 240
+	cmdNOP  = 241
 	cmdSB   = 250
 	cmdWill = 251
 	cmdWont = 252
