@@ -29,10 +29,12 @@ type CmdNode struct {
 	Children []*CmdNode
 }
 
+/*
 func firstToken(path string) string {
 	// fixme with tokenizer
 	return strings.Fields(path)[0]
 }
+*/
 
 func lastToken(path string) string {
 	// fixme with tokenizer
