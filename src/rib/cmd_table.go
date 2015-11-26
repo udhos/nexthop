@@ -9,16 +9,26 @@ import (
 )
 
 func installRibCommands(root *command.CmdNode) {
+	command.CmdInstall(root, "interface IFNAME address IPADDR", command.CONF, cmdIfaceAddr, "Assign address to interface")
+	command.CmdInstall(root, "hostname HOSTNAME", command.CONF, cmdHostname, "Assign hostname")
 	command.CmdInstall(root, "list", command.EXEC, cmdList, "List command tree")
 	command.CmdInstall(root, "quit", command.EXEC, cmdQuit, "Quit session")
 	command.CmdInstall(root, "reload", command.ENAB, cmdReload, "Reload")
 	command.CmdInstall(root, "reload", command.ENAB, cmdReload, "Ugh") // duplicated command
 	command.CmdInstall(root, "show interface", command.EXEC, cmdShowInt, "Show interfaces")
 	command.CmdInstall(root, "show", command.EXEC, cmdShowInt, "Ugh") // duplicated command
+	command.CmdInstall(root, "show configuration", command.EXEC, cmdShowConf, "Show candidate configuration")
 	command.CmdInstall(root, "show ip address", command.EXEC, cmdShowIPAddr, "Show addresses")
 	command.CmdInstall(root, "show ip interface", command.EXEC, cmdShowIPInt, "Show interfaces")
 	command.CmdInstall(root, "show ip interface detail", command.EXEC, cmdShowIPInt, "Show interface detail")
 	command.CmdInstall(root, "show ip route", command.EXEC, cmdShowIPRoute, "Show routing table")
+	command.CmdInstall(root, "show running-configuration", command.EXEC, cmdShowRun, "Show active configuration")
+}
+
+func cmdIfaceAddr(root *command.CmdNode, line string, c command.CmdClient) {
+}
+
+func cmdHostname(root *command.CmdNode, line string, c command.CmdClient) {
 }
 
 func cmdQuit(root *command.CmdNode, line string, c command.CmdClient) {
@@ -49,6 +59,9 @@ func cmdReload(root *command.CmdNode, line string, c command.CmdClient) {
 func cmdShowInt(root *command.CmdNode, line string, c command.CmdClient) {
 }
 
+func cmdShowConf(root *command.CmdNode, line string, c command.CmdClient) {
+}
+
 func cmdShowIPAddr(root *command.CmdNode, line string, c command.CmdClient) {
 }
 
@@ -56,4 +69,7 @@ func cmdShowIPInt(root *command.CmdNode, line string, c command.CmdClient) {
 }
 
 func cmdShowIPRoute(root *command.CmdNode, line string, c command.CmdClient) {
+}
+
+func cmdShowRun(root *command.CmdNode, line string, c command.CmdClient) {
 }

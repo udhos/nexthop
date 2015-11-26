@@ -123,13 +123,27 @@ func findChild(node *CmdNode, label string) *CmdNode {
 	return nil
 }
 
+func isConfigValueKeyword(str string) bool {
+	switch str {
+	case "IFNAME", "IPADDR", "HOSTNAME":
+		return true
+	}
+	return false
+}
+
 func matchChildren(children []*CmdNode, label string) []*CmdNode {
 	c := []*CmdNode{}
 
 	for _, n := range children {
 		last := lastToken(n.Path)
+		if isConfigValueKeyword(last) {
+			// these keywords match any label
+			c = append(c, n)
+			continue
+		}
 		if strings.HasPrefix(last, label) {
 			c = append(c, n)
+			continue
 		}
 	}
 
