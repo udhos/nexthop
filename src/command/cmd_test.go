@@ -12,7 +12,16 @@ func TestCmdInstall(t *testing.T) {
 	cmdBogus := func(root *CmdNode, line string, c CmdClient) {
 	}
 
+	if err := cmdAdd(root, "configure", ENAB, cmdBogus, "Enter configuration mode"); err != nil {
+		t.Errorf("error: %v", err)
+	}
+	if err := cmdAdd(root, "enable", EXEC, cmdBogus, "Enter privileged mode"); err != nil {
+		t.Errorf("error: %v", err)
+	}
 	if err := cmdAdd(root, "interface IFNAME address IPADDR", CONF, cmdBogus, "Assign address to interface"); err != nil {
+		t.Errorf("error: %v", err)
+	}
+	if err := cmdAdd(root, "ip routing", CONF, cmdBogus, "Enable IP routing"); err != nil {
 		t.Errorf("error: %v", err)
 	}
 	if err := cmdAdd(root, "hostname HOSTNAME", CONF, cmdBogus, "Assign hostname"); err != nil {

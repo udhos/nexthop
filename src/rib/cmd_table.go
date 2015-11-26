@@ -9,7 +9,10 @@ import (
 )
 
 func installRibCommands(root *command.CmdNode) {
+	command.CmdInstall(root, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
+	command.CmdInstall(root, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
 	command.CmdInstall(root, "interface IFNAME address IPADDR", command.CONF, cmdIfaceAddr, "Assign address to interface")
+	command.CmdInstall(root, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
 	command.CmdInstall(root, "hostname HOSTNAME", command.CONF, cmdHostname, "Assign hostname")
 	command.CmdInstall(root, "list", command.EXEC, cmdList, "List command tree")
 	command.CmdInstall(root, "quit", command.EXEC, cmdQuit, "Quit session")
@@ -25,7 +28,16 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, "show running-configuration", command.EXEC, cmdShowRun, "Show active configuration")
 }
 
+func cmdConfig(root *command.CmdNode, line string, c command.CmdClient) {
+}
+
+func cmdEnable(root *command.CmdNode, line string, c command.CmdClient) {
+}
+
 func cmdIfaceAddr(root *command.CmdNode, line string, c command.CmdClient) {
+}
+
+func cmdIPRouting(root *command.CmdNode, line string, c command.CmdClient) {
 }
 
 func cmdHostname(root *command.CmdNode, line string, c command.CmdClient) {
