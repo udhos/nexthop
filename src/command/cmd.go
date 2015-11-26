@@ -19,7 +19,7 @@ const (
 type CmdClient interface {
 }
 
-type CmdFunc func(ctx *ConfContext, line string, c CmdClient)
+type CmdFunc func(ctx ConfContext, line string, c CmdClient)
 
 type CmdNode struct {
 	Path     string
@@ -35,10 +35,10 @@ type ConfNode struct {
 	Children []*ConfNode
 }
 
-type ConfContext struct {
-	CmdRoot           *CmdNode
-	ConfRootCandidate *ConfNode
-	ConfRootActive    *ConfNode
+type ConfContext interface {
+	CmdRoot() *CmdNode
+	ConfRootCandidate() *ConfNode
+	ConfRootActive() *ConfNode
 }
 
 /*

@@ -9,7 +9,7 @@ func TestCmdInstall(t *testing.T) {
 
 	root := &CmdNode{Path: "", MinLevel: EXEC, Handler: nil}
 
-	cmdBogus := func(ctx *ConfContext, line string, c CmdClient) {
+	cmdBogus := func(ctx ConfContext, line string, c CmdClient) {
 	}
 
 	if err := cmdAdd(root, "configure", ENAB, cmdBogus, "Enter configuration mode"); err != nil {
@@ -64,6 +64,9 @@ func TestCmdInstall(t *testing.T) {
 		t.Errorf("error: %v", err)
 	}
 	if err := cmdAdd(root, "show running-configuration", EXEC, cmdBogus, "Show active configuration"); err != nil {
+		t.Errorf("error: %v", err)
+	}
+	if err := cmdAdd(root, "show version", EXEC, cmdBogus, "Show version"); err != nil {
 		t.Errorf("error: %v", err)
 	}
 }

@@ -13,6 +13,23 @@ import (
 )
 
 type RibApp struct {
+	cmdRoot           *command.CmdNode
+	confRootCandidate *command.ConfNode
+	confRootActive    *command.ConfNode
+
+	daemonName string
+}
+
+func (r RibApp) CmdRoot() *command.CmdNode {
+	return r.cmdRoot
+}
+
+func (r RibApp) ConfRootCandidate() *command.ConfNode {
+	return r.confRootCandidate
+}
+
+func (r RibApp) ConfRootActive() *command.ConfNode {
+	return r.confRootActive
 }
 
 func main() {
@@ -21,14 +38,15 @@ func main() {
 	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
 	log.Printf("IP version: %v", ipv4.Version)
 
-	ribConf := &command.ConfContext{
-		CmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
-		ConfRootCandidate: &command.ConfNode{},
-		ConfRootActive:    &command.ConfNode{},
+	ribConf := &RibApp{
+		cmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
+		confRootCandidate: &command.ConfNode{},
+		confRootActive:    &command.ConfNode{},
+
+		daemonName: "rib",
 	}
 
-	//cmdRoot := &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil}
-	installRibCommands(ribConf.CmdRoot)
+	installRibCommands(ribConf.CmdRoot())
 
 	cliServer := cli.NewServer()
 
@@ -45,7 +63,7 @@ func main() {
 	}
 }
 
-func execute(ctx *command.ConfContext, line string, isLine bool, c *cli.Client) {
+func execute(ctx command.ConfContext, line string, isLine bool, c *cli.Client) {
 	log.Printf("rib main: execute: isLine=%v cmd=[%s]", isLine, line)
 
 	if isLine {
@@ -58,7 +76,7 @@ func execute(ctx *command.ConfContext, line string, isLine bool, c *cli.Client) 
 	log.Printf("rib main: execute: isLine=%v cmd=[%s] single-char command", isLine, line)
 }
 
-func executeLine(ctx *command.ConfContext, line string, c *cli.Client) {
+func executeLine(ctx command.ConfContext, line string, c *cli.Client) {
 
 	/*
 		if line == "" {
@@ -68,7 +86,7 @@ func executeLine(ctx *command.ConfContext, line string, c *cli.Client) {
 
 	status := c.Status()
 
-	node, err := command.CmdFind(ctx.CmdRoot, line, status)
+	node, err := command.CmdFind(ctx.CmdRoot(), line, status)
 	if err != nil {
 		//c.userOut <- fmt.Sprintf("command not found: %s\r\n", err)
 		//sendln(c, fmt.Sprintf("command not found: %s", err))
