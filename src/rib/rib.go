@@ -12,14 +12,23 @@ import (
 	"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
 
+type RibApp struct {
+}
+
 func main() {
 	log.Printf("rib starting")
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)
 	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
 	log.Printf("IP version: %v", ipv4.Version)
 
-	cmdRoot := &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil}
-	installRibCommands(cmdRoot)
+	ribConf := &command.ConfContext{
+		CmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
+		ConfRootCandidate: &command.ConfNode{},
+		ConfRootActive:    &command.ConfNode{},
+	}
+
+	//cmdRoot := &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil}
+	installRibCommands(ribConf.CmdRoot)
 
 	cliServer := cli.NewServer()
 
@@ -31,17 +40,17 @@ func main() {
 			log.Printf("rib main: tick")
 		case comm := <-cliServer.CommandChannel:
 			log.Printf("rib main: command: isLine=%v len=%d [%s]", comm.IsLine, len(comm.Cmd), comm.Cmd)
-			execute(cmdRoot, comm.Cmd, comm.IsLine, comm.Client)
+			execute(ribConf, comm.Cmd, comm.IsLine, comm.Client)
 		}
 	}
 }
 
-func execute(root *command.CmdNode, line string, isLine bool, c *cli.Client) {
+func execute(ctx *command.ConfContext, line string, isLine bool, c *cli.Client) {
 	log.Printf("rib main: execute: isLine=%v cmd=[%s]", isLine, line)
 
 	if isLine {
 		// full-line command
-		executeLine(root, line, c)
+		executeLine(ctx, line, c)
 		return
 	}
 
@@ -49,7 +58,7 @@ func execute(root *command.CmdNode, line string, isLine bool, c *cli.Client) {
 	log.Printf("rib main: execute: isLine=%v cmd=[%s] single-char command", isLine, line)
 }
 
-func executeLine(root *command.CmdNode, line string, c *cli.Client) {
+func executeLine(ctx *command.ConfContext, line string, c *cli.Client) {
 
 	/*
 		if line == "" {
@@ -59,7 +68,7 @@ func executeLine(root *command.CmdNode, line string, c *cli.Client) {
 
 	status := c.Status()
 
-	node, err := command.CmdFind(root, line, status)
+	node, err := command.CmdFind(ctx.CmdRoot, line, status)
 	if err != nil {
 		//c.userOut <- fmt.Sprintf("command not found: %s\r\n", err)
 		//sendln(c, fmt.Sprintf("command not found: %s", err))
@@ -84,5 +93,5 @@ func executeLine(root *command.CmdNode, line string, c *cli.Client) {
 		return
 	}
 
-	node.Handler(root, line, c)
+	node.Handler(ctx, line, c)
 }

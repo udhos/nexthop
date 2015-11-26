@@ -19,7 +19,7 @@ const (
 type CmdClient interface {
 }
 
-type CmdFunc func(root *CmdNode, line string, c CmdClient)
+type CmdFunc func(ctx *ConfContext, line string, c CmdClient)
 
 type CmdNode struct {
 	Path     string
@@ -27,6 +27,18 @@ type CmdNode struct {
 	MinLevel int
 	Handler  CmdFunc
 	Children []*CmdNode
+}
+
+type ConfNode struct {
+	Path     string
+	Value    []string
+	Children []*ConfNode
+}
+
+type ConfContext struct {
+	CmdRoot           *CmdNode
+	ConfRootCandidate *ConfNode
+	ConfRootActive    *ConfNode
 }
 
 /*
@@ -124,11 +136,7 @@ func findChild(node *CmdNode, label string) *CmdNode {
 }
 
 func isConfigValueKeyword(str string) bool {
-	switch str {
-	case "IFNAME", "IPADDR", "HOSTNAME":
-		return true
-	}
-	return false
+	return str[0] == '{' && str[len(str)-1] == '}'
 }
 
 func matchChildren(children []*CmdNode, label string) []*CmdNode {
