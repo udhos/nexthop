@@ -105,11 +105,11 @@ func executeLine(ctx command.ConfContext, line string, c *cli.Client) {
 
 	if node.MinLevel > status {
 		//c.userOut <- fmt.Sprintf("command level prohibited: [%s]\r\n", line)
-		//sendln(c, fmt.Sprintf("command level prohibited: [%s]", line))
+		//sendln(c, fmt.Sprintf("command level prohibited: user=%d required=%d [%s]", status, node.MinLevel, line))
 		msg := fmt.Sprintf("command level prohibited: [%s]", line)
 		log.Printf("executeLine: %v", msg)
 		return
 	}
 
-	node.Handler(ctx, line, c)
+	node.Handler(ctx, node, line, c)
 }

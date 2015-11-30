@@ -19,7 +19,7 @@ const (
 type CmdClient interface {
 }
 
-type CmdFunc func(ctx ConfContext, line string, c CmdClient)
+type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
 
 type CmdNode struct {
 	Path     string
@@ -184,4 +184,25 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 	//log.Printf("cmdFind: found [%s] as [%s]", path, parent.Path)
 
 	return parent, nil
+}
+
+func CmdExpand(originalLine, commandFullPath string) (string, error) {
+	lineFields := strings.Fields(originalLine)
+	pathFields := strings.Fields(commandFullPath)
+
+	lineLen := len(lineFields)
+	pathLen := len(pathFields)
+
+	if len(lineFields) != len(pathFields) {
+		return "", fmt.Errorf("CmdExpand: length mismatch: line=%d path=%d", lineLen, pathLen)
+	}
+
+	for i, label := range pathFields {
+		if label[0] == '{' {
+			pathFields[i] = lineFields[i]
+			continue
+		}
+	}
+
+	return strings.Join(pathFields, " "), nil
 }

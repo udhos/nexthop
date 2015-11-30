@@ -5,13 +5,14 @@ import (
 	"log"
 	"strings"
 
+	"cli"
 	"command"
 )
 
 func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
 	command.CmdInstall(root, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
-	command.CmdInstall(root, "interface {IFNAME} ip address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
+	command.CmdInstall(root, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
 	command.CmdInstall(root, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
 	command.CmdInstall(root, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
@@ -30,25 +31,42 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, "show version", command.EXEC, cmdVersion, "Show version")
 }
 
-func cmdConfig(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdConfig(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	cc := c.(*cli.Client)
+	status := cc.Status()
+	if status < command.CONF {
+		cc.StatusConf()
+	}
+	output := fmt.Sprintf("configure: new status=%d", cc.Status())
+	log.Printf(output)
 }
 
-func cmdEnable(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdEnable(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	cc := c.(*cli.Client)
+	status := cc.Status()
+	if status < command.ENAB {
+		cc.StatusEnable()
+	}
+	output := fmt.Sprintf("enable: new status=%d", cc.Status())
+	log.Printf(output)
 }
 
-func cmdIfaceAddr(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	expanded, _ := command.CmdExpand(line, node.Path)
+	output := fmt.Sprintf("iface addr: req=[%v] path=[%v] expand=[%v]", line, node.Path, expanded)
+	log.Printf(output)
 }
 
-func cmdIfaceAddrIPv6(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdIPRouting(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdHostname(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdQuit(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdQuit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
 func list(node *command.CmdNode, depth int, c command.CmdClient) {
@@ -66,32 +84,32 @@ func list(node *command.CmdNode, depth int, c command.CmdClient) {
 	}
 }
 
-func cmdList(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdList(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	list(ctx.CmdRoot(), 0, c)
 }
 
-func cmdReload(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdShowInt(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdShowInt(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdShowConf(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdShowConf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdShowIPAddr(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdShowIPAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdShowIPInt(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdShowIPInt(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdShowIPRoute(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdShowIPRoute(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdShowRun(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdShowRun(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
-func cmdVersion(ctx command.ConfContext, line string, c command.CmdClient) {
+func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	ribApp := ctx.(*RibApp)
 	log.Printf("daemon: %v", ribApp.daemonName)
 }

@@ -47,6 +47,18 @@ func (c *Client) Status() int {
 	return result
 }
 
+func (c *Client) StatusEnable() {
+	c.mutex.Lock()
+	c.status = command.ENAB
+	c.mutex.Unlock()
+}
+
+func (c *Client) StatusConf() {
+	c.mutex.Lock()
+	c.status = command.CONF
+	c.mutex.Unlock()
+}
+
 // Command is copied from cli.InputLoop goroutine to main goroutine
 type Command struct {
 	Client *Client

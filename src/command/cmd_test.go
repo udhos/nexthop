@@ -9,7 +9,7 @@ func TestCmdInstall(t *testing.T) {
 
 	root := &CmdNode{Path: "", MinLevel: EXEC, Handler: nil}
 
-	cmdBogus := func(ctx ConfContext, line string, c CmdClient) {
+	cmdBogus := func(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	}
 
 	if err := cmdAdd(root, "configure", ENAB, cmdBogus, "Enter configuration mode"); err != nil {
@@ -18,7 +18,7 @@ func TestCmdInstall(t *testing.T) {
 	if err := cmdAdd(root, "enable", EXEC, cmdBogus, "Enter privileged mode"); err != nil {
 		t.Errorf("error: %v", err)
 	}
-	if err := cmdAdd(root, "interface {IFNAME} ip address {IPADDR}", CONF, cmdBogus, "Assign address to interface"); err != nil {
+	if err := cmdAdd(root, "interface {IFNAME} ipv4 address {IPADDR}", CONF, cmdBogus, "Assign address to interface"); err != nil {
 		t.Errorf("error: %v", err)
 	}
 	if err := cmdAdd(root, "interface {IFNAME} ipv6 address {IPADDR6}", CONF, cmdBogus, "Assign IPv6 address to interface"); err != nil {
