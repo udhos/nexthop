@@ -35,6 +35,10 @@ type ConfNode struct {
 	Children []*ConfNode
 }
 
+func (n *ConfNode) Set(path, value string) (*ConfNode, error) {
+	return nil, nil
+}
+
 type ConfContext interface {
 	CmdRoot() *CmdNode
 	ConfRootCandidate() *ConfNode
@@ -48,7 +52,7 @@ func firstToken(path string) string {
 }
 */
 
-func lastToken(path string) string {
+func LastToken(path string) string {
 	// fixme with tokenizer
 	f := strings.Fields(path)
 	return f[len(f)-1]
@@ -111,6 +115,11 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd}
 		pushChild(parent, newNode)
 
+		// did this command create an ambiguous location?
+		if _, err := CmdFind(root, path, CONF); err != nil {
+			return fmt.Errorf("root=[%s] cmd=[%s] created unreachable command node: %v", root.Path, path, err)
+		}
+
 		return nil
 	}
 
@@ -122,7 +131,7 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 func findChild(node *CmdNode, label string) *CmdNode {
 
 	for _, c := range node.Children {
-		last := lastToken(c.Path)
+		last := LastToken(c.Path)
 		//log.Printf("findChild: searching [%s] against (%s)[%s] under [%s]", label, last, c.Path, node.Path)
 		if label == last {
 			//log.Printf("findChild: found [%s] as [%s] under [%s]", label, c.Path, node.Path)
@@ -143,7 +152,7 @@ func matchChildren(children []*CmdNode, label string) []*CmdNode {
 	c := []*CmdNode{}
 
 	for _, n := range children {
-		last := lastToken(n.Path)
+		last := LastToken(n.Path)
 		if isConfigValueKeyword(last) {
 			// these keywords match any label
 			c = append(c, n)
@@ -168,7 +177,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 
 	parent := root
 	for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
-		//log.Printf("cmdFind: token: [%s]", s.TokenText())
+		log.Printf("cmdFind: token: [%s]", s.TokenText())
 		label := s.TokenText()
 		children := matchChildren(parent.Children, label)
 		size := len(children)

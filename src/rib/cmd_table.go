@@ -55,6 +55,21 @@ func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c
 	expanded, _ := command.CmdExpand(line, node.Path)
 	output := fmt.Sprintf("iface addr: req=[%v] path=[%v] expand=[%v]", line, node.Path, expanded)
 	log.Printf(output)
+
+	addr := command.LastToken(line)
+	log.Printf(fmt.Sprintf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr))
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err := confCand.Set(expanded, addr)
+	if err != nil {
+		output := fmt.Sprintf("iface addr: error: %v", err)
+		log.Printf(output)
+		return
+	}
+
+	log.Printf(fmt.Sprintf("iface addr: config node: %v", confNode))
+
+	log.Printf(fmt.Sprintf("iface addr: config full: %v", confCand))
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
