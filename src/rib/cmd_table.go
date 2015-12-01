@@ -79,11 +79,7 @@ func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c
 		return
 	}
 
-	confNode.Value = append(confNode.Value, addr)
-
-	log.Printf(fmt.Sprintf("iface addr: config node: %v", confNode))
-
-	log.Printf(fmt.Sprintf("iface addr: config full: %v", confCand))
+	confNode.ValueAdd(addr)
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

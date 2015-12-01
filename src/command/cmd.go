@@ -35,6 +35,16 @@ type ConfNode struct {
 	Children []*ConfNode
 }
 
+func (n *ConfNode) ValueAdd(value string) error {
+	for _, v := range n.Value {
+		if v == value {
+			return nil // already exists
+		}
+	}
+	n.Value = append(n.Value, value) // append new
+	return nil
+}
+
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 	expanded, err := cmdExpand(line, path)
