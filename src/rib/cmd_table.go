@@ -52,20 +52,21 @@ func cmdEnable(ctx command.ConfContext, node *command.CmdNode, line string, c co
 }
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	expanded, _ := command.CmdExpand(line, node.Path)
-	output := fmt.Sprintf("iface addr: req=[%v] path=[%v] expand=[%v]", line, node.Path, expanded)
-	log.Printf(output)
 
-	addr := command.LastToken(line)
-	log.Printf(fmt.Sprintf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr))
+	line, addr := command.StripLastToken(line)
+	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
+
+	path, _ := command.StripLastToken(node.Path)
 
 	confCand := ctx.ConfRootCandidate()
-	confNode, err := confCand.Set(expanded, addr)
+	confNode, err, _ := confCand.Set(path, line)
 	if err != nil {
 		output := fmt.Sprintf("iface addr: error: %v", err)
 		log.Printf(output)
 		return
 	}
+
+	confNode.Value = append(confNode.Value, addr)
 
 	log.Printf(fmt.Sprintf("iface addr: config node: %v", confNode))
 
@@ -110,6 +111,25 @@ func cmdShowInt(ctx command.ConfContext, node *command.CmdNode, line string, c c
 }
 
 func cmdShowConf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	confCand := ctx.ConfRootCandidate()
+	showConf(confCand, 0, c)
+}
+
+func showConf(node *command.ConfNode, depth int, c command.CmdClient) {
+	ident := strings.Repeat(" ", depth)
+	var last string
+	if node.Path == "" {
+		last = ""
+	} else {
+		last = command.LastToken(node.Path)
+	}
+	log.Printf("%s%s", ident, last)
+	for i, v := range node.Value {
+		log.Printf("%s%s value[%d]=[%s]", ident, last, i, v)
+	}
+	for _, n := range node.Children {
+		showConf(n, depth+1, c)
+	}
 }
 
 func cmdShowIPAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

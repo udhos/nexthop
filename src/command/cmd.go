@@ -35,8 +35,60 @@ type ConfNode struct {
 	Children []*ConfNode
 }
 
-func (n *ConfNode) Set(path, value string) (*ConfNode, error) {
-	return nil, nil
+func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
+
+	expanded, err := cmdExpand(line, path)
+	if err != nil {
+		return nil, fmt.Errorf("ConfNode.Set error: %v", err), false
+	}
+
+	log.Printf("ConfNode.Set: line=[%v] path=[%v] expand=[%s]", line, path, expanded)
+
+	labels := strings.Fields(expanded)
+	size := len(labels)
+	parent := n
+	for i, label := range labels {
+		child := parent.findChild(label)
+		if child != nil {
+			// found, search next
+			parent = child
+			continue
+		}
+
+		// not found
+
+		for ; i < size-1; i++ {
+			// intermmediate label
+			label = labels[i]
+			currPath := strings.Join(labels[:i+1], " ")
+			newNode := &ConfNode{Path: currPath}
+			parent.Children = append(parent.Children, newNode)
+			parent = newNode
+		}
+
+		// last label
+		label = labels[size-1]
+		newNode := &ConfNode{Path: expanded}
+		parent.Children = append(parent.Children, newNode)
+
+		return newNode, nil, false
+	}
+
+	// existing node found
+
+	return parent, nil, true
+}
+
+func (n *ConfNode) findChild(label string) *ConfNode {
+
+	for _, c := range n.Children {
+		last := LastToken(c.Path)
+		if label == last {
+			return c
+		}
+	}
+
+	return nil
 }
 
 type ConfContext interface {
@@ -56,6 +108,11 @@ func LastToken(path string) string {
 	// fixme with tokenizer
 	f := strings.Fields(path)
 	return f[len(f)-1]
+}
+
+func StripLastToken(path string) (string, string) {
+	last := strings.LastIndexByte(path, ' ')
+	return path[:last], path[last+1:]
 }
 
 func dumpChildren(node *CmdNode) string {
@@ -115,7 +172,7 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd}
 		pushChild(parent, newNode)
 
-		// did this command create an ambiguous location?
+		// did this command create an unreachable location?
 		if _, err := CmdFind(root, path, CONF); err != nil {
 			return fmt.Errorf("root=[%s] cmd=[%s] created unreachable command node: %v", root.Path, path, err)
 		}
@@ -201,7 +258,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 	return parent, nil
 }
 
-func CmdExpand(originalLine, commandFullPath string) (string, error) {
+func cmdExpand(originalLine, commandFullPath string) (string, error) {
 	lineFields := strings.Fields(originalLine)
 	pathFields := strings.Fields(commandFullPath)
 
@@ -209,7 +266,7 @@ func CmdExpand(originalLine, commandFullPath string) (string, error) {
 	pathLen := len(pathFields)
 
 	if len(lineFields) != len(pathFields) {
-		return "", fmt.Errorf("CmdExpand: length mismatch: line=%d path=%d", lineLen, pathLen)
+		return "", fmt.Errorf("cmdExpand: length mismatch: line=%d path=%d", lineLen, pathLen)
 	}
 
 	for i, label := range pathFields {

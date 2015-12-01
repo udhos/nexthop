@@ -18,11 +18,15 @@ func TestCmdInstall(t *testing.T) {
 	if err := cmdAdd(root, "enable", EXEC, cmdBogus, "Enter privileged mode"); err != nil {
 		t.Errorf("error: %v", err)
 	}
-	if err := cmdAdd(root, "interface {IFNAME} ipv4 address {IPADDR}", CONF, cmdBogus, "Assign address to interface"); err != nil {
+	if err := cmdAdd(root, "interface {IFNAME} ipv4 address {IPADDR}", CONF, cmdBogus, "Assign IPv4 address to interface"); err != nil {
 		t.Errorf("error: %v", err)
 	}
 	if err := cmdAdd(root, "interface {IFNAME} ipv6 address {IPADDR6}", CONF, cmdBogus, "Assign IPv6 address to interface"); err != nil {
 		t.Errorf("error: %v", err)
+	}
+	c := "interface {IFNAME} ip address {IPADDR}"
+	if err := cmdAdd(root, c, CONF, cmdBogus, "Assign address to interface"); err == nil {
+		t.Errorf("error: silently installed ambiguous command location: [%s]", c)
 	}
 	if err := cmdAdd(root, "ip routing", CONF, cmdBogus, "Enable IP routing"); err != nil {
 		t.Errorf("error: %v", err)
