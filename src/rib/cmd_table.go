@@ -10,6 +10,7 @@ import (
 )
 
 func installRibCommands(root *command.CmdNode) {
+	command.CmdInstall(root, "commit", command.CONF, cmdCommit, "Apply current candidate configuration")
 	command.CmdInstall(root, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
 	command.CmdInstall(root, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
 	command.CmdInstall(root, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
@@ -20,6 +21,8 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, "quit", command.EXEC, cmdQuit, "Quit session")
 	command.CmdInstall(root, "reload", command.ENAB, cmdReload, "Reload")
 	command.CmdInstall(root, "reload", command.ENAB, cmdReload, "Ugh") // duplicated command
+	command.CmdInstall(root, "rollback", command.CONF, cmdRollback, "Reset candidate configuration from active configuration")
+	command.CmdInstall(root, "rollback {ID}", command.CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
 	command.CmdInstall(root, "show interface", command.EXEC, cmdShowInt, "Show interfaces")
 	command.CmdInstall(root, "show", command.EXEC, cmdShowInt, "Ugh") // duplicated command
 	command.CmdInstall(root, "show configuration", command.EXEC, cmdShowConf, "Show candidate configuration")
@@ -29,6 +32,9 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, "show ip route", command.EXEC, cmdShowIPRoute, "Show routing table")
 	command.CmdInstall(root, "show running-configuration", command.EXEC, cmdShowRun, "Show active configuration")
 	command.CmdInstall(root, "show version", command.EXEC, cmdVersion, "Show version")
+}
+
+func cmdCommit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
 func cmdConfig(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -105,6 +111,16 @@ func cmdList(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 }
 
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+}
+
+func cmdRollback(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	fields := strings.Fields(line)
+	if len(fields) > 1 {
+		id := fields[1]
+		log.Printf("cmdRollback: reset candidate config from rollback: %s", id)
+	} else {
+		log.Printf("cmdRollback: reset candidate config from active configuration")
+	}
 }
 
 func cmdShowInt(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
