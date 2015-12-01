@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"text/scanner"
+	//"text/scanner"
 )
 
 const (
@@ -169,16 +169,22 @@ func matchChildren(children []*CmdNode, label string) []*CmdNode {
 
 func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 
-	var s scanner.Scanner
-	s.Error = func(s *scanner.Scanner, msg string) {
-		log.Printf("command scan error: %s [%s]", msg, path)
-	}
-	s.Init(strings.NewReader(path))
+	/*
+		var s scanner.Scanner
+		s.Error = func(s *scanner.Scanner, msg string) {
+			log.Printf("command scan error: %s [%s]", msg, path)
+		}
+		s.Init(strings.NewReader(path))
+	*/
+
+	tokens := strings.Fields(path)
 
 	parent := root
-	for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
-		log.Printf("cmdFind: token: [%s]", s.TokenText())
-		label := s.TokenText()
+	//for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
+	for _, label := range tokens {
+		//log.Printf("cmdFind: token: [%s]", s.TokenText())
+		//label := s.TokenText()
+		//log.Printf("cmdFind: token: [%s]", label)
 		children := matchChildren(parent.Children, label)
 		size := len(children)
 		if size < 1 {
