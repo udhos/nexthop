@@ -119,13 +119,13 @@ func showConf(node *command.ConfNode, depth int, c command.CmdClient) {
 	ident := strings.Repeat(" ", depth)
 	var last string
 	if node.Path == "" {
-		last = ""
+		last = "config:"
 	} else {
 		last = command.LastToken(node.Path)
 	}
 	log.Printf("%s%s", ident, last)
-	for i, v := range node.Value {
-		log.Printf("%s%s value[%d]=[%s]", ident, last, i, v)
+	for _, v := range node.Value {
+		log.Printf("%s %s", ident, v)
 	}
 	for _, n := range node.Children {
 		showConf(n, depth+1, c)
