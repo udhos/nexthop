@@ -46,6 +46,12 @@ func TestCmdInstall(t *testing.T) {
 	if err := cmdAdd(root, "reload", ENAB, cmdBogus, "Ugh"); err == nil {
 		t.Errorf("error: silently reinstalled 'reload' command")
 	}
+	if err := cmdAdd(root, "rollback", CONF, cmdBogus, "Reset candidate configuration from active configuration"); err != nil {
+		t.Errorf("error: %v", err)
+	}
+	if err := cmdAdd(root, "rollback {ID}", CONF, cmdBogus, "Reset candidate configuration from rollback configuration"); err != nil {
+		t.Errorf("error: %v", err)
+	}
 	if err := cmdAdd(root, "show interface", EXEC, cmdBogus, "Show interfaces"); err != nil {
 		t.Errorf("error: %v", err)
 	}
