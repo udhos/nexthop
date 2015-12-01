@@ -13,6 +13,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, "commit", command.CONF, cmdCommit, "Apply current candidate configuration")
 	command.CmdInstall(root, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
 	command.CmdInstall(root, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
+	command.CmdInstall(root, "exit", command.EXEC, cmdExit, "Exit current location")
 	command.CmdInstall(root, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
 	command.CmdInstall(root, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
@@ -55,6 +56,12 @@ func cmdEnable(ctx command.ConfContext, node *command.CmdNode, line string, c co
 	}
 	output := fmt.Sprintf("enable: new status=%d", cc.Status())
 	log.Printf(output)
+}
+
+func cmdExit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	cc := c.(*cli.Client)
+	cc.StatusExit()
+	log.Printf("exit: new status=%d", cc.Status())
 }
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

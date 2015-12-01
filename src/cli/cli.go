@@ -59,6 +59,14 @@ func (c *Client) StatusConf() {
 	c.mutex.Unlock()
 }
 
+func (c *Client) StatusExit() {
+	c.mutex.Lock()
+	if c.status > command.EXEC {
+		c.status--
+	}
+	c.mutex.Unlock()
+}
+
 // Command is copied from cli.InputLoop goroutine to main goroutine
 type Command struct {
 	Client *Client
