@@ -10,29 +10,33 @@ import (
 )
 
 func installRibCommands(root *command.CmdNode) {
-	command.CmdInstall(root, "commit", command.CONF, cmdCommit, "Apply current candidate configuration")
-	command.CmdInstall(root, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
-	command.CmdInstall(root, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
-	command.CmdInstall(root, "exit", command.EXEC, cmdExit, "Exit current location")
-	command.CmdInstall(root, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
-	command.CmdInstall(root, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
-	command.CmdInstall(root, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
-	command.CmdInstall(root, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
-	command.CmdInstall(root, "list", command.EXEC, cmdList, "List command tree")
-	command.CmdInstall(root, "quit", command.EXEC, cmdQuit, "Quit session")
-	command.CmdInstall(root, "reload", command.ENAB, cmdReload, "Reload")
-	command.CmdInstall(root, "reload", command.ENAB, cmdReload, "Ugh") // duplicated command
-	command.CmdInstall(root, "rollback", command.CONF, cmdRollback, "Reset candidate configuration from active configuration")
-	command.CmdInstall(root, "rollback {ID}", command.CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
-	command.CmdInstall(root, "show interface", command.EXEC, cmdShowInt, "Show interfaces")
-	command.CmdInstall(root, "show", command.EXEC, cmdShowInt, "Ugh") // duplicated command
-	command.CmdInstall(root, "show configuration", command.EXEC, cmdShowConf, "Show candidate configuration")
-	command.CmdInstall(root, "show ip address", command.EXEC, cmdShowIPAddr, "Show addresses")
-	command.CmdInstall(root, "show ip interface", command.EXEC, cmdShowIPInt, "Show interfaces")
-	command.CmdInstall(root, "show ip interface detail", command.EXEC, cmdShowIPInt, "Show interface detail")
-	command.CmdInstall(root, "show ip route", command.EXEC, cmdShowIPRoute, "Show routing table")
-	command.CmdInstall(root, "show running-configuration", command.EXEC, cmdShowRun, "Show active configuration")
-	command.CmdInstall(root, "show version", command.EXEC, cmdVersion, "Show version")
+
+	cmdNone := command.CMD_NONE
+	cmdConf := command.CMD_CONF
+
+	command.CmdInstall(root, cmdNone, "commit", command.CONF, cmdCommit, "Apply current candidate configuration")
+	command.CmdInstall(root, cmdNone, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
+	command.CmdInstall(root, cmdNone, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
+	command.CmdInstall(root, cmdNone, "exit", command.EXEC, cmdExit, "Exit current location")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
+	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
+	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
+	command.CmdInstall(root, cmdNone, "list", command.EXEC, cmdList, "List command tree")
+	command.CmdInstall(root, cmdNone, "quit", command.EXEC, cmdQuit, "Quit session")
+	command.CmdInstall(root, cmdNone, "reload", command.ENAB, cmdReload, "Reload")
+	command.CmdInstall(root, cmdNone, "reload", command.ENAB, cmdReload, "Ugh") // duplicated command
+	command.CmdInstall(root, cmdNone, "rollback", command.CONF, cmdRollback, "Reset candidate configuration from active configuration")
+	command.CmdInstall(root, cmdNone, "rollback {ID}", command.CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
+	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, "Show interfaces")
+	command.CmdInstall(root, cmdNone, "show", command.EXEC, cmdShowInt, "Ugh") // duplicated command
+	command.CmdInstall(root, cmdNone, "show configuration", command.EXEC, cmdShowConf, "Show candidate configuration")
+	command.CmdInstall(root, cmdNone, "show ip address", command.EXEC, cmdShowIPAddr, "Show addresses")
+	command.CmdInstall(root, cmdNone, "show ip interface", command.EXEC, cmdShowIPInt, "Show interfaces")
+	command.CmdInstall(root, cmdNone, "show ip interface detail", command.EXEC, cmdShowIPInt, "Show interface detail")
+	command.CmdInstall(root, cmdNone, "show ip route", command.EXEC, cmdShowIPRoute, "Show routing table")
+	command.CmdInstall(root, cmdNone, "show running-configuration", command.EXEC, cmdShowRun, "Show active configuration")
+	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, "Show version")
 }
 
 func cmdCommit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -66,16 +70,19 @@ func cmdExit(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 
+	log.Printf("cmdIfaceAddr: 1 [%s]", line)
+
 	line, addr := command.StripLastToken(line)
 	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
+
+	log.Printf("cmdIfaceAddr: 2 [%s]", line)
 
 	path, _ := command.StripLastToken(node.Path)
 
 	confCand := ctx.ConfRootCandidate()
 	confNode, err, _ := confCand.Set(path, line)
 	if err != nil {
-		output := fmt.Sprintf("iface addr: error: %v", err)
-		log.Printf(output)
+		log.Printf("iface addr: error: %v", err)
 		return
 	}
 

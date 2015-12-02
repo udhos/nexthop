@@ -25,6 +25,22 @@ type Client struct {
 	outputFlush   chan int    // request flush
 	outputQuit    chan int    // request quit
 	outputWriter  *bufio.Writer
+
+	configPath string
+}
+
+func (c *Client) ConfigPath() string {
+	c.mutex.RLock()
+	result := c.configPath
+	c.mutex.RUnlock()
+	return result
+}
+
+func (c *Client) ConfigPathSet(path string) {
+	c.mutex.Lock()
+	c.configPath = path
+	c.mutex.Unlock()
+
 }
 
 func (c *Client) SendEveryChar() bool {

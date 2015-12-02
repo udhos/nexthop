@@ -84,32 +84,45 @@ func executeLine(ctx command.ConfContext, line string, c *cli.Client) {
 		}
 	*/
 
+	prependConfigPath := true
+
 	status := c.Status()
 
-	node, err := command.CmdFind(ctx.CmdRoot(), line, status)
+	n, e := command.CmdFind(ctx.CmdRoot(), line, status)
+	if e == nil {
+		// found at root
+		if n.Options&command.CMD_CONF == 0 {
+			// not a config cmd
+			prependConfigPath = false
+		}
+	}
+
+	lookupPath := line
+	configPath := c.ConfigPath()
+	if prependConfigPath && configPath != "" {
+		lookupPath = fmt.Sprintf("%s %s", c.ConfigPath(), line)
+	}
+
+	log.Printf("executeLine: prepend=%v path=[%s] line=[%s] full=[%s]", prependConfigPath, configPath, line, lookupPath)
+
+	node, err := command.CmdFind(ctx.CmdRoot(), lookupPath, status)
 	if err != nil {
-		//c.userOut <- fmt.Sprintf("command not found: %s\r\n", err)
-		//sendln(c, fmt.Sprintf("command not found: %s", err))
-		msg := fmt.Sprintf("command not found: %s", err)
-		log.Printf("executeLine: %v", msg)
+		log.Printf("executeLine: command not found: %s", err)
 		return
 	}
 
 	if node.Handler == nil {
-		//sendln(c, fmt.Sprintf("command missing handler: [%s]", line))
-		//c.userOut <- fmt.Sprintf("command missing handler: [%s]\r\n", line)
-		msg := fmt.Sprintf("command missing handler: [%s]", line)
-		log.Printf("executeLine: %v", msg)
+		log.Printf("executeLine: command missing handler: [%s]", lookupPath)
+		if node.Options&command.CMD_CONF != 0 {
+			c.ConfigPathSet(lookupPath)
+		}
 		return
 	}
 
 	if node.MinLevel > status {
-		//c.userOut <- fmt.Sprintf("command level prohibited: [%s]\r\n", line)
-		//sendln(c, fmt.Sprintf("command level prohibited: user=%d required=%d [%s]", status, node.MinLevel, line))
-		msg := fmt.Sprintf("command level prohibited: [%s]", line)
-		log.Printf("executeLine: %v", msg)
+		log.Printf("executeLine: command level prohibited: [%s]", lookupPath)
 		return
 	}
 
-	node.Handler(ctx, node, line, c)
+	node.Handler(ctx, node, lookupPath, c)
 }

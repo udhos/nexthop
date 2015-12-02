@@ -17,9 +17,16 @@ const (
 )
 
 type CmdClient interface {
+	ConfigPath() string
+	ConfigPathSet(path string)
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
+
+const (
+	CMD_NONE = uint64(0)
+	CMD_CONF = uint64(1 << 0)
+)
 
 type CmdNode struct {
 	Path     string
@@ -27,6 +34,7 @@ type CmdNode struct {
 	MinLevel int
 	Handler  CmdFunc
 	Children []*CmdNode
+	Options  uint64
 }
 
 type ConfNode struct {
@@ -139,13 +147,13 @@ func pushChild(node, child *CmdNode) {
 	//log.Printf("pushChild: parent=[%s] child=[%s] after: [%v]", node.Path, child.Path, dumpChildren(node))
 }
 
-func CmdInstall(root *CmdNode, path string, min int, cmd CmdFunc, desc string) {
-	if err := cmdAdd(root, path, min, cmd, desc); err != nil {
+func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) {
+	if err := cmdAdd(root, opt, path, min, cmd, desc); err != nil {
 		log.Printf("cmdInstall: error %s", err)
 	}
 }
 
-func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error {
+func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) error {
 	//log.Printf("cmdInstall: [%s]", path)
 
 	labelList := strings.Fields(path)
@@ -171,7 +179,7 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 			label = labelList[i]
 			currPath = strings.Join(labelList[:i+1], " ")
 			//log.Printf("cmdInstall: %d: intermmediate curr=[%s] label=[%s]", i, currPath, label)
-			newNode := &CmdNode{Path: currPath, MinLevel: EXEC}
+			newNode := &CmdNode{Path: currPath, MinLevel: EXEC, Options: opt}
 			pushChild(parent, newNode)
 			parent = newNode
 		}
@@ -179,7 +187,7 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 		// last label
 		label = labelList[size-1]
 		//log.Printf("cmdInstall: %d: leaf curr=[%s] label=[%s]", i, path, label)
-		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd}
+		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd, Options: opt}
 		pushChild(parent, newNode)
 
 		// did this command create an unreachable location?
