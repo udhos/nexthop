@@ -144,12 +144,19 @@ func showConf(node *command.ConfNode, depth int, c command.CmdClient) {
 	} else {
 		last = command.LastToken(node.Path)
 	}
-	log.Printf("%s%s", ident, last)
+
+	// show node path
+	p := fmt.Sprintf("%s%s", ident, last)
+	log.Printf(p)
+	c.Sendln(p)
+
+	// show node values
 	for _, v := range node.Value {
 		msg := fmt.Sprintf("%s %s", ident, v)
 		log.Printf(msg)
 		c.Sendln(msg)
 	}
+
 	for _, n := range node.Children {
 		showConf(n, depth+1, c)
 	}

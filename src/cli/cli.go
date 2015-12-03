@@ -188,7 +188,7 @@ func NewServer() *Server {
 func NewClient(conn net.Conn) *Client {
 	return &Client{mutex: &sync.RWMutex{},
 		conn:          conn,
-		status:        command.EXEC,
+		status:        command.MOTD,
 		outputWriter:  bufio.NewWriter(conn),
 		outputChannel: make(chan string),
 		outputFlush:   make(chan int),
