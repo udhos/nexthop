@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	MOTD = iota
 	USER = iota
 	PASS = iota
 	EXEC = iota
@@ -19,6 +20,7 @@ const (
 type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)
+	Sendln(path string)
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)

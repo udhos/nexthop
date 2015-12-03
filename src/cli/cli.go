@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -25,8 +26,96 @@ type Client struct {
 	outputFlush   chan int    // request flush
 	outputQuit    chan int    // request quit
 	outputWriter  *bufio.Writer
+	outputQueue   []string
 
 	configPath string
+	height     int
+}
+
+func (c *Client) Height() int {
+	c.mutex.RLock()
+	result := c.height
+	c.mutex.RUnlock()
+	return result
+}
+
+func (c *Client) Sendln(msg string) {
+	c.send(fmt.Sprintf("%s\r\n", msg))
+}
+
+func (c *Client) send(msg string) {
+	c.outputQueue = append(c.outputQueue, msg)
+}
+
+func (c *Client) SendQueue() bool {
+	sent := 0
+	height := c.Height()
+	max := height - 2
+	if max < 1 {
+		max = 1
+	}
+	for i, m := range c.outputQueue {
+		if i >= max {
+			break
+		}
+		c.outputChannel <- m
+		//c.outputQueue[i] = "" // not required
+		sent++
+	}
+
+	log.Printf("sendQueue: total=%d sent=%d pending=%d height=%d", len(c.outputQueue), sent, len(c.outputQueue)-sent, height)
+
+	tmp := c.outputQueue[sent:]
+	c.outputQueue = nil
+	copy(c.outputQueue, tmp)
+
+	return len(c.outputQueue) > 0
+}
+
+func (c *Client) SendPrompt(paging bool) {
+	if paging {
+		c.outputChannel <- "\r\nENTER=more q=quit>"
+		return
+	}
+
+	path := c.ConfigPath()
+	if path != "" {
+		path = fmt.Sprintf(":%s ", path)
+	}
+
+	host := "hostname"
+	var p string
+
+	status := c.Status()
+	switch status {
+	case command.USER:
+		p = " login:"
+	case command.PASS:
+		host = ""
+		p = "password:"
+	case command.EXEC:
+		p = ">"
+	case command.ENAB:
+		p = "#"
+	case command.CONF:
+		p = "(conf)#"
+	default:
+		p = "?"
+	}
+
+	// can't use send() since sendQueue() runs before sendPrompt().
+	// output is flushed by caller
+	c.outputChannel <- fmt.Sprintf("\r\n%s%s%s ", host, path, p)
+}
+
+func (c *Client) Flush() {
+	c.outputFlush <- 1
+}
+
+func (c *Client) EchoEnable() {
+}
+
+func (c *Client) EchoDisable() {
 }
 
 func (c *Client) ConfigPath() string {
@@ -63,16 +152,18 @@ func (c *Client) Status() int {
 	return result
 }
 
-func (c *Client) StatusEnable() {
+func (c *Client) StatusSet(status int) {
 	c.mutex.Lock()
-	c.status = command.ENAB
+	c.status = status
 	c.mutex.Unlock()
 }
 
+func (c *Client) StatusEnable() {
+	c.StatusSet(command.ENAB)
+}
+
 func (c *Client) StatusConf() {
-	c.mutex.Lock()
-	c.status = command.CONF
-	c.mutex.Unlock()
+	c.StatusSet(command.CONF)
 }
 
 func (c *Client) StatusExit() {
@@ -95,7 +186,15 @@ func NewServer() *Server {
 }
 
 func NewClient(conn net.Conn) *Client {
-	return &Client{mutex: &sync.RWMutex{}, conn: conn, status: command.EXEC, outputWriter: bufio.NewWriter(conn)}
+	return &Client{mutex: &sync.RWMutex{},
+		conn:          conn,
+		status:        command.EXEC,
+		outputWriter:  bufio.NewWriter(conn),
+		outputChannel: make(chan string),
+		outputFlush:   make(chan int),
+		outputQuit:    make(chan int),
+		height:        100,
+	}
 }
 
 func InputLoop(s *Server, c *Client) {
@@ -122,8 +221,8 @@ LOOP:
 			switch {
 			case b == '\n':
 
-				everyChar := c.SendEveryChar()
-				if everyChar {
+				sendEveryChar := c.SendEveryChar()
+				if sendEveryChar {
 					s.CommandChannel <- Command{Client: c, Cmd: "", IsLine: false}
 					continue LOOP
 				}

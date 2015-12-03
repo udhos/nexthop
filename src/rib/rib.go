@@ -77,6 +77,38 @@ func execute(ctx command.ConfContext, line string, isLine bool, c *cli.Client) {
 }
 
 func executeLine(ctx command.ConfContext, line string, c *cli.Client) {
+	log.Printf("executeLine: [%v]", line)
+
+	status := c.Status()
+
+	switch status {
+	case command.MOTD:
+		c.Sendln("")
+		c.Sendln("rib server ready")
+		c.StatusSet(command.USER)
+	case command.USER:
+		c.EchoDisable()
+		c.StatusSet(command.PASS)
+	case command.PASS:
+		c.EchoEnable()
+		c.StatusSet(command.EXEC)
+	case command.EXEC, command.ENAB, command.CONF:
+		dispatchCommand(ctx, line, c)
+	default:
+		msg := fmt.Sprintf("unknown state for command: [%s]", line)
+		log.Print(msg)
+		c.Sendln(msg)
+	}
+
+	paging := c.SendQueue()
+	//c.SetSendEveryChar(!paging)
+	c.SendPrompt(paging)
+	c.Flush()
+
+	log.Printf("executeLine: flushed [%v]", line)
+}
+
+func dispatchCommand(ctx command.ConfContext, line string, c *cli.Client) {
 
 	/*
 		if line == "" {
@@ -103,16 +135,16 @@ func executeLine(ctx command.ConfContext, line string, c *cli.Client) {
 		lookupPath = fmt.Sprintf("%s %s", c.ConfigPath(), line)
 	}
 
-	log.Printf("executeLine: prepend=%v path=[%s] line=[%s] full=[%s]", prependConfigPath, configPath, line, lookupPath)
+	//log.Printf("dispatchCommand: prepend=%v path=[%s] line=[%s] full=[%s]", prependConfigPath, configPath, line, lookupPath)
 
 	node, err := command.CmdFind(ctx.CmdRoot(), lookupPath, status)
 	if err != nil {
-		log.Printf("executeLine: command not found: %s", err)
+		log.Printf("dispatchCommand: command not found: %s", err)
 		return
 	}
 
 	if node.Handler == nil {
-		log.Printf("executeLine: command missing handler: [%s]", lookupPath)
+		log.Printf("dispatchCommand: command missing handler: [%s]", lookupPath)
 		if node.Options&command.CMD_CONF != 0 {
 			c.ConfigPathSet(lookupPath)
 		}
@@ -120,7 +152,7 @@ func executeLine(ctx command.ConfContext, line string, c *cli.Client) {
 	}
 
 	if node.MinLevel > status {
-		log.Printf("executeLine: command level prohibited: [%s]", lookupPath)
+		log.Printf("dispatchCommand: command level prohibited: [%s]", lookupPath)
 		return
 	}
 

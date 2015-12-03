@@ -70,12 +70,8 @@ func cmdExit(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 
-	log.Printf("cmdIfaceAddr: 1 [%s]", line)
-
 	line, addr := command.StripLastToken(line)
 	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
-
-	log.Printf("cmdIfaceAddr: 2 [%s]", line)
 
 	path, _ := command.StripLastToken(node.Path)
 
@@ -107,10 +103,9 @@ func list(node *command.CmdNode, depth int, c command.CmdClient) {
 		handler = "LEAF"
 	}
 	ident := strings.Repeat(" ", 4*depth)
-	//c.userOut <- fmt.Sprintf("%s %d %s[%s] desc=[%s]\r\n", handler, node.MinLevel, ident, node.Path, node.Desc)
-	//sendln(c, fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc))
-	output := fmt.Sprintf("%s %d %s[%s] desc=[%s]\r\n", handler, node.MinLevel, ident, node.Path, node.Desc)
+	output := fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc)
 	log.Printf(output)
+	c.Sendln(output)
 	for _, n := range node.Children {
 		list(n, depth+1, c)
 	}
@@ -151,7 +146,9 @@ func showConf(node *command.ConfNode, depth int, c command.CmdClient) {
 	}
 	log.Printf("%s%s", ident, last)
 	for _, v := range node.Value {
-		log.Printf("%s %s", ident, v)
+		msg := fmt.Sprintf("%s %s", ident, v)
+		log.Printf(msg)
+		c.Sendln(msg)
 	}
 	for _, n := range node.Children {
 		showConf(n, depth+1, c)
