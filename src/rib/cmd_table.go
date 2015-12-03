@@ -64,6 +64,9 @@ func cmdEnable(ctx command.ConfContext, node *command.CmdNode, line string, c co
 
 func cmdExit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	cc := c.(*cli.Client)
+
+	log.Printf("exit: FIXME exit config path if any")
+
 	cc.StatusExit()
 	log.Printf("exit: new status=%d", cc.Status())
 }
@@ -95,6 +98,10 @@ func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c 
 }
 
 func cmdQuit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	c.SendlnNow("")
+	c.SendlnNow("bye\r\n")
+	log.Printf("cmdQuit: requesting intputLoop to quit")
+	c.InputQuit()
 }
 
 func list(node *command.CmdNode, depth int, c command.CmdClient) {

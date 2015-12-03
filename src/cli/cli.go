@@ -13,6 +13,7 @@ import (
 
 type Server struct {
 	CommandChannel chan Command
+	InputClosed    chan chan int
 }
 
 // cli.Client is shared between 2 goroutines: cli.InputLoop and main
@@ -32,11 +33,24 @@ type Client struct {
 	height     int
 }
 
+func (c *Client) InputQuit() {
+	c.conn.Close() // breaks InputLoop goroutine -> main goroutine sends quit request to OutputLoop
+}
+
 func (c *Client) Height() int {
 	c.mutex.RLock()
 	result := c.height
 	c.mutex.RUnlock()
 	return result
+}
+
+func (c *Client) SendlnNow(msg string) {
+	c.sendNow(fmt.Sprintf("%s\r\n", msg))
+}
+
+func (c *Client) sendNow(msg string) {
+	c.outputChannel <- msg
+	c.Flush()
 }
 
 func (c *Client) Sendln(msg string) {
@@ -182,7 +196,10 @@ type Command struct {
 }
 
 func NewServer() *Server {
-	return &Server{CommandChannel: make(chan Command)}
+	return &Server{
+		CommandChannel: make(chan Command),
+		InputClosed:    make(chan chan int),
+	}
 }
 
 func NewClient(conn net.Conn) *Client {
@@ -214,6 +231,7 @@ LOOP:
 			if !ok {
 				// connection closed.
 				log.Printf("cli.InputLoop: closed channel")
+				s.InputClosed <- c.outputQuit // send this client's Output termination request channel to main goroutine
 				break LOOP
 			}
 			log.Printf("cli.InputLoop: input=[%v]", b)

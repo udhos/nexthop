@@ -59,6 +59,12 @@ func main() {
 		case comm := <-cliServer.CommandChannel:
 			log.Printf("rib main: command: isLine=%v len=%d [%s]", comm.IsLine, len(comm.Cmd), comm.Cmd)
 			execute(ribConf, comm.Cmd, comm.IsLine, comm.Client)
+		case outputQuitChannel := <-cliServer.InputClosed:
+			// inputLoop hit closed connection. it's finished.
+			// we should discard pending output (if any) and request
+			// termination of output loop.
+			log.Printf("rib main: inputLoop hit closed connection, requesting outputLoop to quit")
+			outputQuitChannel <- 1 // request outputLoop to quit
 		}
 	}
 }

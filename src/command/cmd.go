@@ -20,7 +20,9 @@ const (
 type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)
-	Sendln(path string)
+	Sendln(msg string)
+	SendlnNow(msg string)
+	InputQuit()
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
