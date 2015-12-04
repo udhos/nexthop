@@ -13,7 +13,7 @@ import (
 
 type Server struct {
 	CommandChannel chan Command
-	InputClosed    chan chan int
+	InputClosed    chan *Client
 }
 
 // cli.Client is shared between 2 goroutines: cli.InputLoop and main
@@ -31,6 +31,12 @@ type Client struct {
 
 	configPath string
 	height     int
+}
+
+func (c *Client) DiscardOutputQueue() {
+	c.mutex.Lock()
+	c.outputQueue = nil
+	c.mutex.Unlock()
 }
 
 func (c *Client) Output() chan<- string {
@@ -81,12 +87,10 @@ func (c *Client) SendQueue() bool {
 		sent++
 	}
 
-	log.Printf("sendQueue: total=%d sent=%d pending=%d height=%d", len(c.outputQueue), sent, len(c.outputQueue)-sent, height)
-
+	//log.Printf("sendQueue: total=%d sent=%d pending=%d height=%d", len(c.outputQueue), sent, len(c.outputQueue)-sent, height)
 	c.outputQueue = c.outputQueue[sent:]
-
 	paging := len(c.outputQueue) > 0
-	log.Printf("sendQueue: pending=%d paging=%v", len(c.outputQueue), paging)
+	//log.Printf("sendQueue: pending=%d paging=%v", len(c.outputQueue), paging)
 
 	return paging
 }
@@ -203,7 +207,7 @@ type Command struct {
 func NewServer() *Server {
 	return &Server{
 		CommandChannel: make(chan Command),
-		InputClosed:    make(chan chan int),
+		InputClosed:    make(chan *Client),
 	}
 }
 
@@ -219,7 +223,7 @@ func NewClient(conn net.Conn) *Client {
 	}
 }
 
-func InputLoop(s *Server, c *Client) {
+func InputLoop(s *Server, c *Client, notifyAppInputClosed bool) {
 	log.Printf("cli.InputLoop: starting")
 
 	readCh := spawnReadLoop(c.conn)
@@ -240,13 +244,11 @@ LOOP:
 			// read timeout
 			log.Printf("InputLoop: read timeout, closing socket")
 			c.SendlnNow("idle timeout")
-			c.InputQuit() // intentionally breaks charReadLoop goroutine
 			break LOOP
 		case b, ok := <-readCh:
 			if !ok {
-				// connection closed.
+				// connection closed
 				log.Printf("cli.InputLoop: closed channel")
-				s.InputClosed <- c.outputQuit // send this client's Output termination request channel to main goroutine
 				break LOOP
 			}
 			//log.Printf("cli.InputLoop: input=[%v]", b)
@@ -289,6 +291,11 @@ LOOP:
 			}
 		}
 	}
+
+	if notifyAppInputClosed {
+		s.InputClosed <- c // notify main goroutine
+	}
+	c.outputQuit <- 1 // request OutputLoop termination
 
 	log.Printf("cli.InputLoop: exiting")
 }
@@ -359,7 +366,7 @@ LOOP:
 				log.Printf("cli.OutputLoop: flush: %v", err)
 			}
 		case <-c.outputQuit:
-			log.Printf("cli.OutputLoop: quit received")
+			log.Printf("cli.OutputLoop: quit request received (from InputLoop)")
 			break LOOP
 		}
 	}

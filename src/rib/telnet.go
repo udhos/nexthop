@@ -55,7 +55,9 @@ func handleTelnet(conn net.Conn, cliServer *cli.Server) {
 	// mock user input in order to get server MOTD response
 	cliServer.CommandChannel <- cli.Command{Client: cliClient, Cmd: "", IsLine: true}
 
-	go cli.InputLoop(cliServer, cliClient)
+	notifyAppInputClosed := true
+
+	go cli.InputLoop(cliServer, cliClient, notifyAppInputClosed)
 
 	cli.OutputLoop(cliClient)
 

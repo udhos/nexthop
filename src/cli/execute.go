@@ -24,8 +24,7 @@ func executeKey(ctx command.ConfContext, line string, c *Client) {
 	log.Printf("executeKey(): [%v]", line)
 
 	if line == "q" {
-		// discard output queue
-		c.outputQueue = nil
+		c.outputQueue = nil // discard output queue
 	}
 
 	c.Output() <- "\r\n"
