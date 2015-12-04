@@ -11,6 +11,32 @@ import (
 	"command"
 )
 
+const (
+	keyEscape    = 27
+	keyBackspace = 127
+)
+
+const (
+	optEcho           = 1
+	optSupressGoAhead = 3
+	optNaws           = 31 // rfc1073
+	optLinemode       = 34
+)
+
+const (
+	ctrlA = 'A' - '@'
+	ctrlB = 'B' - '@'
+	ctrlC = 'C' - '@'
+	ctrlD = 'D' - '@'
+	ctrlE = 'E' - '@'
+	ctrlF = 'F' - '@'
+	ctrlH = 'H' - '@'
+	ctrlK = 'K' - '@'
+	ctrlN = 'N' - '@'
+	ctrlP = 'P' - '@'
+	ctrlZ = 'Z' - '@'
+)
+
 type Server struct {
 	CommandChannel chan Command
 	InputClosed    chan *Client
@@ -22,6 +48,7 @@ type Client struct {
 	conn          net.Conn
 	sendEveryChar bool
 	status        int
+	echo          bool
 
 	outputChannel chan string // outputLoop: read from outputChannel and write into outputWriter
 	outputFlush   chan int    // request flush
@@ -135,10 +162,29 @@ func (c *Client) Flush() {
 	c.outputFlush <- 1
 }
 
+func (c *Client) echoSend(msg string) {
+	if c.Echo() {
+		c.sendNow(msg)
+	}
+}
+
+func (c *Client) Echo() bool {
+	c.mutex.RLock()
+	result := c.echo
+	c.mutex.RUnlock()
+	return result
+}
+
 func (c *Client) EchoEnable() {
+	c.mutex.Lock()
+	c.echo = true
+	c.mutex.Unlock()
 }
 
 func (c *Client) EchoDisable() {
+	c.mutex.Lock()
+	c.echo = false
+	c.mutex.Unlock()
 }
 
 func (c *Client) ConfigPath() string {
@@ -152,7 +198,6 @@ func (c *Client) ConfigPathSet(path string) {
 	c.mutex.Lock()
 	c.configPath = path
 	c.mutex.Unlock()
-
 }
 
 func (c *Client) SendEveryChar() bool {
@@ -220,6 +265,7 @@ func NewClient(conn net.Conn) *Client {
 		outputFlush:   make(chan int),
 		outputQuit:    make(chan int),
 		height:        20,
+		echo:          true,
 	}
 }
 
@@ -268,6 +314,16 @@ LOOP:
 				log.Printf("cli.InputLoop: size=%d cmdLine=[%v]", lineSize, cmdLine)
 				s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
 				lineSize = 0 // reset reading buffer position
+
+				//c.echoSend("\r\n") // echo newline back to client
+
+			case b == ctrlH, b == keyBackspace:
+				// backspace
+				if lineSize <= 0 {
+					continue
+				}
+				lineSize--                             // erase backspace key from input buffer
+				c.echoSend(string(byte(keyBackspace))) // echo backspace to client
 			case b < 32, b > 127:
 				// discard control bytes (includes '\r')
 			default:
@@ -286,6 +342,8 @@ LOOP:
 
 				lineBuf[lineSize] = b
 				lineSize++
+
+				c.echoSend(string(b)) // echo key back to terminal
 
 				log.Printf("cli.InputLoop: line=[%v]", string(lineBuf[:lineSize]))
 			}
