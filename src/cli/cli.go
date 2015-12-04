@@ -225,7 +225,7 @@ func InputLoop(s *Server, c *Client) {
 LOOP:
 	for {
 		select {
-		case <-time.After(time.Second * 3):
+		case <-time.After(time.Second * 5):
 			log.Printf("cli.InputLoop: tick")
 		case b, ok := <-readCh:
 			if !ok {
@@ -326,7 +326,7 @@ func OutputLoop(c *Client) {
 LOOP:
 	for {
 		select {
-		case <-time.After(time.Second * 3):
+		case <-time.After(time.Second * 5):
 			log.Printf("cli.OutputLoop: tick ERASEME")
 		case msg := <-c.outputChannel:
 			if n, err := c.outputWriter.WriteString(msg); err != nil {
