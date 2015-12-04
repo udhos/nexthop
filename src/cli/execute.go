@@ -17,7 +17,23 @@ func Execute(ctx command.ConfContext, line string, isLine bool, c *Client) {
 	}
 
 	// single-char command
-	log.Printf("cli.Execute: isLine=%v cmd=[%s] single-char command", isLine, line)
+	executeKey(ctx, line, c)
+}
+
+func executeKey(ctx command.ConfContext, line string, c *Client) {
+	log.Printf("executeKey(): [%v]", line)
+
+	if line == "q" {
+		// discard output queue
+		c.outputQueue = nil
+	}
+
+	c.Output() <- "\r\n"
+
+	paging := c.SendQueue()
+	c.SetSendEveryChar(paging)
+	c.SendPrompt(paging)
+	c.Flush()
 }
 
 func executeLine(ctx command.ConfContext, line string, c *Client) {
@@ -45,11 +61,9 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 	}
 
 	paging := c.SendQueue()
-	//c.SetSendEveryChar(!paging)
+	c.SetSendEveryChar(paging)
 	c.SendPrompt(paging)
 	c.Flush()
-
-	log.Printf("executeLine: flushed [%v]", line)
 }
 
 func dispatchCommand(ctx command.ConfContext, line string, c *Client) {

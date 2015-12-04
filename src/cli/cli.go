@@ -33,6 +33,10 @@ type Client struct {
 	height     int
 }
 
+func (c *Client) Output() chan<- string {
+	return c.outputChannel
+}
+
 func (c *Client) InputQuit() {
 	c.conn.Close() // breaks InputLoop goroutine -> main goroutine sends quit request to OutputLoop
 }
@@ -79,11 +83,12 @@ func (c *Client) SendQueue() bool {
 
 	log.Printf("sendQueue: total=%d sent=%d pending=%d height=%d", len(c.outputQueue), sent, len(c.outputQueue)-sent, height)
 
-	tmp := c.outputQueue[sent:]
-	c.outputQueue = nil
-	copy(c.outputQueue, tmp)
+	c.outputQueue = c.outputQueue[sent:]
 
-	return len(c.outputQueue) > 0
+	paging := len(c.outputQueue) > 0
+	log.Printf("sendQueue: pending=%d paging=%v", len(c.outputQueue), paging)
+
+	return paging
 }
 
 func (c *Client) SendPrompt(paging bool) {
@@ -210,7 +215,7 @@ func NewClient(conn net.Conn) *Client {
 		outputChannel: make(chan string),
 		outputFlush:   make(chan int),
 		outputQuit:    make(chan int),
-		height:        100,
+		height:        20,
 	}
 }
 
