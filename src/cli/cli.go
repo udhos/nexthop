@@ -222,11 +222,21 @@ func InputLoop(s *Server, c *Client) {
 	lineBuf := [30]byte{} // underlying buffer
 	lineSize := 0         // position at underlying buffer
 
+	timeout := time.Minute * 1
+	readTimer := time.NewTimer(timeout)
+	resetReadTimeout(readTimer, timeout)
+
 LOOP:
 	for {
 		select {
 		case <-time.After(time.Second * 5):
 			log.Printf("cli.InputLoop: tick")
+		case <-readTimer.C:
+			// read timeout
+			log.Printf("InputLoop: read timeout, closing socket")
+			c.SendlnNow("idle timeout")
+			c.InputQuit() // intentionally breaks charReadLoop goroutine
+			break LOOP
 		case b, ok := <-readCh:
 			if !ok {
 				// connection closed.
@@ -234,7 +244,9 @@ LOOP:
 				s.InputClosed <- c.outputQuit // send this client's Output termination request channel to main goroutine
 				break LOOP
 			}
-			log.Printf("cli.InputLoop: input=[%v]", b)
+			//log.Printf("cli.InputLoop: input=[%v]", b)
+
+			resetReadTimeout(readTimer, timeout)
 
 			switch {
 			case b == '\n':
@@ -274,6 +286,11 @@ LOOP:
 	}
 
 	log.Printf("cli.InputLoop: exiting")
+}
+
+func resetReadTimeout(timer *time.Timer, d time.Duration) {
+	log.Printf("InputLoop: reset read timeout: %d secs", d/time.Second)
+	timer.Reset(d)
 }
 
 func spawnReadLoop(conn net.Conn) <-chan byte {
@@ -327,7 +344,7 @@ LOOP:
 	for {
 		select {
 		case <-time.After(time.Second * 5):
-			log.Printf("cli.OutputLoop: tick ERASEME")
+			log.Printf("cli.OutputLoop: tick")
 		case msg := <-c.outputChannel:
 			if n, err := c.outputWriter.WriteString(msg); err != nil {
 				log.Printf("cli.OutputLoop: written=%d from=%d: %v", n, len(msg), err)

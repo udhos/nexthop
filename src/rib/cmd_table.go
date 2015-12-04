@@ -99,7 +99,7 @@ func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c 
 
 func cmdQuit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	c.SendlnNow("")
-	c.SendlnNow("bye\r\n")
+	c.SendlnNow("bye")
 	log.Printf("cmdQuit: requesting intputLoop to quit")
 	c.InputQuit()
 }
