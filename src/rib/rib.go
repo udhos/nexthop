@@ -1,9 +1,15 @@
 package main
 
 import (
-	//"fmt"
+	"flag"
+	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"cli"
@@ -17,7 +23,8 @@ type RibApp struct {
 	confRootCandidate *command.ConfNode
 	confRootActive    *command.ConfNode
 
-	daemonName string
+	daemonName       string
+	configPathPrefix string
 }
 
 func (r RibApp) CmdRoot() *command.CmdNode {
@@ -32,6 +39,77 @@ func (r RibApp) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
 }
 
+type sortByCommitId []string
+
+func (s sortByCommitId) Len() int {
+	return len(s)
+}
+func (s sortByCommitId) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s sortByCommitId) Less(i, j int) bool {
+	s1 := s[i]
+	lastDot1 := strings.LastIndexByte(s1, '.')
+	commitId1 := s1[lastDot1+1:]
+	id1, err1 := strconv.Atoi(commitId1)
+	if err1 != nil {
+		log.Printf("sortByCommitId.Less: error parsing config file path: '%s': %v", s1, err1)
+	}
+	s2 := s[j]
+	lastDot2 := strings.LastIndexByte(s2, '.')
+	commitId2 := s2[lastDot2+1:]
+	id2, err2 := strconv.Atoi(commitId2)
+	if err2 != nil {
+		log.Printf("sortByCommitId.Less: error parsing config file path: '%s': %v", s2, err2)
+	}
+	return id1 < id2
+}
+
+func (r *RibApp) LoadLastConfig() (*command.ConfNode, error) {
+	log.Printf("LoadLastConfig: configuration path prefix: %s", r.configPathPrefix)
+
+	dirname := filepath.Dir(r.configPathPrefix)
+
+	dir, err := os.Open(dirname)
+	if err != nil {
+		return nil, fmt.Errorf("LoadLastConfig: error opening dir '%s': %v", dirname, err)
+	}
+
+	names, e := dir.Readdirnames(0)
+	if e != nil {
+		return nil, fmt.Errorf("LoadLastConfig: error reading dir '%s': %v", dirname, e)
+	}
+
+	dir.Close()
+
+	//log.Printf("LoadLastConfig: found %d files: %v", len(names), names)
+
+	basename := filepath.Base(r.configPathPrefix)
+
+	// filter prefix
+	matches := names[:0]
+	for _, x := range names {
+		//log.Printf("LoadLastConfig: x=[%s] prefix=[%s]", x, basename)
+		if strings.HasPrefix(x, basename) {
+			matches = append(matches, x)
+		}
+	}
+
+	sort.Sort(sortByCommitId(matches))
+
+	m := len(matches)
+
+	log.Printf("LoadLastConfig: found %d matching files: %v", m, matches)
+
+	if m < 1 {
+		return nil, fmt.Errorf("LoadLastConfig: no config file found for prefix: %s", r.configPathPrefix)
+	}
+
+	lastConfig := names[m-1]
+
+	return nil, fmt.Errorf("LoadLastConfig: found=[%s] FIXME WRITEME", lastConfig)
+}
+
 func main() {
 	log.Printf("rib starting")
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)
@@ -43,10 +121,20 @@ func main() {
 		confRootCandidate: &command.ConfNode{},
 		confRootActive:    &command.ConfNode{},
 
-		daemonName: "rib",
+		daemonName:       "rib",
+		configPathPrefix: "",
 	}
 
 	installRibCommands(ribConf.CmdRoot())
+
+	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rib.conf.", "configuration path prefix")
+
+	lastConfig, err := ribConf.LoadLastConfig()
+	if err != nil {
+		log.Printf("main: error reading config: '%s': %v", ribConf.configPathPrefix, err)
+	}
+
+	log.Printf("last config loaded: %v", lastConfig)
 
 	cliServer := cli.NewServer()
 

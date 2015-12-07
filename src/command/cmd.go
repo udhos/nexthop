@@ -118,6 +118,7 @@ type ConfContext interface {
 	CmdRoot() *CmdNode
 	ConfRootCandidate() *ConfNode
 	ConfRootActive() *ConfNode
+	LoadLastConfig() (*ConfNode, error)
 }
 
 /*
