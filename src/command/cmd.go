@@ -58,12 +58,8 @@ func (n *ConfNode) ValueAdd(value string) error {
 	return nil
 }
 
-func (n *ConfNode) ValueSet(value string) error {
-	if len(n.Value) > 0 {
-		n.Value[0] = value
-	}
-	n.Value = append(n.Value, value)
-	return nil
+func (n *ConfNode) ValueSet(value string) {
+	n.Value = []string{value}
 }
 
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
