@@ -31,7 +31,7 @@ func executeKey(ctx command.ConfContext, line string, c *Client) {
 
 	paging := c.SendQueue()
 	c.SetSendEveryChar(paging)
-	c.SendPrompt(paging)
+	c.SendPrompt(ctx.Hostname(), paging)
 	c.Flush()
 }
 
@@ -61,7 +61,7 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 
 	paging := c.SendQueue()
 	c.SetSendEveryChar(paging)
-	c.SendPrompt(paging)
+	c.SendPrompt(ctx.Hostname(), paging)
 	c.Flush()
 }
 

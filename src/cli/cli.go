@@ -122,7 +122,7 @@ func (c *Client) SendQueue() bool {
 	return paging
 }
 
-func (c *Client) SendPrompt(paging bool) {
+func (c *Client) SendPrompt(host string, paging bool) {
 	if paging {
 		c.outputChannel <- "\r\nENTER=more q=quit>"
 		return
@@ -133,7 +133,6 @@ func (c *Client) SendPrompt(paging bool) {
 		path = fmt.Sprintf(":%s ", path)
 	}
 
-	host := "hostname"
 	var p string
 
 	status := c.Status()

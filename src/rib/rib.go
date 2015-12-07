@@ -39,6 +39,17 @@ func (r RibApp) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
 }
 
+func (r RibApp) Hostname() string {
+	root := r.ConfRootCandidate()
+	log.Printf("rib RibApp.Hostname(): FIXME: query ACTIVE config")
+	node, err := root.Get("hostname")
+	if err != nil {
+		return "hostname?"
+	}
+
+	return node.Value[0]
+}
+
 func main() {
 	log.Printf("rib starting")
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)

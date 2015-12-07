@@ -58,6 +58,14 @@ func (n *ConfNode) ValueAdd(value string) error {
 	return nil
 }
 
+func (n *ConfNode) ValueSet(value string) error {
+	if len(n.Value) > 0 {
+		n.Value[0] = value
+	}
+	n.Value = append(n.Value, value)
+	return nil
+}
+
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 	expanded, err := cmdExpand(line, path)
@@ -102,6 +110,27 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	return parent, nil, true
 }
 
+func (n *ConfNode) Get(path string) (*ConfNode, error) {
+
+	labels := strings.Fields(path)
+	parent := n
+	for _, label := range labels {
+		child := parent.findChild(label)
+		if child != nil {
+			// found, search next
+			parent = child
+			continue
+		}
+
+		// not found
+		return nil, fmt.Errorf("ConfNode.Get not found")
+	}
+
+	// found
+
+	return parent, nil
+}
+
 func (n *ConfNode) findChild(label string) *ConfNode {
 
 	for _, c := range n.Children {
@@ -118,6 +147,8 @@ type ConfContext interface {
 	CmdRoot() *CmdNode
 	ConfRootCandidate() *ConfNode
 	ConfRootActive() *ConfNode
+
+	Hostname() string
 }
 
 /*
