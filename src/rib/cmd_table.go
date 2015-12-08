@@ -40,6 +40,11 @@ func installRibCommands(root *command.CmdNode) {
 }
 
 func cmdCommit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	// get diff from active conf to candidate conf
+	// build command list to apply diff to active conf
+	//  - include preparatory commands, like deleting addresses from interfaces affected by address change
+	//  - if any command fails, revert previously applied commands
+	// save new active conf with new commit id
 }
 
 func cmdConfig(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
