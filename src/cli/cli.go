@@ -396,16 +396,6 @@ func charReadLoop(conn net.Conn, readCh chan<- byte) {
 }
 
 func OutputLoop(c *Client) {
-	//loop:
-	//	- read from userOut channel and write into wr
-	//	- watch quitOutput channel
-
-	// the only way the outputLoop is terminated is thru
-	// request on the quitOutput channel.
-	// quitOutput is always requested from the main
-	// goroutine.
-	// when the inputLoop hits a closed connection, it
-	// notifies the main goroutine.
 
 	log.Printf("cli.OutputLoop: starting")
 
@@ -423,6 +413,8 @@ LOOP:
 				log.Printf("cli.OutputLoop: flush: %v", err)
 			}
 		case <-c.outputQuit:
+			// when the InputLoop goroutine hits a closed connection,
+			// it sends quit request to OutputLoop outputQuit channel
 			log.Printf("cli.OutputLoop: quit request received (from InputLoop)")
 			break LOOP
 		}
