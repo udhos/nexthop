@@ -11,32 +11,6 @@ import (
 	"command"
 )
 
-const (
-	keyEscape    = 27
-	keyBackspace = 127
-)
-
-const (
-	optEcho           = 1
-	optSupressGoAhead = 3
-	optNaws           = 31 // rfc1073
-	optLinemode       = 34
-)
-
-const (
-	ctrlA = 'A' - '@'
-	ctrlB = 'B' - '@'
-	ctrlC = 'C' - '@'
-	ctrlD = 'D' - '@'
-	ctrlE = 'E' - '@'
-	ctrlF = 'F' - '@'
-	ctrlH = 'H' - '@'
-	ctrlK = 'K' - '@'
-	ctrlN = 'N' - '@'
-	ctrlP = 'P' - '@'
-	ctrlZ = 'Z' - '@'
-)
-
 type Server struct {
 	CommandChannel chan Command
 	InputClosed    chan *Client
@@ -273,8 +247,7 @@ func InputLoop(s *Server, c *Client, notifyAppInputClosed bool) {
 
 	readCh := spawnReadLoop(c.conn)
 
-	lineBuf := [30]byte{} // underlying buffer
-	lineSize := 0         // position at underlying buffer
+	buf := newTelnetBuf()
 
 	timeout := time.Minute * 1
 	readTimer := time.NewTimer(timeout)
@@ -300,51 +273,9 @@ LOOP:
 
 			resetReadTimeout(readTimer, timeout)
 
-			switch {
-			case b == '\n':
-
-				sendEveryChar := c.SendEveryChar()
-				if sendEveryChar {
-					s.CommandChannel <- Command{Client: c, Cmd: "", IsLine: false}
-					continue LOOP
-				}
-
-				cmdLine := string(lineBuf[:lineSize]) // string is safe for sharing (immutable)
-				log.Printf("cli.InputLoop: size=%d cmdLine=[%v]", lineSize, cmdLine)
-				s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
-				lineSize = 0 // reset reading buffer position
-
-				//c.echoSend("\r\n") // echo newline back to client
-
-			case b == ctrlH, b == keyBackspace:
-				// backspace
-				if lineSize <= 0 {
-					continue
-				}
-				lineSize--                             // erase backspace key from input buffer
-				c.echoSend(string(byte(keyBackspace))) // echo backspace to client
-			case b < 32, b > 127:
-				// discard control bytes (includes '\r')
-			default:
-				// push non-commands bytes into line buffer
-
-				everyChar := c.SendEveryChar()
-				if everyChar {
-					s.CommandChannel <- Command{Client: c, Cmd: string(b), IsLine: false}
-					continue LOOP
-				}
-
-				if lineSize >= len(lineBuf) {
-					// line buffer overflow
-					continue LOOP
-				}
-
-				lineBuf[lineSize] = b
-				lineSize++
-
-				c.echoSend(string(b)) // echo key back to terminal
-
-				log.Printf("cli.InputLoop: line=[%v]", string(lineBuf[:lineSize]))
+			if stop := telnetHandleByte(s, c, buf, b); stop {
+				log.Printf("cli.InputLoop: telnetHandleByte requested termination")
+				break LOOP
 			}
 		}
 	}
