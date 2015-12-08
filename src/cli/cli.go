@@ -71,7 +71,7 @@ func (c *Client) Output() chan<- string {
 }
 
 func (c *Client) InputQuit() {
-	c.conn.Close() // breaks InputLoop goroutine -> main goroutine sends quit request to OutputLoop
+	c.conn.Close() // breaks InputLoop goroutine -> InputLoop then sends quit request to OutputLoop
 }
 
 func (c *Client) Height() int {
