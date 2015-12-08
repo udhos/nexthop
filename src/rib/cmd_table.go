@@ -31,6 +31,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, "Show interfaces")
 	command.CmdInstall(root, cmdNone, "show", command.EXEC, cmdShowInt, "Ugh") // duplicated command
 	command.CmdInstall(root, cmdNone, "show configuration", command.EXEC, cmdShowConf, "Show candidate configuration")
+	command.CmdInstall(root, cmdNone, "show configuration line-mode", command.EXEC, cmdShowConf, "Show candidate configuration in line-mode")
 	command.CmdInstall(root, cmdNone, "show ip address", command.EXEC, cmdShowIPAddr, "Show addresses")
 	command.CmdInstall(root, cmdNone, "show ip interface", command.EXEC, cmdShowIPInt, "Show interfaces")
 	command.CmdInstall(root, cmdNone, "show ip interface detail", command.EXEC, cmdShowIPInt, "Show interface detail")
@@ -156,33 +157,47 @@ func cmdShowInt(ctx command.ConfContext, node *command.CmdNode, line string, c c
 }
 
 func cmdShowConf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	fields := strings.Fields(line)
+	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
+	c.Sendln("")
+	c.Sendln("candidate configuration:")
 	confCand := ctx.ConfRootCandidate()
-	showConf(confCand, 0, c)
+	showConf(confCand, 0, c, lineMode)
 }
 
-func showConf(node *command.ConfNode, depth int, c command.CmdClient) {
+func showConf(node *command.ConfNode, depth int, c command.CmdClient, lineMode bool) {
 	ident := strings.Repeat(" ", depth)
 	var last string
-	if node.Path == "" {
-		last = "config:"
+	if lineMode {
+		last = node.Path
 	} else {
-		last = command.LastToken(node.Path)
+		if node.Path == "" {
+			last = ""
+		} else {
+			last = command.LastToken(node.Path)
+		}
 	}
 
 	// show node path
-	p := fmt.Sprintf("%s%s", ident, last)
-	log.Printf(p)
-	c.Sendln(p)
+	if !lineMode {
+		p := fmt.Sprintf("%s%s", ident, last)
+		log.Printf(p)
+		c.Sendln(p)
+	}
 
 	// show node values
 	for _, v := range node.Value {
-		msg := fmt.Sprintf("%s %s", ident, v)
-		log.Printf(msg)
-		c.Sendln(msg)
+		if lineMode {
+			msg := fmt.Sprintf("%s %s", last, v)
+			c.Sendln(msg)
+		} else {
+			msg := fmt.Sprintf("%s %s", ident, v)
+			c.Sendln(msg)
+		}
 	}
 
 	for _, n := range node.Children {
-		showConf(n, depth+1, c)
+		showConf(n, depth+1, c, lineMode)
 	}
 }
 
