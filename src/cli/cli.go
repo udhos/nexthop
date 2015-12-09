@@ -104,7 +104,7 @@ func (c *Client) SendPrompt(host string, paging bool) {
 
 	path := c.ConfigPath()
 	if path != "" {
-		path = fmt.Sprintf(":%s ", path)
+		path = fmt.Sprintf(":%s", path)
 	}
 
 	var p string

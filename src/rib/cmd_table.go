@@ -89,7 +89,34 @@ func cmdExit(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	// line: "interf  XXXX   descrip   YYY ZZZ WWW"
 	//                                 ^^^^^^^^^^^
-	desc := "FIXME WRITEME"
+
+	// find 3rd space
+	ln := strings.TrimLeft(line, " ") // drop leading spaces
+	findSpc := false                  // find space
+	found := 0
+	var i int
+	for i = 0; i < len(ln); i++ {
+		if findSpc {
+			if ln[i] == ' ' {
+				found++
+				if found == 3 {
+					break
+				}
+				findSpc = false
+			}
+		} else {
+			if ln[i] != ' ' {
+				findSpc = true
+			}
+		}
+	}
+
+	if found != 3 {
+		c.Sendln(fmt.Sprintf("cmdDescr: could not find description argument: [%s]", line))
+		return
+	}
+
+	desc := ln[i+1:]
 
 	lineFields := strings.Fields(line)
 	linePath := strings.Join(lineFields[:3], " ")
