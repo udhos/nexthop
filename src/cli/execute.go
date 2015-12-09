@@ -44,6 +44,7 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 	case command.MOTD:
 		c.Sendln("")
 		c.Sendln("rib server ready")
+		c.Sendln("")
 		c.StatusSet(command.USER)
 	case command.USER:
 		c.EchoDisable()
@@ -67,13 +68,11 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 
 func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 
-	/*
-		if line == "" {
-			return
-		}
-	*/
+	if line == "" {
+		return
+	}
 
-	prependConfigPath := true
+	prependConfigPath := true // assume it's a config cmd
 
 	status := c.Status()
 
@@ -96,12 +95,12 @@ func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 
 	node, err := command.CmdFind(ctx.CmdRoot(), lookupPath, status)
 	if err != nil {
-		log.Printf("dispatchCommand: command not found: %s", err)
+		c.Sendln(fmt.Sprintf("dispatchCommand: command not found: %s", err))
 		return
 	}
 
 	if node.Handler == nil {
-		log.Printf("dispatchCommand: command missing handler: [%s]", lookupPath)
+		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", lookupPath))
 		if node.Options&command.CMD_CONF != 0 {
 			c.ConfigPathSet(lookupPath)
 		}
@@ -109,7 +108,7 @@ func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 	}
 
 	if node.MinLevel > status {
-		log.Printf("dispatchCommand: command level prohibited: [%s]", lookupPath)
+		c.Sendln(fmt.Sprintf("dispatchCommand: command level prohibited: [%s]", lookupPath))
 		return
 	}
 

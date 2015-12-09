@@ -128,7 +128,8 @@ func (c *Client) SendPrompt(host string, paging bool) {
 
 	// can't use send() since sendQueue() runs before sendPrompt().
 	// output is flushed by caller
-	c.outputChannel <- fmt.Sprintf("\r\n%s%s%s ", host, path, p)
+	//c.outputChannel <- fmt.Sprintf("\r\n%s%s%s ", host, path, p)
+	c.outputChannel <- fmt.Sprintf("%s%s%s ", host, path, p)
 }
 
 func (c *Client) Flush() {

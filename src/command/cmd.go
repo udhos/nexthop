@@ -122,9 +122,7 @@ func (n *ConfNode) Get(path string) (*ConfNode, error) {
 		return nil, fmt.Errorf("ConfNode.Get not found")
 	}
 
-	// found
-
-	return parent, nil
+	return parent, nil // found
 }
 
 func (n *ConfNode) findChild(label string) *ConfNode {
@@ -292,6 +290,12 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 		//log.Printf("cmdFind: token: [%s]", s.TokenText())
 		//label := s.TokenText()
 		//log.Printf("cmdFind: token: [%s]", label)
+
+		if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == "{ANY}" {
+			// {ANY} is special construct for consuming anything
+			return parent.Children[0], nil // found
+		}
+
 		children := matchChildren(parent.Children, label)
 		size := len(children)
 		if size < 1 {
@@ -303,9 +307,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 		parent = children[0]
 	}
 
-	//log.Printf("cmdFind: found [%s] as [%s]", path, parent.Path)
-
-	return parent, nil
+	return parent, nil // found
 }
 
 func cmdExpand(originalLine, commandFullPath string) (string, error) {

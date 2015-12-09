@@ -23,6 +23,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "list", command.EXEC, cmdList, "List command tree")
+	command.CmdInstall(root, cmdNone, "no {ANY}", command.EXEC, cmdNo, "Remove a configuration item")
 	command.CmdInstall(root, cmdNone, "quit", command.EXEC, cmdQuit, "Quit session")
 	command.CmdInstall(root, cmdNone, "reload", command.ENAB, cmdReload, "Reload")
 	command.CmdInstall(root, cmdNone, "reload", command.ENAB, cmdReload, "Ugh") // duplicated command
@@ -140,6 +141,10 @@ func cmdList(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 	list(ctx.CmdRoot(), 0, c)
 }
 
+func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	c.Sendln(fmt.Sprintf("no: [%s]", line))
+}
+
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
@@ -163,7 +168,6 @@ func cmdShowConf(ctx command.ConfContext, node *command.CmdNode, line string, c 
 func showConfig(root *command.ConfNode, node *command.CmdNode, line string, c command.CmdClient, head string) {
 	fields := strings.Fields(line)
 	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
-	c.Sendln("")
 	c.Sendln(head)
 	showConf(root, 0, c, lineMode)
 }

@@ -82,6 +82,7 @@ func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 		buf.lineSize = 0 // reset reading buffer position
 
 		//c.echoSend("\r\n") // echo newline back to client
+		c.SendlnNow("") // echo newline back to client
 
 	case b == ctrlH, b == keyBackspace:
 		// backspace
