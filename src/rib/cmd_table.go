@@ -157,12 +157,15 @@ func cmdShowInt(ctx command.ConfContext, node *command.CmdNode, line string, c c
 }
 
 func cmdShowConf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	showConfig(ctx.ConfRootCandidate(), node, line, c, "candidate configuration:")
+}
+
+func showConfig(root *command.ConfNode, node *command.CmdNode, line string, c command.CmdClient, head string) {
 	fields := strings.Fields(line)
 	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
 	c.Sendln("")
-	c.Sendln("candidate configuration:")
-	confCand := ctx.ConfRootCandidate()
-	showConf(confCand, 0, c, lineMode)
+	c.Sendln(head)
+	showConf(root, 0, c, lineMode)
 }
 
 func showConf(node *command.ConfNode, depth int, c command.CmdClient, lineMode bool) {
@@ -211,6 +214,7 @@ func cmdShowIPRoute(ctx command.ConfContext, node *command.CmdNode, line string,
 }
 
 func cmdShowRun(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	showConfig(ctx.ConfRootActive(), node, line, c, "running configuration:")
 }
 
 func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
