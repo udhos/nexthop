@@ -238,40 +238,56 @@ func showConfig(root *command.ConfNode, node *command.CmdNode, line string, c co
 	fields := strings.Fields(line)
 	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
 	c.Sendln(head)
-	showConf(root, 0, c, lineMode)
+	//showConf(root, 0, c, lineMode, false)
+	for _, n := range root.Children {
+		showConf(n, 0, c, lineMode, false)
+	}
 }
 
-func showConf(node *command.ConfNode, depth int, c command.CmdClient, lineMode bool) {
-	ident := strings.Repeat(" ", depth)
+func showConf(node *command.ConfNode, depth int, c command.CmdClient, lineMode, hasSibling bool) {
+	var ident string
+	if hasSibling {
+		ident = strings.Repeat(" ", 2*depth)
+	} else {
+		ident = ""
+	}
+
 	var last string
 	if lineMode {
 		last = node.Path
 	} else {
-		if node.Path == "" {
-			last = ""
-		} else {
-			last = command.LastToken(node.Path)
-		}
+		last = command.LastToken(node.Path)
 	}
+
+	moreThanOneChild := len(node.Children) > 1
 
 	// show node path
 	if !lineMode {
-		c.Sendln(fmt.Sprintf("%s%s", ident, last))
-	}
-
-	// show node values
-	for _, v := range node.Value {
-		if lineMode {
-			msg := fmt.Sprintf("%s %s", last, v)
-			c.Sendln(msg)
+		if moreThanOneChild {
+			c.Sendln(fmt.Sprintf("%s%s", ident, last))
 		} else {
-			msg := fmt.Sprintf("%s %s", ident, v)
-			c.Sendln(msg)
+			c.Send(fmt.Sprintf("%s%s ", ident, last))
 		}
 	}
 
+	// show node values
+
+	if !lineMode && len(node.Value) == 1 {
+		c.Sendln(fmt.Sprintf("%s %s", last, node.Value[0]))
+	} else {
+
+		for _, v := range node.Value {
+			if lineMode {
+				c.Sendln(fmt.Sprintf("%s %s", last, v))
+			} else {
+				c.Sendln(fmt.Sprintf("%s %s", ident, v))
+			}
+		}
+
+	}
+
 	for _, n := range node.Children {
-		showConf(n, depth+1, c, lineMode)
+		showConf(n, depth+1, c, lineMode, moreThanOneChild)
 	}
 }
 
