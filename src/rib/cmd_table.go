@@ -18,6 +18,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdNone, "configure", command.ENAB, cmdConfig, "Enter configuration mode")
 	command.CmdInstall(root, cmdNone, "enable", command.EXEC, cmdEnable, "Enter privileged mode")
 	command.CmdInstall(root, cmdNone, "exit", command.EXEC, cmdExit, "Exit current location")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, "Set interface description")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
@@ -72,21 +73,49 @@ func cmdEnable(ctx command.ConfContext, node *command.CmdNode, line string, c co
 func cmdExit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	cc := c.(*cli.Client)
 
-	log.Printf("exit: FIXME exit config path if any")
+	path := c.ConfigPath()
+	if path == "" {
+		cc.StatusExit()
+		//log.Printf("exit: new status=%d", cc.Status())
+		return
+	}
 
-	cc.StatusExit()
-	log.Printf("exit: new status=%d", cc.Status())
+	fields := strings.Fields(path)
+	newPath := strings.Join(fields[:len(fields)-1], " ")
+
+	c.ConfigPathSet(newPath)
+}
+
+func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	// line: "interf  XXXX   descrip   YYY ZZZ WWW"
+	//                                 ^^^^^^^^^^^
+	desc := "FIXME WRITEME"
+
+	lineFields := strings.Fields(line)
+	linePath := strings.Join(lineFields[:3], " ")
+
+	fields := strings.Fields(node.Path)
+	path := strings.Join(fields[:3], " ") // interface XXX description
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		log.Printf("description: error: %v", err)
+		return
+	}
+
+	confNode.ValueSet(desc)
 }
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 
-	line, addr := command.StripLastToken(line)
+	linePath, addr := command.StripLastToken(line)
 	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
 
 	path, _ := command.StripLastToken(node.Path)
 
 	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, line)
+	confNode, err, _ := confCand.Set(path, linePath)
 	if err != nil {
 		log.Printf("iface addr: error: %v", err)
 		return
@@ -96,6 +125,19 @@ func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	linePath, addr := command.StripLastToken(line)
+	log.Printf("cmdIfaceAddr: FIXME check IPv6/plen syntax: ipv6=%s", addr)
+
+	path, _ := command.StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		log.Printf("iface addr6: error: %v", err)
+		return
+	}
+
+	confNode.ValueAdd(addr)
 }
 
 func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

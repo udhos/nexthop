@@ -27,12 +27,11 @@ func executeKey(ctx command.ConfContext, line string, c *Client) {
 		c.outputQueue = nil // discard output queue
 	}
 
-	c.Output() <- "\r\n"
+	// key feedback
+	// RETURN is empty line (line == "")
+	c.Output() <- fmt.Sprintf("%s\r\n", line)
 
-	paging := c.SendQueue()
-	c.SetSendEveryChar(paging)
-	c.SendPrompt(ctx.Hostname(), paging)
-	c.Flush()
+	commandFeedback(c, ctx.Hostname())
 }
 
 func executeLine(ctx command.ConfContext, line string, c *Client) {
@@ -60,9 +59,13 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.Sendln(msg)
 	}
 
+	commandFeedback(c, ctx.Hostname())
+}
+
+func commandFeedback(c *Client, hostname string) {
 	paging := c.SendQueue()
 	c.SetSendEveryChar(paging)
-	c.SendPrompt(ctx.Hostname(), paging)
+	c.SendPrompt(hostname, paging)
 	c.Flush()
 }
 
@@ -100,10 +103,11 @@ func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 	}
 
 	if node.Handler == nil {
-		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", lookupPath))
 		if node.Options&command.CMD_CONF != 0 {
 			c.ConfigPathSet(lookupPath)
+			return
 		}
+		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", lookupPath))
 		return
 	}
 
