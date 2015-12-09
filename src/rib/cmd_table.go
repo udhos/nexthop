@@ -256,9 +256,7 @@ func showConf(node *command.ConfNode, depth int, c command.CmdClient, lineMode b
 
 	// show node path
 	if !lineMode {
-		p := fmt.Sprintf("%s%s", ident, last)
-		log.Printf(p)
-		c.Sendln(p)
+		c.Sendln(fmt.Sprintf("%s%s", ident, last))
 	}
 
 	// show node values

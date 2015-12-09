@@ -65,10 +65,10 @@ func (c *Client) sendNow(msg string) {
 }
 
 func (c *Client) Sendln(msg string) {
-	c.send(fmt.Sprintf("%s\r\n", msg))
+	c.Send(fmt.Sprintf("%s\r\n", msg))
 }
 
-func (c *Client) send(msg string) {
+func (c *Client) Send(msg string) {
 	c.outputQueue = append(c.outputQueue, msg)
 }
 

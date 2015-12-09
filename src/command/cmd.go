@@ -20,6 +20,7 @@ const (
 type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)
+	Send(msg string)
 	Sendln(msg string)
 	SendlnNow(msg string)
 	InputQuit()
@@ -209,7 +210,7 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc s
 			label = labelList[i]
 			currPath = strings.Join(labelList[:i+1], " ")
 			//log.Printf("cmdInstall: %d: intermmediate curr=[%s] label=[%s]", i, currPath, label)
-			newNode := &CmdNode{Path: currPath, MinLevel: EXEC, Options: opt}
+			newNode := &CmdNode{Path: currPath, MinLevel: min, Options: opt}
 			pushChild(parent, newNode)
 			parent = newNode
 		}

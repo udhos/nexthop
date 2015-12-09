@@ -83,7 +83,7 @@ func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 	if e == nil {
 		// found at root
 		if n.Options&command.CMD_CONF == 0 {
-			// not a config cmd
+			// not a config cmd -- ignore prepend path
 			prependConfigPath = false
 		}
 	}
@@ -91,6 +91,7 @@ func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 	lookupPath := line
 	configPath := c.ConfigPath()
 	if prependConfigPath && configPath != "" {
+		// prepend path to config command
 		lookupPath = fmt.Sprintf("%s %s", c.ConfigPath(), line)
 	}
 
@@ -102,17 +103,18 @@ func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
 		return
 	}
 
+	//c.Sendln(fmt.Sprintf("dispatchCommand: status=%d privilege=%d: [%s]", status, node.MinLevel, lookupPath))
+	if node.MinLevel > status {
+		c.Sendln(fmt.Sprintf("dispatchCommand: command level prohibited: [%s]", lookupPath))
+		return
+	}
+
 	if node.Handler == nil {
 		if node.Options&command.CMD_CONF != 0 {
 			c.ConfigPathSet(lookupPath)
 			return
 		}
 		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", lookupPath))
-		return
-	}
-
-	if node.MinLevel > status {
-		c.Sendln(fmt.Sprintf("dispatchCommand: command level prohibited: [%s]", lookupPath))
 		return
 	}
 
