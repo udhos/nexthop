@@ -21,6 +21,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, "Set interface description")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, "Disable interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "list", command.EXEC, cmdList, "List command tree")
@@ -165,6 +166,15 @@ func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line strin
 	}
 
 	confNode.ValueAdd(addr)
+}
+
+func cmdIfaceShutdown(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	confCand := ctx.ConfRootCandidate()
+	_, err, _ := confCand.Set(node.Path, line)
+	if err != nil {
+		log.Printf("iface shutdown: error: %v", err)
+		return
+	}
 }
 
 func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

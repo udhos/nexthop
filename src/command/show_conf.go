@@ -17,6 +17,11 @@ func ShowConf(root *ConfNode, node *CmdNode, c CmdClient, lineMode bool) {
 
 func showConfLine(node *ConfNode, depth int, c CmdClient) {
 
+	if len(node.Value) == 0 && len(node.Children) == 0 {
+		c.Sendln(node.Path)
+		return
+	}
+
 	// show node values
 	for _, v := range node.Value {
 		c.Sendln(fmt.Sprintf("%s %s", node.Path, v))
@@ -30,7 +35,7 @@ func showConfLine(node *ConfNode, depth int, c CmdClient) {
 func showConf(node *ConfNode, depth, valueDepth int, c CmdClient, hasSibling bool) {
 
 	var ident string
-	nodeIdent := strings.Repeat(" ", 2*depth)
+	nodeIdent := strings.Repeat(" ", 2*valueDepth)
 	last := LastToken(node.Path)
 
 	childrenCount := len(node.Children)
@@ -43,6 +48,12 @@ func showConf(node *ConfNode, depth, valueDepth int, c CmdClient, hasSibling boo
 	} else {
 		ident = ""
 	}
+
+	if fanout == 0 {
+		c.Sendln(fmt.Sprintf("%s%s", ident, last))
+		return
+	}
+
 	var identValue bool // need to increment identation for value
 	if fanout > 1 {
 		c.Sendln(fmt.Sprintf("%s%s", ident, last))
