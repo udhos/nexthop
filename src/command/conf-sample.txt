@@ -1,0 +1,47 @@
+--
+
+host abcdef
+int eth0 ipv4 addr 1
+int eth1 desc 2
+int eth2 ipv4 addr 3
+int eth2 ipv6 addr 4
+int eth3 ipv4 addr 5
+int eth3 ipv4 addr 6
+int eth4 desc 7
+int eth4 ipv4 addr 8
+int eth4 ipv4 addr 9
+int eth4 ipv6 addr 10
+int eth4 ipv6 addr 11
+
+--
+
+hostname abcdef
+interface
+  eth0 ipv4 address 1
+  eth1 description 2
+  eth2
+    ipv4 address 3
+    ipv6 address 4
+  exit (eth2)
+  eth3 ipv4 address
+    5
+    6
+  exit (address)
+  exit (ipv4)
+  exit (eth3)
+  eth4
+    description 7
+    ipv4 address
+      8
+      9
+    exit (address)
+	exit (ipv4)
+    ipv6 address
+      10
+      11
+    exit (address)
+    exit (ipv6)
+    exit (eth4)
+	exit (interface)
+
+--
