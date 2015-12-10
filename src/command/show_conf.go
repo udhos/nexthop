@@ -35,7 +35,7 @@ func showConfLine(node *ConfNode, depth int, c CmdClient) {
 func showConf(node *ConfNode, depth, valueDepth int, c CmdClient, hasSibling bool) {
 
 	var ident string
-	nodeIdent := strings.Repeat(" ", 2*valueDepth)
+	nodeIdent := strings.Repeat(" ", 2*depth)
 	last := LastToken(node.Path)
 
 	childrenCount := len(node.Children)
