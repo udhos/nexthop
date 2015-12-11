@@ -207,7 +207,39 @@ func cmdList(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 }
 
 func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	c.Sendln(fmt.Sprintf("no: [%s]", line))
+	c.Sendln(fmt.Sprintf("cmdNo: [%s]", line))
+
+	sep := strings.IndexByte(line, ' ')
+	if sep < 0 {
+		c.Sendln(fmt.Sprintf("cmdNo: missing argument: %v", line))
+		return
+	}
+
+	arg := line[sep:]
+
+	cc := c.(*cli.Client)
+	status := cc.Status()
+
+	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status)
+	if err != nil {
+		c.Sendln(fmt.Sprintf("cmdNo: not found [%s]: %v", arg, err))
+		return
+	}
+
+	c.Sendln(fmt.Sprintf("cmdNo: found lookup=[%s] path=[%s]", lookupPath, node.Path))
+
+	if !node.IsConfig() {
+		c.Sendln(fmt.Sprintf("cmdNo: not a configuration command: [%s]", arg))
+		return
+	}
+
+	conf, e := ctx.ConfRootCandidate().Get(lookupPath)
+	if e != nil {
+		c.Sendln(fmt.Sprintf("cmdNo: config node not found [%s]: %v", lookupPath, e))
+		return
+	}
+
+	c.Sendln(fmt.Sprintf("cmdNo: config node found: [%s]", conf.Path))
 }
 
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

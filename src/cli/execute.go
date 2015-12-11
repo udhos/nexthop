@@ -78,46 +78,18 @@ func dispatchCommand(ctx command.ConfContext, rawLine string, c *Client) {
 		return // ignore empty lines
 	}
 
-	prependConfigPath := true // assume it's a config cmd
-
-	status := c.Status()
-
-	n, e := command.CmdFind(ctx.CmdRoot(), line, status)
-	if e == nil {
-		// found at root
-		if n.Options&command.CMD_CONF == 0 {
-			// not a config cmd -- ignore prepend path
-			prependConfigPath = false
-		}
-	}
-
-	lookupPath := line
-	configPath := c.ConfigPath()
-	if prependConfigPath && configPath != "" {
-		// prepend path to config command
-		lookupPath = fmt.Sprintf("%s %s", c.ConfigPath(), line)
-	}
-
-	//log.Printf("dispatchCommand: prepend=%v path=[%s] line=[%s] full=[%s]", prependConfigPath, configPath, line, lookupPath)
-
-	node, err := command.CmdFind(ctx.CmdRoot(), lookupPath, status)
+	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), c.Status())
 	if err != nil {
-		c.Sendln(fmt.Sprintf("dispatchCommand: command not found: %s", err))
-		return
-	}
-
-	//c.Sendln(fmt.Sprintf("dispatchCommand: status=%d privilege=%d: [%s]", status, node.MinLevel, lookupPath))
-	if node.MinLevel > status {
-		c.Sendln(fmt.Sprintf("dispatchCommand: command level prohibited: [%s]", lookupPath))
+		c.Sendln(fmt.Sprintf("dispatchCommand: not found [%s]: %v", line, err))
 		return
 	}
 
 	if node.Handler == nil {
-		if node.Options&command.CMD_CONF != 0 {
-			c.ConfigPathSet(lookupPath)
+		if node.IsConfig() {
+			c.ConfigPathSet(lookupPath) // enter config path
 			return
 		}
-		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", lookupPath))
+		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", line))
 		return
 	}
 

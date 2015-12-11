@@ -43,6 +43,10 @@ type CmdNode struct {
 	Options  uint64
 }
 
+func (n *CmdNode) IsConfig() bool {
+	return n.Options&CMD_CONF != 0
+}
+
 type ConfNode struct {
 	Path     string
 	Value    []string
@@ -277,6 +281,38 @@ func matchChildren(children []*CmdNode, label string) []*CmdNode {
 	}
 
 	return c
+}
+
+func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNode, string, error) {
+
+	prependConfigPath := true // assume it's a config cmd
+	n, e := CmdFind(root, line, status)
+	if e == nil {
+		// found at root
+		if !n.IsConfig() {
+			// not a config cmd -- ignore prepend path
+			prependConfigPath = false
+		}
+	}
+
+	var lookupPath string
+	if prependConfigPath && configPath != "" {
+		// prepend path to config command
+		lookupPath = fmt.Sprintf("%s %s", configPath, line)
+	} else {
+		lookupPath = line
+	}
+
+	node, err := CmdFind(root, lookupPath, status)
+	if err != nil {
+		return nil, lookupPath, fmt.Errorf("dispatchCommand: command not found: %s", err)
+	}
+
+	if node.MinLevel > status {
+		return nil, lookupPath, fmt.Errorf("dispatchCommand: command level prohibited: [%s]", lookupPath)
+	}
+
+	return node, lookupPath, nil
 }
 
 func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
