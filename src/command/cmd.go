@@ -340,3 +340,17 @@ func cmdExpand(originalLine, commandFullPath string) (string, error) {
 
 	return strings.Join(pathFields, " "), nil
 }
+
+func List(node *CmdNode, depth int, c CmdClient) {
+	handler := "----"
+	if node.Handler != nil {
+		handler = "LEAF"
+	}
+	ident := strings.Repeat(" ", 4*depth)
+	output := fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc)
+	log.Printf(output)
+	c.Sendln(output)
+	for _, n := range node.Children {
+		List(n, depth+1, c)
+	}
+}

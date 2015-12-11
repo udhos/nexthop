@@ -202,22 +202,8 @@ func cmdQuit(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 	c.InputQuit()
 }
 
-func list(node *command.CmdNode, depth int, c command.CmdClient) {
-	handler := "----"
-	if node.Handler != nil {
-		handler = "LEAF"
-	}
-	ident := strings.Repeat(" ", 4*depth)
-	output := fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc)
-	log.Printf(output)
-	c.Sendln(output)
-	for _, n := range node.Children {
-		list(n, depth+1, c)
-	}
-}
-
 func cmdList(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	list(ctx.CmdRoot(), 0, c)
+	command.List(ctx.CmdRoot(), 0, c)
 }
 
 func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
