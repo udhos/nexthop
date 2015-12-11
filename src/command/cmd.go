@@ -179,12 +179,12 @@ func pushChild(node, child *CmdNode) {
 }
 
 func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) {
-	if err := cmdAdd(root, opt, path, min, cmd, desc); err != nil {
+	if _, err := cmdAdd(root, opt, path, min, cmd, desc); err != nil {
 		log.Printf("cmdInstall: error %s", err)
 	}
 }
 
-func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) error {
+func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) (*CmdNode, error) {
 	//log.Printf("cmdInstall: [%s]", path)
 
 	labelList := strings.Fields(path)
@@ -222,16 +222,22 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc s
 		pushChild(parent, newNode)
 
 		// did this command create an unreachable location?
-		if _, err := CmdFind(root, path, CONF); err != nil {
-			return fmt.Errorf("root=[%s] cmd=[%s] created unreachable command node: %v", root.Path, path, err)
+
+		n, err := CmdFind(root, path, CONF)
+		if err != nil {
+			return newNode, fmt.Errorf("root=[%s] cmd=[%s] created unreachable command node: %v", root.Path, path, err)
 		}
 
-		return nil
+		if n != newNode {
+			return newNode, fmt.Errorf("root=[%s] cmd=[%s] created wrong command node: %v", root.Path, path, err)
+		}
+
+		return newNode, nil
 	}
 
 	// command node found
 
-	return fmt.Errorf("[%s] already exists", path)
+	return parent, fmt.Errorf("[%s] already exists", path)
 }
 
 func findChild(node *CmdNode, label string) *CmdNode {
@@ -311,6 +317,9 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 	return parent, nil // found
 }
 
+// originalLine:    int eth0 ipv4 addr 1.1.1.1/30
+// commandFullPath: interface {IFNAME} ipv4 address {ADDR}
+// output:          interface eth0 ipv4 address 1.1.1.1/30
 func cmdExpand(originalLine, commandFullPath string) (string, error) {
 	lineFields := strings.Fields(originalLine)
 	pathFields := strings.Fields(commandFullPath)
