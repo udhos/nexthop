@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"command"
 )
@@ -69,10 +70,12 @@ func commandFeedback(c *Client, hostname string) {
 	c.Flush()
 }
 
-func dispatchCommand(ctx command.ConfContext, line string, c *Client) {
+func dispatchCommand(ctx command.ConfContext, rawLine string, c *Client) {
+
+	line := strings.TrimLeft(rawLine, " ")
 
 	if line == "" {
-		return
+		return // ignore empty lines
 	}
 
 	prependConfigPath := true // assume it's a config cmd
