@@ -69,7 +69,7 @@ func (n *ConfNode) ValueSet(value string) {
 
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
-	expanded, err := cmdExpand(line, path)
+	expanded, err := CmdExpand(line, path)
 	if err != nil {
 		return nil, fmt.Errorf("ConfNode.Set error: %v", err), false
 	}
@@ -111,6 +111,20 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	return parent, nil, true
 }
 
+func (n *ConfNode) GetParent(childPath string) (*ConfNode, error) {
+
+	childFields := strings.Fields(childPath)
+	parentFields := childFields[:len(childFields)-1]
+	parentPath := strings.Join(parentFields, " ")
+
+	node, err := n.Get(parentPath)
+	if err != nil {
+		return node, fmt.Errorf("ConfNode.GetParent: not found child=[%s] parent=[%s]: %v", childPath, parentPath, err)
+	}
+
+	return node, nil
+}
+
 func (n *ConfNode) Get(path string) (*ConfNode, error) {
 
 	labels := strings.Fields(path)
@@ -124,7 +138,7 @@ func (n *ConfNode) Get(path string) (*ConfNode, error) {
 		}
 
 		// not found
-		return nil, fmt.Errorf("ConfNode.Get not found")
+		return nil, fmt.Errorf("ConfNode.Get: not found: [%s]", path)
 	}
 
 	return parent, nil // found
@@ -356,7 +370,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 // originalLine:    int eth0 ipv4 addr 1.1.1.1/30
 // commandFullPath: interface {IFNAME} ipv4 address {ADDR}
 // output:          interface eth0 ipv4 address 1.1.1.1/30
-func cmdExpand(originalLine, commandFullPath string) (string, error) {
+func CmdExpand(originalLine, commandFullPath string) (string, error) {
 	lineFields := strings.Fields(originalLine)
 	pathFields := strings.Fields(commandFullPath)
 

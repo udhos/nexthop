@@ -233,13 +233,19 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 		return
 	}
 
-	conf, e := ctx.ConfRootCandidate().Get(lookupPath)
+	expanded, e := command.CmdExpand(arg, node.Path)
 	if e != nil {
-		c.Sendln(fmt.Sprintf("cmdNo: config node not found [%s]: %v", lookupPath, e))
+		c.Sendln(fmt.Sprintf("cmdNo: could not expand path: %v", e))
 		return
 	}
 
-	c.Sendln(fmt.Sprintf("cmdNo: config node found: [%s]", conf.Path))
+	parentConf, e2 := ctx.ConfRootCandidate().GetParent(expanded)
+	if e2 != nil {
+		c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e2))
+		return
+	}
+
+	c.Sendln(fmt.Sprintf("cmdNo: config parent node found: parent=[%s] lookup=[%s]", parentConf.Path, expanded))
 }
 
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
