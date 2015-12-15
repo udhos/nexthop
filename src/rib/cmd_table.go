@@ -216,6 +216,10 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 		return
 	}
 
+	matchAny := node.MatchAny()
+
+	c.Sendln(fmt.Sprintf("cmdNo: matchAny=%v", matchAny))
+
 	expanded, e := command.CmdExpand(arg, node.Path)
 	if e != nil {
 		c.Sendln(fmt.Sprintf("cmdNo: could not expand path: %v", e))

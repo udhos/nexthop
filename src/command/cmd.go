@@ -47,6 +47,17 @@ func (n *CmdNode) IsConfig() bool {
 	return n.Options&CMD_CONF != 0
 }
 
+func (n *CmdNode) MatchAny() bool {
+	last := strings.LastIndexByte(n.Path, ' ')
+	if last < 0 {
+		return false
+	}
+	if last+1 >= len(n.Path) {
+		return false
+	}
+	return n.Path[last+1:] == "{ANY}"
+}
+
 type ConfNode struct {
 	Path     string
 	Value    []string
