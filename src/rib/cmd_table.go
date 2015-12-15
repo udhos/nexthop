@@ -217,8 +217,9 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 	}
 
 	matchAny := node.MatchAny()
+	childMatchAny := !matchAny && len(node.Children) == 1 && node.Children[0].MatchAny()
 
-	c.Sendln(fmt.Sprintf("cmdNo: matchAny=%v", matchAny))
+	c.Sendln(fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny))
 
 	expanded, e := command.CmdExpand(arg, node.Path)
 	if e != nil {
