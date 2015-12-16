@@ -17,6 +17,8 @@ const (
 	CONF = iota
 )
 
+const CMD_WILDCARD_ANY = "{ANY}"
+
 type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)
@@ -55,7 +57,7 @@ func (n *CmdNode) MatchAny() bool {
 	if last+1 >= len(n.Path) {
 		return false
 	}
-	return n.Path[last+1:] == "{ANY}"
+	return n.Path[last+1:] == CMD_WILDCARD_ANY
 }
 
 type ConfNode struct {
@@ -78,6 +80,14 @@ func (n *ConfNode) ValueSet(value string) {
 	n.Value = []string{value}
 }
 
+func (n *ConfNode) DeleteChild(i int) {
+	size := len(n.Children)
+	last := size - 1
+	n.Children[i] = n.Children[last]
+	n.Children = n.Children[:last]
+
+}
+
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 	expanded, err := CmdExpand(line, path)
@@ -91,10 +101,10 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	size := len(labels)
 	parent := n
 	for i, label := range labels {
-		child := parent.findChild(label)
-		if child != nil {
+		child := parent.FindChild(label)
+		if child >= 0 {
 			// found, search next
-			parent = child
+			parent = n.Children[child]
 			continue
 		}
 
@@ -122,6 +132,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	return parent, nil, true
 }
 
+/*
 func (n *ConfNode) GetParent(childPath string) (*ConfNode, error) {
 
 	childFields := strings.Fields(childPath)
@@ -135,16 +146,23 @@ func (n *ConfNode) GetParent(childPath string) (*ConfNode, error) {
 
 	return node, nil
 }
+*/
 
 func (n *ConfNode) Get(path string) (*ConfNode, error) {
+
+	/*
+		if strings.TrimSpace(path) == "" {
+			panic("command.Get: bad path")
+		}
+	*/
 
 	labels := strings.Fields(path)
 	parent := n
 	for _, label := range labels {
-		child := parent.findChild(label)
-		if child != nil {
+		child := parent.FindChild(label)
+		if child >= 0 {
 			// found, search next
-			parent = child
+			parent = parent.Children[child]
 			continue
 		}
 
@@ -152,19 +170,26 @@ func (n *ConfNode) Get(path string) (*ConfNode, error) {
 		return nil, fmt.Errorf("ConfNode.Get: not found: [%s]", path)
 	}
 
+	if path != parent.Path {
+		err := fmt.Errorf("command.Get: want=[%s] found=[%s]", path, parent.Path)
+		log.Print(err)
+		panic(err)
+		//return nil, err
+	}
+
 	return parent, nil // found
 }
 
-func (n *ConfNode) findChild(label string) *ConfNode {
+func (n *ConfNode) FindChild(label string) int {
 
-	for _, c := range n.Children {
+	for i, c := range n.Children {
 		last := LastToken(c.Path)
 		if label == last {
-			return c
+			return i
 		}
 	}
 
-	return nil
+	return -1
 }
 
 type ConfContext interface {
@@ -273,14 +298,10 @@ func findChild(node *CmdNode, label string) *CmdNode {
 
 	for _, c := range node.Children {
 		last := LastToken(c.Path)
-		//log.Printf("findChild: searching [%s] against (%s)[%s] under [%s]", label, last, c.Path, node.Path)
 		if label == last {
-			//log.Printf("findChild: found [%s] as [%s] under [%s]", label, c.Path, node.Path)
 			return c
 		}
 	}
-
-	//log.Printf("findChild: not found [%s] under [%s]", label, node.Path)
 
 	return nil
 }
@@ -359,7 +380,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 		//label := s.TokenText()
 		//log.Printf("cmdFind: token: [%s]", label)
 
-		if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == "{ANY}" {
+		if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == CMD_WILDCARD_ANY {
 			// {ANY} is special construct for consuming anything
 			return parent.Children[0], nil // found
 		}

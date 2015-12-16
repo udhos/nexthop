@@ -203,13 +203,11 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 	cc := c.(*cli.Client)
 	status := cc.Status()
 
-	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status)
+	node, _, err := command.CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status)
 	if err != nil {
 		c.Sendln(fmt.Sprintf("cmdNo: not found [%s]: %v", arg, err))
 		return
 	}
-
-	c.Sendln(fmt.Sprintf("cmdNo: found lookup=[%s] path=[%s]", lookupPath, node.Path))
 
 	if !node.IsConfig() {
 		c.Sendln(fmt.Sprintf("cmdNo: not a configuration command: [%s]", arg))
@@ -223,17 +221,59 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 
 	expanded, e := command.CmdExpand(arg, node.Path)
 	if e != nil {
-		c.Sendln(fmt.Sprintf("cmdNo: could not expand path: %v", e))
+		c.Sendln(fmt.Sprintf("cmdNo: could not expand arg=[%s] cmd=[%s]: %v", arg, node.Path, e))
 		return
 	}
 
-	parentConf, e2 := ctx.ConfRootCandidate().GetParent(expanded)
-	if e2 != nil {
-		c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e2))
-		return
+	var parentConf *command.ConfNode
+	var childIndex int
+
+	switch {
+	case matchAny:
+		// arg,node.Path is child
+
+		parentPath, childLabel := command.StripLastToken(expanded)
+		parentPath, childLabel = command.StripLastToken(parentPath)
+
+		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
+		if e != nil {
+			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e))
+			return
+		}
+
+		childIndex = parentConf.FindChild(childLabel)
+
+	case childMatchAny:
+		// arg,node.Path is parent of single child: path=[a b c d] child=[a b c d X] X matches {ANY}
+
+		parentPath, childLabel := command.StripLastToken(expanded)
+
+		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
+		if e != nil {
+			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e))
+			return
+		}
+
+		childIndex = parentConf.FindChild(childLabel)
+
+	default:
+		// arg,node.Path is child
+
+		parentPath, childLabel := command.StripLastToken(expanded)
+
+		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
+		if e != nil {
+			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e))
+			return
+		}
+
+		childIndex = parentConf.FindChild(childLabel)
 	}
 
-	c.Sendln(fmt.Sprintf("cmdNo: config parent node found: parent=[%s] lookup=[%s]", parentConf.Path, expanded))
+	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
+	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
+
+	parentConf.DeleteChild(childIndex)
 }
 
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
