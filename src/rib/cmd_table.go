@@ -257,7 +257,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 		childIndex = parentConf.FindChild(childLabel)
 
 	default:
-		// arg,node.Path is child
+		// arg,node.Path is one of: intermediate node, leaf node, value of single-value leaf node, value of multi-value leaf node
 
 		parentPath, childLabel := command.StripLastToken(expanded)
 
@@ -273,7 +273,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
 	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
 
-	parentConf.DeleteChild(childIndex)
+	ctx.ConfRootCandidate().Prune(parentConf, childIndex)
 }
 
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

@@ -80,12 +80,35 @@ func (n *ConfNode) ValueSet(value string) {
 	n.Value = []string{value}
 }
 
-func (n *ConfNode) DeleteChild(i int) {
+// remove node from tree.
+// any node which loses all children is purged as well.
+func (n *ConfNode) Prune(parent *ConfNode, child int) bool {
+
+	if n == parent {
+		// found parent node
+		n.deleteChild(child)
+	} else {
+		// keep searching parent node...
+		for i, c := range n.Children {
+			// ...recursively
+			if deleteChild := c.Prune(parent, child); deleteChild {
+				// child lost all children, then we kill it
+				n.deleteChild(i)
+			}
+		}
+	}
+
+	deleteMe := len(n.Children) == 0 // lost all children, kill me
+
+	return deleteMe
+}
+
+// remove child node unconditionally
+func (n *ConfNode) deleteChild(i int) {
 	size := len(n.Children)
 	last := size - 1
 	n.Children[i] = n.Children[last]
 	n.Children = n.Children[:last]
-
 }
 
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
