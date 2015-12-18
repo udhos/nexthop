@@ -86,7 +86,11 @@ func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
 
 	if n == parent {
 		// found parent node
-		n.deleteChild(child)
+		if err := n.deleteChild(child); err != nil {
+			msg := fmt.Sprintf("command.Prune: error: %v", err)
+			log.Printf(msg)
+			out.Sendln(msg)
+		}
 		deleteMe := len(n.Children) == 0 // lost all children, kill me
 		return deleteMe
 	}
@@ -97,7 +101,11 @@ func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
 		if deleteChild := c.Prune(parent, child, out); deleteChild {
 
 			// child lost all children, then we kill it
-			n.deleteChild(c)
+			if err := n.deleteChild(c); err != nil {
+				msg := fmt.Sprintf("command.Prune: error: %v", err)
+				log.Printf(msg)
+				out.Sendln(msg)
+			}
 			deleteMe := len(n.Children) == 0 // lost all children, kill me
 
 			if size := len(n.Value); deleteMe && size > 0 {
@@ -114,13 +122,15 @@ func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
 	return false
 }
 
-func (n *ConfNode) deleteChild(child *ConfNode) {
+func (n *ConfNode) deleteChild(child *ConfNode) error {
 	for i, c := range n.Children {
 		if c == child {
 			n.deleteChildByIndex(i)
-			break
+			return nil
 		}
 	}
+
+	return fmt.Errorf("command.deleteChild: child not found: node=[%s] child[%s]", n.Path, child.Path)
 }
 
 // remove child node unconditionally
