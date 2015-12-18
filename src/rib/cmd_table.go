@@ -230,7 +230,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 
 	switch {
 	case matchAny:
-		// arg,node.Path is child
+		// arg,node.Path is child: ... parent child value
 
 		parentPath, childLabel := command.StripLastToken(expanded)
 		parentPath, childLabel = command.StripLastToken(parentPath)
@@ -244,7 +244,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 		childIndex = parentConf.FindChild(childLabel)
 
 	case childMatchAny:
-		// arg,node.Path is parent of single child: path=[a b c d] child=[a b c d X] X matches {ANY}
+		// arg,node.Path is parent of single child: ... parent child value
 
 		parentPath, childLabel := command.StripLastToken(expanded)
 
