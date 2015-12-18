@@ -273,7 +273,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
 	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
 
-	ctx.ConfRootCandidate().Prune(parentConf, childIndex)
+	ctx.ConfRootCandidate().Prune(parentConf, parentConf.Children[childIndex], c)
 }
 
 func cmdReload(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

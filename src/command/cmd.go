@@ -82,29 +82,49 @@ func (n *ConfNode) ValueSet(value string) {
 
 // remove node from tree.
 // any node which loses all children is purged as well.
-func (n *ConfNode) Prune(parent *ConfNode, child int) bool {
+func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
 
 	if n == parent {
 		// found parent node
 		n.deleteChild(child)
-	} else {
-		// keep searching parent node...
-		for i, c := range n.Children {
-			// ...recursively
-			if deleteChild := c.Prune(parent, child); deleteChild {
-				// child lost all children, then we kill it
-				n.deleteChild(i)
+		deleteMe := len(n.Children) == 0 // lost all children, kill me
+		return deleteMe
+	}
+
+	// keep searching parent node...
+	for _, c := range n.Children {
+		// ...recursively
+		if deleteChild := c.Prune(parent, child, out); deleteChild {
+
+			// child lost all children, then we kill it
+			n.deleteChild(c)
+			deleteMe := len(n.Children) == 0 // lost all children, kill me
+
+			if size := len(n.Value); deleteMe && size > 0 {
+				msg := fmt.Sprintf("command.Prune: error: child=[%s] valueCount=%d: should not delete node with value", n.Path, size)
+				log.Printf(msg)
+				out.Sendln(msg)
+				return false
 			}
+
+			return deleteMe
 		}
 	}
 
-	deleteMe := len(n.Children) == 0 // lost all children, kill me
+	return false
+}
 
-	return deleteMe
+func (n *ConfNode) deleteChild(child *ConfNode) {
+	for i, c := range n.Children {
+		if c == child {
+			n.deleteChildByIndex(i)
+			break
+		}
+	}
 }
 
 // remove child node unconditionally
-func (n *ConfNode) deleteChild(i int) {
+func (n *ConfNode) deleteChildByIndex(i int) {
 	size := len(n.Children)
 	last := size - 1
 	n.Children[i] = n.Children[last]
@@ -127,7 +147,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 		child := parent.FindChild(label)
 		if child >= 0 {
 			// found, search next
-			parent = n.Children[child]
+			parent = parent.Children[child]
 			continue
 		}
 
