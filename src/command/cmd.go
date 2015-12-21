@@ -80,6 +80,22 @@ func (n *ConfNode) ValueSet(value string) {
 	n.Value = []string{value}
 }
 
+func (n *ConfNode) ValueDelete(value string) error {
+	for i, v := range n.Value {
+		if v == value {
+
+			size := len(n.Value)
+			last := size - 1
+			n.Value[i] = n.Value[last]
+			n.Value = n.Value[:last]
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
+}
+
 // remove node from tree.
 // any node which loses all children is purged as well.
 func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
@@ -359,7 +375,7 @@ func findChild(node *CmdNode, label string) *CmdNode {
 	return nil
 }
 
-func isConfigValueKeyword(str string) bool {
+func IsConfigValueKeyword(str string) bool {
 	return str[0] == '{' && str[len(str)-1] == '}'
 }
 
@@ -368,7 +384,7 @@ func matchChildren(children []*CmdNode, label string) []*CmdNode {
 
 	for _, n := range children {
 		last := LastToken(n.Path)
-		if isConfigValueKeyword(last) {
+		if IsConfigValueKeyword(last) {
 			// these keywords match any label
 			c = append(c, n)
 			continue

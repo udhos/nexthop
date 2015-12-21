@@ -237,7 +237,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
-			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e))
+			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
 			return
 		}
 
@@ -250,7 +250,7 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
-			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e))
+			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
 			return
 		}
 
@@ -263,11 +263,35 @@ func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c comman
 
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
-			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", expanded, e))
+			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
 			return
 		}
 
 		childIndex = parentConf.FindChild(childLabel)
+
+		_, cmdLast := command.StripLastToken(node.Path)
+		if command.IsConfigValueKeyword(cmdLast) {
+			if e2 := parentConf.ValueDelete(childLabel); e2 != nil {
+				c.Sendln(fmt.Sprintf("cmdNo: could not delete value: %v", e2))
+				return
+			}
+
+			if len(parentConf.Value) > 0 {
+				return // done, can't delete node
+			}
+
+			// node without value
+
+			parentPath, childLabel = command.StripLastToken(parentPath)
+
+			parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
+			if e != nil {
+				c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
+				return
+			}
+
+			childIndex = parentConf.FindChild(childLabel)
+		}
 	}
 
 	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
