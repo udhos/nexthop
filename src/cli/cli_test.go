@@ -101,12 +101,29 @@ func TestConf(t *testing.T) {
 	dispatchCommand(app, "no int eth0 desc xxxxxxx", c, command.CONF)
 	node, err = app.confRootCandidate.Get("interface eth0 description")
 	if node != nil || err == nil {
-		t.Errorf("description should not be present: node=[%v] error=[%v]", node, err)
+		t.Errorf("eth0 description should not be present: node=[%v] error=[%v]", node, err)
 	}
 
-	dispatchCommand(app, "int eth1 desc  aa  bb   ccc", c, command.CONF)
+	dispatchCommand(app, "int eth1 desc ddd   eee   fff ", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth1 description")
+	if err != nil {
+		t.Errorf("bad description: %v", err)
+	}
+	if node.Path != "interface eth1 description" {
+		t.Errorf("bad description path: [%s]", node.Path)
+	}
+	if len(node.Value) != 1 {
+		t.Errorf("bad description value count: %d", len(node.Value))
+	}
+	if node.Value[0] != "ddd   eee   fff " {
+		t.Errorf("bad description value: [%s]", node.Value[0])
+	}
 
 	dispatchCommand(app, "no int eth1 desc", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth1 description")
+	if node != nil || err == nil {
+		t.Errorf("eth1 description should not be present: node=[%v] error=[%v]", node, err)
+	}
 
 	close(c.outputChannel)
 }
