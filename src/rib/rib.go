@@ -39,6 +39,7 @@ func (r RibApp) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
 }
 
+/*
 func (r RibApp) Hostname() string {
 	root := r.ConfRootCandidate()
 	log.Printf("rib RibApp.Hostname(): FIXME: query ACTIVE config")
@@ -49,6 +50,7 @@ func (r RibApp) Hostname() string {
 
 	return node.Value[0]
 }
+*/
 
 func main() {
 	log.Printf("rib starting")

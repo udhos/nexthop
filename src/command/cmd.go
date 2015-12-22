@@ -266,7 +266,7 @@ type ConfContext interface {
 	ConfRootCandidate() *ConfNode
 	ConfRootActive() *ConfNode
 
-	Hostname() string
+	//Hostname() string
 }
 
 /*

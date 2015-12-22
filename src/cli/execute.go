@@ -32,7 +32,20 @@ func executeKey(ctx command.ConfContext, line string, c *Client) {
 	// RETURN is empty line (line == "")
 	c.Output() <- fmt.Sprintf("%s\r\n", line)
 
-	commandFeedback(c, ctx.Hostname())
+	commandFeedback(c, hostname(ctx))
+}
+
+func hostname(ctx command.ConfContext) string {
+	root := ctx.ConfRootCandidate()
+
+	log.Printf("cli.hostname(): FIXME: query ACTIVE config")
+
+	node, err := root.Get("hostname")
+	if err != nil {
+		return "hostname?"
+	}
+
+	return node.Value[0]
 }
 
 func executeLine(ctx command.ConfContext, line string, c *Client) {
@@ -53,14 +66,14 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.EchoEnable()
 		c.StatusSet(command.EXEC)
 	case command.EXEC, command.ENAB, command.CONF:
-		dispatchCommand(ctx, line, c)
+		dispatchCommand(ctx, line, c, status)
 	default:
 		msg := fmt.Sprintf("unknown state for command: [%s]", line)
 		log.Print(msg)
 		c.Sendln(msg)
 	}
 
-	commandFeedback(c, ctx.Hostname())
+	commandFeedback(c, hostname(ctx))
 }
 
 func commandFeedback(c *Client, hostname string) {
@@ -70,7 +83,7 @@ func commandFeedback(c *Client, hostname string) {
 	c.Flush()
 }
 
-func dispatchCommand(ctx command.ConfContext, rawLine string, c *Client) {
+func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClient, status int) {
 
 	line := strings.TrimLeft(rawLine, " ")
 
@@ -78,7 +91,7 @@ func dispatchCommand(ctx command.ConfContext, rawLine string, c *Client) {
 		return // ignore empty lines
 	}
 
-	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), c.Status())
+	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
 	if err != nil {
 		c.Sendln(fmt.Sprintf("dispatchCommand: not found [%s]: %v", line, err))
 		return

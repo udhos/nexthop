@@ -164,18 +164,7 @@ func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c
 }
 
 func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	line, host := command.StripLastToken(line)
-
-	path, _ := command.StripLastToken(node.Path)
-
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, line)
-	if err != nil {
-		log.Printf("hostname: error: %v", err)
-		return
-	}
-
-	confNode.ValueSet(host)
+	command.HelperHostname(ctx, node, line, c)
 }
 
 func cmdQuit(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
