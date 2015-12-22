@@ -27,6 +27,7 @@ type CmdClient interface {
 	SendlnNow(msg string)
 	InputQuit()
 	Output() chan<- string
+	Status() int
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
