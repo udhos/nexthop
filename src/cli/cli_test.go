@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"testing"
 
 	"command"
@@ -68,14 +67,15 @@ func TestConf(t *testing.T) {
 	c := &testClient{outputChannel: make(chan string)}
 
 	go func() {
+		t.Logf("TestConf: starting output channel goroutine")
 		for {
 			line, ok := <-c.outputChannel
 			if !ok {
 				break
 			}
-			fmt.Printf("TestConf: read bogus client output channel: [%s]", line)
+			t.Logf("TestConf: read bogus client output channel: [%s]", line)
 		}
-		fmt.Printf("TestConf: exiting")
+		t.Logf("TestConf: exiting output channel goroutine")
 	}()
 
 	if err := dispatchCommand(app, "", c, command.CONF); err != nil {
