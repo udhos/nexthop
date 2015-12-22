@@ -92,20 +92,7 @@ func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c com
 }
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-
-	linePath, addr := command.StripLastToken(line)
-	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
-
-	path, _ := command.StripLastToken(node.Path)
-
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		log.Printf("iface addr: error: %v", err)
-		return
-	}
-
-	confNode.ValueAdd(addr)
+	command.HelperIfaceAddr(ctx, node, line, c)
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

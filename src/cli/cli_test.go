@@ -57,7 +57,7 @@ func TestConf(t *testing.T) {
 	}
 
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, command.HelperDescription, "Set interface description")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdBogus, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, command.HelperIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdBogus, "Disable interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdBogus, "Enable IP routing")
@@ -135,6 +135,42 @@ func TestConf(t *testing.T) {
 	node, err = app.confRootCandidate.Get("interface eth1 description")
 	if node != nil || err == nil {
 		t.Errorf("eth1 description should not be present: node=[%v] error=[%v]", node, err)
+	}
+
+	dispatchCommand(app, "int eth2 ipv4 addr 1", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth2 ipv4 address")
+	if err != nil {
+		t.Errorf("bad eth2 address 1: %v", err)
+		return
+	}
+	if len(node.Value) != 1 {
+		t.Errorf("wrong number of eth2 addresses (expected=1): %d", len(node.Value))
+	}
+	dispatchCommand(app, "int eth2 ipv4 addr 2", c, command.CONF)
+	if err != nil {
+		t.Errorf("bad eth2 address 2: %v", err)
+		return
+	}
+	if len(node.Value) != 2 {
+		t.Errorf("wrong number of eth2 addresses (expected=2): %d", len(node.Value))
+	}
+	dispatchCommand(app, "int eth2 ipv4 addr 3", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth2 ipv4 address")
+	if err != nil {
+		t.Errorf("bad eth2 address 3: %v", err)
+		return
+	}
+	if len(node.Value) != 3 {
+		t.Errorf("wrong number of eth2 addresses (expected=3): %d", len(node.Value))
+	}
+	dispatchCommand(app, "no int eth2 ipv4 addr 3", c, command.CONF)
+	if len(node.Value) != 2 {
+		t.Errorf("wrong number of eth2 addresses (expected=2): %d", len(node.Value))
+	}
+	dispatchCommand(app, "no int eth2 ipv4 addr", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth2 ipv4 address")
+	if node != nil || err == nil {
+		t.Errorf("eth2 should not have address: node=[%v] error=[%v]", node, err)
 	}
 
 	close(c.outputChannel)

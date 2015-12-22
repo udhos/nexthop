@@ -229,6 +229,7 @@ func (n *ConfNode) Get(path string) (*ConfNode, error) {
 	labels := strings.Fields(path)
 	parent := n
 	for _, label := range labels {
+		//log.Printf("ConfNode.Get: search label=[%s] under parent=[%s]", label, parent.Path)
 		child := parent.FindChild(label)
 		if child >= 0 {
 			// found, search next
@@ -237,11 +238,11 @@ func (n *ConfNode) Get(path string) (*ConfNode, error) {
 		}
 
 		// not found
-		return nil, fmt.Errorf("ConfNode.Get: not found: [%s]", path)
+		return nil, fmt.Errorf("ConfNode.Get: not found: path=[%s] parent=[%s] label=[%s]", path, parent.Path, label)
 	}
 
 	if path != parent.Path {
-		err := fmt.Errorf("command.Get: want=[%s] found=[%s]", path, parent.Path)
+		err := fmt.Errorf("ConfNode.Get: want=[%s] found=[%s]", path, parent.Path)
 		log.Print(err)
 		panic(err)
 		//return nil, err

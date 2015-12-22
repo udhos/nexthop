@@ -6,6 +6,26 @@ import (
 	"strings"
 )
 
+// Iface addr config should not be a helper function,
+// since it only applies to RIB daemon.
+// However it is currently being used for helping in tests.
+func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+
+	linePath, addr := StripLastToken(line)
+	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
+
+	path, _ := StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		log.Printf("iface addr: error: %v", err)
+		return
+	}
+
+	confNode.ValueAdd(addr)
+}
+
 func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	// line: "interf  XXXX   descrip   YYY ZZZ WWW"
 	//                                 ^^^^^^^^^^^
