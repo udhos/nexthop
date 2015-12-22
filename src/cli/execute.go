@@ -66,7 +66,9 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.EchoEnable()
 		c.StatusSet(command.EXEC)
 	case command.EXEC, command.ENAB, command.CONF:
-		dispatchCommand(ctx, line, c, status)
+		if err := dispatchCommand(ctx, line, c, status); err != nil {
+			c.Sendln(fmt.Sprintf("executeLine: error: %v", err))
+		}
 	default:
 		msg := fmt.Sprintf("unknown state for command: [%s]", line)
 		log.Print(msg)
@@ -83,28 +85,30 @@ func commandFeedback(c *Client, hostname string) {
 	c.Flush()
 }
 
-func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClient, status int) {
+func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClient, status int) error {
 
 	line := strings.TrimLeft(rawLine, " ")
 
 	if line == "" {
-		return // ignore empty lines
+		return nil // ignore empty lines
 	}
 
 	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
 	if err != nil {
-		c.Sendln(fmt.Sprintf("dispatchCommand: not found [%s]: %v", line, err))
-		return
+		e := fmt.Errorf("dispatchCommand: not found [%s]: %v", line, err)
+		return e
 	}
 
 	if node.Handler == nil {
 		if node.IsConfig() {
 			c.ConfigPathSet(lookupPath) // enter config path
-			return
+			return nil
 		}
-		c.Sendln(fmt.Sprintf("dispatchCommand: command missing handler: [%s]", line))
-		return
+		err := fmt.Errorf("dispatchCommand: command missing handler: [%s]", line)
+		return err
 	}
 
 	node.Handler(ctx, node, lookupPath, c)
+
+	return nil
 }

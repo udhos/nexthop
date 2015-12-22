@@ -421,11 +421,11 @@ func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNo
 
 	node, err := CmdFind(root, lookupPath, status)
 	if err != nil {
-		return nil, lookupPath, fmt.Errorf("dispatchCommand: command not found: %s", err)
+		return nil, lookupPath, fmt.Errorf("CmdFindRelative: command not found: %s", err)
 	}
 
 	if node.MinLevel > status {
-		return nil, lookupPath, fmt.Errorf("dispatchCommand: command level prohibited: [%s]", lookupPath)
+		return nil, lookupPath, fmt.Errorf("CmdFindRelative: command level prohibited: [%s]", lookupPath)
 	}
 
 	return node, lookupPath, nil

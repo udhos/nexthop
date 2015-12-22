@@ -78,6 +78,18 @@ func TestConf(t *testing.T) {
 		fmt.Printf("TestConf: exiting")
 	}()
 
+	if err := dispatchCommand(app, "", c, command.CONF); err != nil {
+		t.Errorf("empty command rejected: %v", err)
+	}
+
+	if err := dispatchCommand(app, "      ", c, command.CONF); err != nil {
+		t.Errorf("blank command rejected: %v", err)
+	}
+
+	if err := dispatchCommand(app, "xxxxxx", c, command.CONF); err == nil {
+		t.Errorf("bad command accepted")
+	}
+
 	dispatchCommand(app, "hostname nexthop-router", c, command.CONF)
 	if host := hostname(app); host != "nexthop-router" {
 		t.Errorf("bad hostname: %s", host)
