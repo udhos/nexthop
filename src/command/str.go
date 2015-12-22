@@ -1,5 +1,11 @@
 package command
 
+// line: "interf  XXXX   descrip   YYY ZZZ WWW"
+//              ^^    ^^^       ^^^
+//              1     2         3
+//
+// IndexByte(s, ' ', 3): find 3rd sequence of ' ' in s
+
 func IndexByte(s string, sep byte, n int) int {
 
 	findSep := false
