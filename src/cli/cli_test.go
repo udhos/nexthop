@@ -173,5 +173,27 @@ func TestConf(t *testing.T) {
 		t.Errorf("eth2 should not have address: node=[%v] error=[%v]", node, err)
 	}
 
+	dispatchCommand(app, "int eth3 ipv4 addr 1", c, command.CONF)
+	dispatchCommand(app, "int eth3 ipv4 addr 2", c, command.CONF)
+	dispatchCommand(app, "int eth3 ipv4 addr 3", c, command.CONF)
+	dispatchCommand(app, "int eth3 ipv4 addr 4", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth3 ipv4 address")
+	if err != nil {
+		t.Errorf("bad eth3 address: %v", err)
+		return
+	}
+	if len(node.Value) != 4 {
+		t.Errorf("wrong number of eth3 addresses (expected=4): %d", len(node.Value))
+	}
+	node, err = app.confRootCandidate.Get("interface eth3 ipv4")
+	if err != nil {
+		t.Errorf("eth3 should have ipv4: node=[%v] error=[%v]", node, err)
+	}
+	dispatchCommand(app, "no int eth3 ipv4", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth3 ipv4")
+	if node != nil || err == nil {
+		t.Errorf("eth3 should not have ipv4: node=[%v] error=[%v]", node, err)
+	}
+
 	close(c.outputChannel)
 }
