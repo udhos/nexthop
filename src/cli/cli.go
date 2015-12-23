@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ type Client struct {
 	outputQuit    chan int    // request quit
 	outputWriter  *bufio.Writer
 	outputQueue   []string
+	outputBuf     string
 
 	configPath string
 	height     int
@@ -69,7 +71,19 @@ func (c *Client) Sendln(msg string) {
 }
 
 func (c *Client) Send(msg string) {
-	c.outputQueue = append(c.outputQueue, msg)
+	c.outputBuf = c.outputBuf + msg
+
+	for {
+		i := strings.IndexByte(c.outputBuf, '\n') // find end of line
+		if i < 0 {
+			// end of line not found
+			break
+		}
+		// end of line found
+		i++
+		c.outputQueue = append(c.outputQueue, c.outputBuf[:i]) // push line into output queue
+		c.outputBuf = c.outputBuf[i:]                          // skip line
+	}
 }
 
 func (c *Client) SendQueue() bool {
@@ -88,10 +102,8 @@ func (c *Client) SendQueue() bool {
 		sent++
 	}
 
-	//log.Printf("sendQueue: total=%d sent=%d pending=%d height=%d", len(c.outputQueue), sent, len(c.outputQueue)-sent, height)
 	c.outputQueue = c.outputQueue[sent:]
 	paging := len(c.outputQueue) > 0
-	//log.Printf("sendQueue: pending=%d paging=%v", len(c.outputQueue), paging)
 
 	return paging
 }
