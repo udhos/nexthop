@@ -70,8 +70,11 @@ func (c *Client) Sendln(msg string) {
 	c.Send(fmt.Sprintf("%s\r\n", msg))
 }
 
+// enqueue message for client
+// break messages into LF-terminated lines
+// append every line to outputQueue
 func (c *Client) Send(msg string) {
-	c.outputBuf = c.outputBuf + msg
+	c.outputBuf += msg
 
 	for {
 		i := strings.IndexByte(c.outputBuf, '\n') // find end of line
@@ -86,6 +89,7 @@ func (c *Client) Send(msg string) {
 	}
 }
 
+// send lines from outputQueue, paging on terminal height
 func (c *Client) SendQueue() bool {
 	sent := 0
 	height := c.Height()
@@ -98,7 +102,7 @@ func (c *Client) SendQueue() bool {
 			break
 		}
 		c.outputChannel <- m
-		//c.outputQueue[i] = "" // not required
+		c.outputQueue[i] = "" // release line immediately - no need to depend on future append()
 		sent++
 	}
 
