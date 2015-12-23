@@ -190,9 +190,36 @@ func TestConf(t *testing.T) {
 		t.Errorf("eth3 should have ipv4: node=[%v] error=[%v]", node, err)
 	}
 	dispatchCommand(app, "no int eth3 ipv4", c, command.CONF)
-	node, err = app.confRootCandidate.Get("interface eth3 ipv4")
+	node, err = app.confRootCandidate.Get("interface eth3")
 	if node != nil || err == nil {
 		t.Errorf("eth3 should not have ipv4: node=[%v] error=[%v]", node, err)
+	}
+
+	dispatchCommand(app, "int eth4 ipv4 addr 1", c, command.CONF)
+	dispatchCommand(app, "int eth4 desc abc", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth4 ipv4 address")
+	if err != nil {
+		t.Errorf("bad eth4 address: %v", err)
+		return
+	}
+	if len(node.Value) != 1 {
+		t.Errorf("wrong number of eth4 addresses (expected=1): %d", len(node.Value))
+	}
+	node, err = app.confRootCandidate.Get("interface eth4 description")
+	if err != nil {
+		t.Errorf("bad eth4 description: %v", err)
+		return
+	}
+	dispatchCommand(app, "no int eth4 ipv4 addr", c, command.CONF)
+	node, err = app.confRootCandidate.Get("interface eth4 ipv4")
+	if node != nil || err == nil {
+		t.Errorf("eth4 should not have ipv4: node=[%v] error=[%v]", node, err)
+		return
+	}
+	node, err = app.confRootCandidate.Get("interface eth4")
+	if node == nil || err != nil {
+		t.Errorf("eth4 should have ipv4: node=[%v] error=[%v]", node, err)
+		return
 	}
 
 	close(c.outputChannel)
