@@ -192,7 +192,7 @@ func TestConf(t *testing.T) {
 	dispatchCommand(app, "no int eth3 ipv4", c, command.CONF)
 	node, err = app.confRootCandidate.Get("interface eth3")
 	if node != nil || err == nil {
-		t.Errorf("eth3 should not have ipv4: node=[%v] error=[%v]", node, err)
+		t.Errorf("eth3 should not exist: node=[%v] error=[%v]", node, err)
 	}
 
 	dispatchCommand(app, "int eth4 ipv4 addr 1", c, command.CONF)
@@ -218,7 +218,7 @@ func TestConf(t *testing.T) {
 	}
 	node, err = app.confRootCandidate.Get("interface eth4")
 	if node == nil || err != nil {
-		t.Errorf("eth4 should have ipv4: node=[%v] error=[%v]", node, err)
+		t.Errorf("eth4 should exist: node=[%v] error=[%v]", node, err)
 		return
 	}
 
