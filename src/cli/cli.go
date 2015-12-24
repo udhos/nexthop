@@ -101,7 +101,7 @@ func (c *Client) Send(msg string) {
 // send lines from outputQueue, paging on terminal height
 func (c *Client) SendQueue() bool {
 	sent := 0
-	height, _ := c.TermSize()
+	_, height := c.TermSize()
 	max := height - 2
 	if max < 1 {
 		max = 1
