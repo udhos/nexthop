@@ -135,7 +135,7 @@ func cmdQuit(ctx command.ConfContext, node *command.CmdNode, line string, c comm
 }
 
 func cmdList(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.List(ctx.CmdRoot(), 0, c)
+	command.HelperList(ctx.CmdRoot(), 0, c)
 }
 
 func cmdNo(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

@@ -33,6 +33,7 @@ type Client struct {
 	outputBuf     string
 
 	configPath string
+	width      int
 	height     int
 }
 
@@ -50,11 +51,19 @@ func (c *Client) InputQuit() {
 	c.conn.Close() // breaks InputLoop goroutine -> InputLoop then sends quit request to OutputLoop
 }
 
-func (c *Client) Height() int {
+func (c *Client) TermSize() (int, int) {
 	c.mutex.RLock()
-	result := c.height
+	w := c.width
+	h := c.height
 	c.mutex.RUnlock()
-	return result
+	return w, h
+}
+
+func (c *Client) TermSizeSet(w, h int) {
+	c.mutex.Lock()
+	c.width = w
+	c.height = h
+	c.mutex.Unlock()
 }
 
 func (c *Client) SendlnNow(msg string) {
@@ -92,7 +101,7 @@ func (c *Client) Send(msg string) {
 // send lines from outputQueue, paging on terminal height
 func (c *Client) SendQueue() bool {
 	sent := 0
-	height := c.Height()
+	height, _ := c.TermSize()
 	max := height - 2
 	if max < 1 {
 		max = 1
@@ -306,7 +315,7 @@ LOOP:
 }
 
 func resetReadTimeout(timer *time.Timer, d time.Duration) {
-	log.Printf("InputLoop: reset read timeout: %d secs", d/time.Second)
+	//log.Printf("InputLoop: reset read timeout: %d secs", d/time.Second)
 	timer.Reset(d)
 }
 

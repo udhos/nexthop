@@ -79,11 +79,21 @@ func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 
 	switch buf.iac {
 	case IAC_NONE:
-		return iacNone(s, c, buf, b)
+		iacNone(s, c, buf, b)
 	case IAC_CMD:
+		iacCmd(buf, b)
 	case IAC_OPT:
+		log.Printf("telnetHandleByte: telnet OPT end")
+		log.Printf("telnetHandleByte: telnet IAC end")
+		buf.iac = IAC_NONE
 	case IAC_SUB_IAC:
+		iacSubIac(c, buf, b)
 	case IAC_SUB:
+		if b == cmdIAC {
+			buf.iac = IAC_SUB_IAC
+			return false
+		}
+		buf.subSize = pushSub(buf.subBuf[:], buf.subSize, b)
 	default:
 		log.Printf("telnetHandleByte: unexpected state iac=%d", buf.iac)
 		return true // stop
@@ -92,21 +102,97 @@ func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 	return false
 }
 
-func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) bool {
+func iacSubIac(c *Client, buf *telnetBuf, b byte) {
+	if b != cmdSE {
+		buf.subSize = pushSub(buf.subBuf[:], buf.subSize, b)
+		buf.iac = IAC_SUB
+		return
+	}
+
+	// subnegotiation end
+
+	log.Printf("iacSubIac: telnet SUB end")
+	log.Printf("iacSubIac: telnet IAC end")
+	buf.iac = IAC_NONE
+
+	if buf.subSize < 1 {
+		log.Printf("iacSubIac: no subnegotiation char received")
+		return
+	}
+
+	if buf.subBuf[0] == optNaws {
+		if buf.subSize != 5 {
+			log.Printf("iacSubIac: invalid telnet NAWS size=%d", buf.subSize)
+			return
+		}
+
+		width := int(buf.subBuf[1])<<8 + int(buf.subBuf[2])
+		height := int(buf.subBuf[3])<<8 + int(buf.subBuf[4])
+
+		log.Printf("iacSubIac: window size: width=%d height=%d", width, height)
+
+		c.TermSizeSet(width, height)
+	}
+}
+
+func pushSub(buf []byte, size int, b byte) int {
+	max := len(buf)
+
+	//log.Printf("pushSub: size=%d cap=%d char=%d", size, max, b)
+
+	if max < 1 {
+		log.Printf("pushSub: bad subnegotiation buffer: max=%d", max)
+		return size
+	}
+
+	if size == 0 {
+		buf[0] = b
+		return 1
+	}
+
+	switch buf[0] {
+	case optNaws:
+		// we only care about window size
+		if size >= max {
+			log.Printf("pushSub: subnegotiation buffer overflow: max=%d char=%d", max, b)
+			return size
+		}
+		buf[size] = b
+		return size + 1
+	}
+
+	return size
+}
+
+func iacCmd(buf *telnetBuf, b byte) {
+
+	switch b {
+	case cmdSB:
+		log.Printf("iacCmd: telnet SUB begin")
+		buf.subSize = 0
+		buf.iac = IAC_SUB
+	case cmdWill, cmdWont, cmdDo, cmdDont:
+		log.Printf("iacCmd: telnet OPT begin")
+		buf.iac = IAC_OPT
+	default:
+		log.Printf("iacCmd: telnet IAC end")
+		buf.iac = IAC_NONE
+	}
+}
+
+func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 	if buf.escape != escNone {
 		if handleEscape(s, c, buf, b) {
-			return false
+			return
 		}
 	}
 
 	switch {
-	/*
-		case b == cmdIAC:
-			// hit IAC mark?
-			log.Printf("iacNone: telnet IAC begin")
-			buf.iac = IAC_CMD
-	*/
+	case b == cmdIAC:
+		// hit IAC mark?
+		log.Printf("iacNone: telnet IAC begin")
+		buf.iac = IAC_CMD
 	case b == keyBackspace, b < 32:
 		controlChar(s, c, buf, b)
 	default:
@@ -115,12 +201,12 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 		everyChar := c.SendEveryChar()
 		if everyChar {
 			s.CommandChannel <- Command{Client: c, Cmd: string(b), IsLine: false}
-			return false
+			return
 		}
 
 		if buf.lineSize >= len(buf.lineBuf) {
 			// line buffer overflow
-			return false
+			return
 		}
 
 		buf.lineBuf[buf.lineSize] = b
@@ -130,8 +216,6 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 
 		log.Printf("iacNone: line=[%v]", string(buf.lineBuf[:buf.lineSize]))
 	}
-
-	return false
 }
 
 func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {

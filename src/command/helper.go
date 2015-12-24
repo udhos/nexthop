@@ -72,6 +72,20 @@ func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	confNode.ValueSet(host)
 }
 
+func HelperList(node *CmdNode, depth int, c CmdClient) {
+	handler := "----"
+	if node.Handler != nil {
+		handler = "LEAF"
+	}
+	ident := strings.Repeat(" ", 4*depth)
+	output := fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc)
+	//log.Printf(output)
+	c.Sendln(output)
+	for _, n := range node.Children {
+		HelperList(n, depth+1, c)
+	}
+}
+
 func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	c.Sendln(fmt.Sprintf("cmdNo: [%s]", line))
 

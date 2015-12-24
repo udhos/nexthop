@@ -24,7 +24,7 @@ const (
 const (
 	optEcho           = 1
 	optSupressGoAhead = 3
-	optNaws           = 31 // rfc1073
+	optNaws           = 31 // rfc1073 NAWS (Negotiate About Window Size)
 	optLinemode       = 34
 )
 
@@ -49,6 +49,7 @@ func handleTelnet(conn net.Conn, cliServer *cli.Server) {
 	log.Printf("handleTelnet: new telnet connection from: %s", conn.RemoteAddr())
 
 	charMode(conn)
+	windowSize(conn)
 
 	cliClient := cli.NewClient(conn)
 
@@ -69,5 +70,13 @@ func charMode(conn net.Conn) {
 	cmd := []byte{cmdIAC, cmdWill, optEcho, cmdIAC, cmdWill, optSupressGoAhead, cmdIAC, cmdDont, optLinemode}
 	if wr, err := conn.Write(cmd); err != nil {
 		log.Printf("charMode: len=%d err=%v", wr, err)
+	}
+}
+
+func windowSize(conn net.Conn) {
+	log.Printf("windowSize: requesting telnet window size")
+	cmd := []byte{cmdIAC, cmdDo, optNaws}
+	if wr, err := conn.Write(cmd); err != nil {
+		log.Printf("windowSize: len=%d err=%v", wr, err)
 	}
 }
