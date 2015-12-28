@@ -34,6 +34,7 @@ func (c testClient) Status() int {
 }
 func (c testClient) ConfigPathSet(path string) {}
 func (c testClient) Send(msg string)           {}
+func (c testClient) SendNow(msg string)        {}
 func (c testClient) Sendln(msg string)         {}
 func (c testClient) SendlnNow(msg string)      {}
 func (c testClient) InputQuit()                {}

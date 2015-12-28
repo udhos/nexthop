@@ -15,6 +15,7 @@ const (
 )
 
 const (
+	keyBackward  = 8
 	keyEscape    = 27
 	keyBackspace = 127
 )
@@ -60,6 +61,7 @@ type telnetBuf struct {
 	iac      int
 	lineBuf  [30]byte
 	lineSize int
+	linePos  int
 	subBuf   [5]byte
 	subSize  int
 }
@@ -70,6 +72,7 @@ func newTelnetBuf() *telnetBuf {
 		iac:      IAC_NONE,
 		lineBuf:  [30]byte{},
 		lineSize: 0,
+		linePos:  0,
 		subBuf:   [5]byte{},
 		subSize:  0,
 	}
@@ -209,8 +212,9 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 			return
 		}
 
-		buf.lineBuf[buf.lineSize] = b
+		buf.lineBuf[buf.linePos] = b
 		buf.lineSize++
+		buf.linePos++
 
 		c.echoSend(string(b)) // echo key back to terminal
 
@@ -240,13 +244,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 		c.SendlnNow("") // echo newline back to client
 
 	case ctrlH, keyBackspace:
-		// backspace
-		if buf.lineSize <= 0 {
-			return
-		}
-		buf.lineSize--                         // erase backspace key from input buffer
-		c.echoSend(string(byte(keyBackspace))) // echo backspace to client
-
+		lineBackspace(c, buf)
 	case ctrlA:
 		lineBegin()
 	case ctrlE:
@@ -258,9 +256,9 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlN:
 		histNext()
 	case ctrlB:
-		linePreviousChar()
+		linePreviousChar(c, buf)
 	case ctrlF:
-		lineNextChar()
+		lineNextChar(c, buf)
 	case ctrlD:
 		lineDelChar()
 
@@ -283,7 +281,7 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 	case escTwo:
 		switch b {
 		case '1':
-			lineHome()
+			lineBegin()
 			buf.escape = escThree
 		case '3':
 			lineDelChar()
@@ -298,10 +296,10 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 			histNext()
 			buf.escape = escNone
 		case 'C':
-			lineNextChar()
+			lineNextChar(c, buf)
 			buf.escape = escNone
 		case 'D':
-			linePreviousChar()
+			linePreviousChar(c, buf)
 			buf.escape = escNone
 		default:
 			log.Printf("handleEscape: unsupported char=%d for escape stage: %d", b, buf.escape)
@@ -322,16 +320,35 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 	return true
 }
 
+func lineBackspace(c *Client, buf *telnetBuf) {
+	if buf.linePos < 1 {
+		return
+	}
+
+	buf.lineSize--
+	buf.linePos--
+
+	c.echoSend(string(byte(keyBackward)))
+
+	for i := buf.linePos; i < buf.lineSize; i++ {
+		buf.lineBuf[i] = buf.lineBuf[i+1]
+		c.echoSend(string(buf.lineBuf[i]))
+	}
+	c.echoSend(" ")
+
+	for i := buf.linePos; i < buf.lineSize+1; i++ {
+		c.echoSend(string(byte(keyBackward)))
+	}
+
+	//c.echoSend(string(byte(keyBackspace))) // echo backspace to client
+}
+
 func lineBegin() {
 	log.Printf("lineBegin")
 }
 
 func lineEnd() {
 	log.Printf("lineEnd")
-}
-
-func lineHome() {
-	log.Printf("lineHome")
 }
 
 func lineDelChar() {
@@ -346,10 +363,22 @@ func histNext() {
 	log.Printf("histNext")
 }
 
-func linePreviousChar() {
-	log.Printf("linePreviousChar")
+func linePreviousChar(c *Client, buf *telnetBuf) {
+	if buf.linePos < 1 {
+		return
+	}
+
+	buf.linePos--
+
+	c.echoSend(string(byte(keyBackward)))
 }
 
-func lineNextChar() {
-	log.Printf("lineNextChar")
+func lineNextChar(c *Client, buf *telnetBuf) {
+	if buf.linePos >= buf.lineSize {
+		return
+	}
+
+	c.echoSend(string(buf.lineBuf[buf.linePos]))
+
+	buf.linePos++
 }

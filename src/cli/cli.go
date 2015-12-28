@@ -67,10 +67,10 @@ func (c *Client) TermSizeSet(w, h int) {
 }
 
 func (c *Client) SendlnNow(msg string) {
-	c.sendNow(fmt.Sprintf("%s\r\n", msg))
+	c.SendNow(fmt.Sprintf("%s\r\n", msg))
 }
 
-func (c *Client) sendNow(msg string) {
+func (c *Client) SendNow(msg string) {
 	c.outputChannel <- msg
 	c.Flush()
 }
@@ -163,7 +163,7 @@ func (c *Client) Flush() {
 
 func (c *Client) echoSend(msg string) {
 	if c.Echo() {
-		c.sendNow(msg)
+		c.SendNow(msg)
 	}
 }
 

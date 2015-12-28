@@ -23,6 +23,7 @@ type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)
 	Send(msg string)
+	SendNow(msg string)
 	Sendln(msg string)
 	SendlnNow(msg string)
 	InputQuit()
