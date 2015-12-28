@@ -57,28 +57,32 @@ const (
 )
 
 type telnetBuf struct {
-	escape   int
-	iac      int
-	lineBuf  [30]byte
-	lineSize int
-	linePos  int
-	subBuf   [5]byte
-	subSize  int
+	escape         int
+	iac            int
+	lineBuf        [30]byte
+	lineSize       int
+	linePos        int
+	subBuf         [5]byte
+	subSize        int
+	expectingCtrlM bool
 }
 
 func newTelnetBuf() *telnetBuf {
 	return &telnetBuf{
-		escape:   escNone,
-		iac:      IAC_NONE,
-		lineBuf:  [30]byte{},
-		lineSize: 0,
-		linePos:  0,
-		subBuf:   [5]byte{},
-		subSize:  0,
+		escape:         escNone,
+		iac:            IAC_NONE,
+		lineBuf:        [30]byte{},
+		lineSize:       0,
+		linePos:        0,
+		subBuf:         [5]byte{},
+		subSize:        0,
+		expectingCtrlM: false,
 	}
 }
 
 func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
+
+	//log.Printf("telnetHandleByte: byte: %d 0x%x", b, b)
 
 	switch buf.iac {
 	case IAC_NONE:
@@ -185,6 +189,12 @@ func iacCmd(buf *telnetBuf, b byte) {
 
 func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 
+	//log.Printf("iacNone: byte: %d 0x%x", b, b)
+
+	if b != 0 {
+		buf.expectingCtrlM = false
+	}
+
 	if buf.escape != escNone {
 		if handleEscape(s, c, buf, b) {
 			return
@@ -246,28 +256,14 @@ func cursorRight(c *Client, buf *telnetBuf) {
 
 func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 
+	//log.Printf("controlChar: byte: %d 0x%x", b, b)
+
 	switch b {
-	case '\r':
-		// discard
-	case '\n':
-
-		sendEveryChar := c.SendEveryChar()
-		if sendEveryChar {
-			s.CommandChannel <- Command{Client: c, Cmd: "", IsLine: false}
-			return
-		}
-
-		cmdLine := string(buf.lineBuf[:buf.lineSize]) // string is safe for sharing (immutable)
-		log.Printf("controlChar: size=%d cmdLine=[%v]", buf.lineSize, cmdLine)
-		s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
-
-		// reset reading buffer position
-		buf.lineSize = 0
-		buf.linePos = 0
-
-		//c.echoSend("\r\n") // echo newline back to client
-		c.SendlnNow("") // echo newline back to client
-
+	case '\r': // CR
+		buf.expectingCtrlM = true
+		return
+	case '\n': // LF
+		newlineChar(s, c, buf, b)
 	case ctrlH, keyBackspace:
 		lineBackspace(c, buf)
 	case ctrlA:
@@ -286,10 +282,35 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 		lineNextChar(c, buf)
 	case ctrlD:
 		lineDelChar(c, buf)
-
+	case 0:
+		if buf.expectingCtrlM {
+			// controlM
+			newlineChar(s, c, buf, b)
+		}
 	default:
 		log.Printf("controlChar: unknown control: %d 0x%x", b, b)
 	}
+}
+
+func newlineChar(s *Server, c *Client, buf *telnetBuf, b byte) {
+	//log.Printf("newlineChar()")
+
+	sendEveryChar := c.SendEveryChar()
+	if sendEveryChar {
+		s.CommandChannel <- Command{Client: c, Cmd: "", IsLine: false}
+		return
+	}
+
+	cmdLine := string(buf.lineBuf[:buf.lineSize]) // string is safe for sharing (immutable)
+	log.Printf("controlChar: size=%d cmdLine=[%v]", buf.lineSize, cmdLine)
+	s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
+
+	// reset reading buffer position
+	buf.lineSize = 0
+	buf.linePos = 0
+
+	//c.echoSend("\r\n") // echo newline back to client
+	c.SendlnNow("") // echo newline back to client
 }
 
 func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
