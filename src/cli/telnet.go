@@ -212,14 +212,31 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 			return
 		}
 
+		// insert
+		for i := buf.lineSize; i > buf.linePos; i-- {
+			buf.lineBuf[i] = buf.lineBuf[i-1]
+		}
+
 		buf.lineBuf[buf.linePos] = b
 		buf.lineSize++
 		buf.linePos++
 
-		c.echoSend(string(b)) // echo key back to terminal
+		// redraw
+		for i := buf.linePos - 1; i < buf.lineSize; i++ {
+			c.echoSend(string(buf.lineBuf[i]))
+		}
 
-		log.Printf("iacNone: line=[%v]", string(buf.lineBuf[:buf.lineSize]))
+		// reposition cursor
+		for i := buf.linePos; i < buf.lineSize; i++ {
+			cursorLeft(c)
+		}
+
+		log.Printf("iacNone: pos=%d size=%d line=[%v]", buf.linePos, buf.lineSize, string(buf.lineBuf[:buf.lineSize]))
 	}
+}
+
+func cursorLeft(c *Client) {
+	c.echoSend(string(byte(keyBackward)))
 }
 
 func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
@@ -238,7 +255,10 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 		cmdLine := string(buf.lineBuf[:buf.lineSize]) // string is safe for sharing (immutable)
 		log.Printf("controlChar: size=%d cmdLine=[%v]", buf.lineSize, cmdLine)
 		s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
-		buf.lineSize = 0 // reset reading buffer position
+
+		// reset reading buffer position
+		buf.lineSize = 0
+		buf.linePos = 0
 
 		//c.echoSend("\r\n") // echo newline back to client
 		c.SendlnNow("") // echo newline back to client
@@ -327,17 +347,20 @@ func lineBackspace(c *Client, buf *telnetBuf) {
 
 	buf.lineSize--
 	buf.linePos--
+	//c.echoSend(string(byte(keyBackward)))
+	cursorLeft(c)
 
-	c.echoSend(string(byte(keyBackward)))
-
+	// redraw
 	for i := buf.linePos; i < buf.lineSize; i++ {
 		buf.lineBuf[i] = buf.lineBuf[i+1]
 		c.echoSend(string(buf.lineBuf[i]))
 	}
 	c.echoSend(" ")
 
+	// reposition cursor
 	for i := buf.linePos; i < buf.lineSize+1; i++ {
-		c.echoSend(string(byte(keyBackward)))
+		//c.echoSend(string(byte(keyBackward)))
+		cursorLeft(c)
 	}
 
 	//c.echoSend(string(byte(keyBackspace))) // echo backspace to client
@@ -370,7 +393,8 @@ func linePreviousChar(c *Client, buf *telnetBuf) {
 
 	buf.linePos--
 
-	c.echoSend(string(byte(keyBackward)))
+	//c.echoSend(string(byte(keyBackward)))
+	cursorLeft(c)
 }
 
 func lineNextChar(c *Client, buf *telnetBuf) {
