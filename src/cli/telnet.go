@@ -239,6 +239,11 @@ func cursorLeft(c *Client) {
 	c.echoSend(string(byte(keyBackward)))
 }
 
+func cursorRight(c *Client, buf *telnetBuf) {
+	c.echoSend(string(buf.lineBuf[buf.linePos]))
+	buf.linePos++
+}
+
 func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 	switch b {
@@ -266,9 +271,9 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlH, keyBackspace:
 		lineBackspace(c, buf)
 	case ctrlA:
-		lineBegin()
+		lineBegin(c, buf)
 	case ctrlE:
-		lineEnd()
+		lineEnd(c, buf)
 	case keyEscape:
 		buf.escape = escOne
 	case ctrlP:
@@ -280,7 +285,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlF:
 		lineNextChar(c, buf)
 	case ctrlD:
-		lineDelChar()
+		lineDelChar(c, buf)
 
 	default:
 		log.Printf("controlChar: unknown control: %d 0x%x", b, b)
@@ -301,13 +306,13 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 	case escTwo:
 		switch b {
 		case '1':
-			lineBegin()
+			lineBegin(c, buf)
 			buf.escape = escThree
 		case '3':
-			lineDelChar()
+			lineDelChar(c, buf)
 			buf.escape = escThree
 		case '4':
-			lineEnd()
+			lineEnd(c, buf)
 			buf.escape = escThree
 		case 'A':
 			histPrevious()
@@ -345,10 +350,30 @@ func lineBackspace(c *Client, buf *telnetBuf) {
 		return
 	}
 
-	buf.lineSize--
-	buf.linePos--
-	//c.echoSend(string(byte(keyBackward)))
 	cursorLeft(c)
+	buf.linePos--
+
+	lineDelChar(c, buf)
+}
+
+func lineBegin(c *Client, buf *telnetBuf) {
+	for ; buf.linePos > 0; buf.linePos-- {
+		cursorLeft(c)
+	}
+}
+
+func lineEnd(c *Client, buf *telnetBuf) {
+	for buf.linePos < buf.lineSize {
+		cursorRight(c, buf)
+	}
+}
+
+func lineDelChar(c *Client, buf *telnetBuf) {
+	if buf.lineSize < 1 {
+		return
+	}
+
+	buf.lineSize--
 
 	// redraw
 	for i := buf.linePos; i < buf.lineSize; i++ {
@@ -359,23 +384,8 @@ func lineBackspace(c *Client, buf *telnetBuf) {
 
 	// reposition cursor
 	for i := buf.linePos; i < buf.lineSize+1; i++ {
-		//c.echoSend(string(byte(keyBackward)))
 		cursorLeft(c)
 	}
-
-	//c.echoSend(string(byte(keyBackspace))) // echo backspace to client
-}
-
-func lineBegin() {
-	log.Printf("lineBegin")
-}
-
-func lineEnd() {
-	log.Printf("lineEnd")
-}
-
-func lineDelChar() {
-	log.Printf("lineDelChar")
 }
 
 func histPrevious() {
@@ -392,8 +402,6 @@ func linePreviousChar(c *Client, buf *telnetBuf) {
 	}
 
 	buf.linePos--
-
-	//c.echoSend(string(byte(keyBackward)))
 	cursorLeft(c)
 }
 
@@ -402,7 +410,5 @@ func lineNextChar(c *Client, buf *telnetBuf) {
 		return
 	}
 
-	c.echoSend(string(buf.lineBuf[buf.linePos]))
-
-	buf.linePos++
+	cursorRight(c, buf)
 }
