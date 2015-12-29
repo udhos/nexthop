@@ -6,6 +6,108 @@ import (
 	"strings"
 )
 
+func InstallCommonHelpers(root *CmdNode) {
+
+	cmdNone := CMD_NONE
+	//cmdConf := CMD_CONF
+
+	CmdInstall(root, cmdNone, "commit", CONF, cmdCommit, "Apply current candidate configuration")
+	CmdInstall(root, cmdNone, "configure", ENAB, cmdConfig, "Enter configuration mode")
+	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, "Enter privileged mode")
+	CmdInstall(root, cmdNone, "exit", EXEC, cmdExit, "Exit current location")
+	CmdInstall(root, cmdNone, "list", EXEC, cmdList, "List command tree")
+	CmdInstall(root, cmdNone, "no {ANY}", CONF, HelperNo, "Remove a configuration item")
+	CmdInstall(root, cmdNone, "quit", EXEC, cmdQuit, "Quit session")
+	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, "Reload")
+	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, "Reset candidate configuration from active configuration")
+	CmdInstall(root, cmdNone, "rollback {ID}", CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
+	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, "Show candidate configuration")
+	CmdInstall(root, cmdNone, "show configuration line-mode", EXEC, cmdShowConf, "Show candidate configuration in line-mode")
+	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, "Show active configuration")
+}
+
+func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	// get diff from active conf to candidate conf
+	// build command list to apply diff to active conf
+	//  - include preparatory commands, like deleting addresses from interfaces affected by address change
+	//  - if any command fails, revert previously applied commands
+	// save new active conf with new commit id
+}
+
+func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	//cc := c.(*cli.Client)
+	cc := c
+	status := cc.Status()
+	if status < CONF {
+		cc.StatusConf()
+	}
+	output := fmt.Sprintf("configure: new status=%d", cc.Status())
+	log.Printf(output)
+}
+
+func cmdEnable(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	//cc := c.(*cli.Client)
+	cc := c
+	status := cc.Status()
+	if status < ENAB {
+		cc.StatusEnable()
+	}
+	output := fmt.Sprintf("enable: new status=%d", cc.Status())
+	log.Printf(output)
+}
+
+func cmdExit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	//cc := c.(*cli.Client)
+	cc := c
+
+	path := c.ConfigPath()
+	if path == "" {
+		cc.StatusExit()
+		//log.Printf("exit: new status=%d", cc.Status())
+		return
+	}
+
+	fields := strings.Fields(path)
+	newPath := strings.Join(fields[:len(fields)-1], " ")
+
+	c.ConfigPathSet(newPath)
+}
+
+func cmdQuit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	c.SendlnNow("")
+	c.SendlnNow("bye")
+	log.Printf("cmdQuit: requesting intputLoop to quit")
+	c.InputQuit()
+}
+
+func cmdReload(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+}
+
+func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	fields := strings.Fields(line)
+	if len(fields) > 1 {
+		id := fields[1]
+		log.Printf("cmdRollback: reset candidate config from rollback: %s", id)
+	} else {
+		log.Printf("cmdRollback: reset candidate config from active configuration")
+	}
+}
+
+func cmdShowConf(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	showConfig(ctx.ConfRootCandidate(), node, line, c, "candidate configuration:")
+}
+
+func showConfig(root *ConfNode, node *CmdNode, line string, c CmdClient, head string) {
+	fields := strings.Fields(line)
+	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
+	c.Sendln(head)
+	ShowConf(root, node, c, lineMode)
+}
+
+func cmdShowRun(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	showConfig(ctx.ConfRootActive(), node, line, c, "running configuration:")
+}
+
 // Iface addr config should not be a helper function,
 // since it only applies to RIB daemon.
 // However it is currently being used for helping in tests.
@@ -72,7 +174,11 @@ func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	confNode.ValueSet(host)
 }
 
-func HelperList(node *CmdNode, depth int, c CmdClient) {
+func cmdList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	list(ctx.CmdRoot(), 0, c)
+}
+
+func list(node *CmdNode, depth int, c CmdClient) {
 	handler := "----"
 	if node.Handler != nil {
 		handler = "LEAF"
@@ -82,7 +188,7 @@ func HelperList(node *CmdNode, depth int, c CmdClient) {
 	//log.Printf(output)
 	c.Sendln(output)
 	for _, n := range node.Children {
-		HelperList(n, depth+1, c)
+		list(n, depth+1, c)
 	}
 }
 

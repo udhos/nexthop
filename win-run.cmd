@@ -6,6 +6,6 @@ set BIN=%NEXTHOP%\bin
 
 @rem start cmd /k %BIN%\rib-old
 start cmd /k %BIN%\rib
-@rem start cmd /k %BIN%\rip
+start cmd /k %BIN%\rip
 
 @rem eof

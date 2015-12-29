@@ -32,6 +32,9 @@ func (c testClient) ConfigPath() string {
 func (c testClient) Status() int {
 	return command.CONF
 }
+func (c testClient) StatusConf()               {}
+func (c testClient) StatusEnable()             {}
+func (c testClient) StatusExit()               {}
 func (c testClient) ConfigPathSet(path string) {}
 func (c testClient) Send(msg string)           {}
 func (c testClient) SendNow(msg string)        {}

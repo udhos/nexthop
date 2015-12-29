@@ -1,34 +1,13 @@
-package main
+package cli
 
 import (
-	"cli"
 	"log"
 	"net"
-	//"time"
 
 	"telnet"
 )
 
-// https://tools.ietf.org/html/rfc854 TELNET PROTOCOL SPECIFICATION
-const (
-	cmdSE   = 240
-	cmdNOP  = 241
-	cmdSB   = 250
-	cmdWill = 251
-	cmdWont = 252
-	cmdDo   = 253
-	cmdDont = 254
-	cmdIAC  = 255
-)
-
-const (
-	optEcho           = 1
-	optSupressGoAhead = 3
-	optNaws           = 31 // rfc1073 NAWS (Negotiate About Window Size)
-	optLinemode       = 34
-)
-
-func listenTelnet(addr string, cliServer *cli.Server) {
+func ListenTelnet(addr string, cliServer *Server) {
 
 	handler := func(conn net.Conn) {
 		handleTelnet(conn, cliServer)
@@ -43,7 +22,7 @@ func listenTelnet(addr string, cliServer *cli.Server) {
 	}
 }
 
-func handleTelnet(conn net.Conn, cliServer *cli.Server) {
+func handleTelnet(conn net.Conn, cliServer *Server) {
 	defer conn.Close()
 
 	log.Printf("handleTelnet: new telnet connection from: %s", conn.RemoteAddr())
@@ -51,16 +30,16 @@ func handleTelnet(conn net.Conn, cliServer *cli.Server) {
 	charMode(conn)
 	windowSize(conn)
 
-	cliClient := cli.NewClient(conn)
+	cliClient := NewClient(conn)
 
 	// mock user input in order to get server MOTD response
-	cliServer.CommandChannel <- cli.Command{Client: cliClient, Cmd: "", IsLine: true}
+	cliServer.CommandChannel <- Command{Client: cliClient, Cmd: "", IsLine: true}
 
 	notifyAppInputClosed := true
 
-	go cli.InputLoop(cliServer, cliClient, notifyAppInputClosed)
+	go InputLoop(cliServer, cliClient, notifyAppInputClosed)
 
-	cli.OutputLoop(cliClient)
+	OutputLoop(cliClient)
 
 	log.Printf("handleTelnet: terminating connection: remote=%s", conn.RemoteAddr())
 }

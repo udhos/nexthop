@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	//"fmt"
 	"log"
 	//"os"
 	//"path/filepath"
@@ -53,19 +52,18 @@ func (r RibApp) Hostname() string {
 */
 
 func main() {
-	log.Printf("rib starting")
-	log.Printf("runtime operating system: [%v]", runtime.GOOS)
-	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
-	log.Printf("IP version: %v", ipv4.Version)
 
 	ribConf := &RibApp{
 		cmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
 		confRootCandidate: &command.ConfNode{},
 		confRootActive:    &command.ConfNode{},
-
-		daemonName:       "rib",
-		configPathPrefix: "",
+		daemonName:        "rib",
 	}
+
+	log.Printf("%s daemon starting", ribConf.daemonName)
+	log.Printf("runtime operating system: [%v]", runtime.GOOS)
+	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
+	log.Printf("IP version: %v", ipv4.Version)
 
 	installRibCommands(ribConf.CmdRoot())
 
@@ -80,7 +78,7 @@ func main() {
 
 	cliServer := cli.NewServer()
 
-	go listenTelnet(":2001", cliServer)
+	go cli.ListenTelnet(":2001", cliServer)
 
 	for {
 		select {

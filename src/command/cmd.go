@@ -8,6 +8,8 @@ import (
 	//"text/scanner"
 )
 
+const NexthopVersion = "nexthop version 0.0"
+
 const (
 	MOTD = iota
 	USER = iota
@@ -29,6 +31,9 @@ type CmdClient interface {
 	InputQuit()
 	Output() chan<- string
 	Status() int
+	StatusConf()
+	StatusEnable()
+	StatusExit()
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
