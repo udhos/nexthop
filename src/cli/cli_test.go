@@ -41,6 +41,8 @@ func (c testClient) SendNow(msg string)        {}
 func (c testClient) Sendln(msg string)         {}
 func (c testClient) SendlnNow(msg string)      {}
 func (c testClient) InputQuit()                {}
+func (c testClient) HistoryAdd(cmd string)     {}
+func (c testClient) HistoryShow()              {}
 func (c testClient) Output() chan<- string {
 	return c.outputChannel
 }

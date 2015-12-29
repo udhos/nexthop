@@ -34,6 +34,8 @@ type CmdClient interface {
 	StatusConf()
 	StatusEnable()
 	StatusExit()
+	HistoryAdd(cmd string)
+	HistoryShow()
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)

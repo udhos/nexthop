@@ -273,9 +273,9 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case keyEscape:
 		buf.escape = escOne
 	case ctrlP:
-		histPrevious()
+		histPrevious(c, buf)
 	case ctrlN:
-		histNext()
+		histNext(c, buf)
 	case ctrlB:
 		linePreviousChar(c, buf)
 	case ctrlF:
@@ -308,6 +308,7 @@ func newlineChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	// reset reading buffer position
 	buf.lineSize = 0
 	buf.linePos = 0
+	c.HistoryReset()
 
 	//c.echoSend("\r\n") // echo newline back to client
 	c.SendlnNow("") // echo newline back to client
@@ -336,10 +337,10 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 			lineEnd(c, buf)
 			buf.escape = escThree
 		case 'A':
-			histPrevious()
+			histPrevious(c, buf)
 			buf.escape = escNone
 		case 'B':
-			histNext()
+			histNext(c, buf)
 			buf.escape = escNone
 		case 'C':
 			lineNextChar(c, buf)
@@ -409,12 +410,49 @@ func lineDelChar(c *Client, buf *telnetBuf) {
 	}
 }
 
-func histPrevious() {
-	log.Printf("histPrevious")
+func histPrevious(c *Client, buf *telnetBuf) {
+
+	hist := c.HistoryPrevious()
+	if hist == "" {
+		return
+	}
+	clearLine(c, buf)
+
+	for i, b := range hist {
+		buf.lineBuf[i] = byte(b)
+	}
+	buf.lineSize = len(hist)
+
+	drawLine(c, buf)
 }
 
-func histNext() {
-	log.Printf("histNext")
+func histNext(c *Client, buf *telnetBuf) {
+
+	hist := c.HistoryNext()
+	if hist == "" {
+		return
+	}
+	clearLine(c, buf)
+
+	for i, b := range hist {
+		buf.lineBuf[i] = byte(b)
+	}
+	buf.lineSize = len(hist)
+
+	drawLine(c, buf)
+}
+
+func clearLine(c *Client, buf *telnetBuf) {
+	lineEnd(c, buf)
+	for buf.linePos > 0 {
+		lineBackspace(c, buf)
+	}
+}
+
+func drawLine(c *Client, buf *telnetBuf) {
+	for buf.linePos < buf.lineSize {
+		cursorRight(c, buf)
+	}
 }
 
 func linePreviousChar(c *Client, buf *telnetBuf) {

@@ -93,6 +93,8 @@ func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClien
 		return nil // ignore empty lines
 	}
 
+	c.HistoryAdd(rawLine)
+
 	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
 	if err != nil {
 		e := fmt.Errorf("dispatchCommand: not found [%s]: %v", line, err)

@@ -23,6 +23,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "rollback {ID}", CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
 	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, "Show candidate configuration")
 	CmdInstall(root, cmdNone, "show configuration line-mode", EXEC, cmdShowConf, "Show candidate configuration in line-mode")
+	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, "Show command history")
 	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, "Show active configuration")
 }
 
@@ -102,6 +103,11 @@ func showConfig(root *ConfNode, node *CmdNode, line string, c CmdClient, head st
 	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
 	c.Sendln(head)
 	ShowConf(root, node, c, lineMode)
+}
+
+func cmdShowHistory(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	c.Sendln("command history:")
+	c.HistoryShow()
 }
 
 func cmdShowRun(ctx ConfContext, node *CmdNode, line string, c CmdClient) {

@@ -17,9 +17,8 @@ type Server struct {
 	InputClosed    chan *Client
 }
 
-// cli.Client is shared between 2 goroutines: cli.InputLoop and main
 type Client struct {
-	mutex         *sync.RWMutex
+	mutex         *sync.RWMutex // mutex: cli.Client is shared between 2 goroutines: cli.InputLoop and main
 	conn          net.Conn
 	sendEveryChar bool
 	status        int
@@ -35,6 +34,72 @@ type Client struct {
 	configPath string
 	width      int
 	height     int
+
+	history      []string
+	historyLimit int
+	historyPos   int
+}
+
+func (c *Client) HistoryAdd(cmd string) {
+
+	//log.Printf("HistoryAdd: size=%d max=%d cmd=[%s]", len(c.history), c.historyLimit, cmd)
+
+	size := len(c.history)
+	if size > 0 && c.history[size-1] == cmd {
+		// do not insert duplicate of last inserted command
+		return
+	}
+
+	if size >= c.historyLimit {
+		// pop first command
+		last := c.historyLimit - 1
+		for i := 0; i < last; i++ {
+			c.history[i] = c.history[i+1]
+		}
+		c.history = c.history[:last]
+	}
+
+	c.history = append(c.history, cmd)
+}
+
+func (c *Client) HistoryShow() {
+	for _, h := range c.history {
+		c.Sendln(fmt.Sprintf("[%s]", h))
+	}
+}
+
+func (c *Client) HistoryReset() {
+	c.historyPos = -1
+}
+
+func (c *Client) HistoryPrevious() string {
+	size := len(c.history)
+	if size < 1 {
+		return ""
+	}
+	if c.historyPos == 0 {
+		return ""
+	}
+	if c.historyPos < 0 {
+		c.historyPos = size
+	}
+	c.historyPos--
+	return c.history[c.historyPos]
+}
+
+func (c *Client) HistoryNext() string {
+	size := len(c.history)
+	if size < 1 {
+		return ""
+	}
+	if c.historyPos >= size-1 {
+		return ""
+	}
+	if c.historyPos < 0 {
+		return ""
+	}
+	c.historyPos++
+	return c.history[c.historyPos]
 }
 
 func (c *Client) DiscardOutputQueue() {
@@ -264,7 +329,10 @@ func NewClient(conn net.Conn) *Client {
 		outputFlush:   make(chan int),
 		outputQuit:    make(chan int),
 		height:        20,
+		width:         80,
 		echo:          true,
+		historyLimit:  20,
+		historyPos:    -1,
 	}
 }
 
