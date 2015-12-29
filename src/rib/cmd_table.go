@@ -20,6 +20,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, "Disable interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, "Assign VRF to interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, "Enable IP routing")
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, "Show interfaces")
@@ -29,6 +30,8 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdNone, "show ip interface detail", command.EXEC, cmdShowIPInt, "Show interface detail")
 	command.CmdInstall(root, cmdNone, "show ip route", command.EXEC, cmdShowIPRoute, "Show routing table")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, "Show version")
+	command.CmdInstall(root, cmdConf, "vrf {VRFNAME} ipv4 import route-target {RT}", command.CONF, cmdVrfImportRT, "Route-target for import")
+	command.CmdInstall(root, cmdConf, "vrf {VRFNAME} ipv4 export route-target {RT}", command.CONF, cmdVrfExportRT, "Route-target for export")
 }
 
 func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -64,6 +67,9 @@ func cmdIfaceShutdown(ctx command.ConfContext, node *command.CmdNode, line strin
 	}
 }
 
+func cmdIfaceVrf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+}
+
 func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }
 
@@ -87,4 +93,10 @@ func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c c
 	c.Sendln(command.NexthopVersion)
 	ribApp := ctx.(*RibApp)
 	c.Sendln(fmt.Sprintf("daemon: %v", ribApp.daemonName))
+}
+
+func cmdVrfImportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+}
+
+func cmdVrfExportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 }

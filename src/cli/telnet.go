@@ -56,10 +56,12 @@ const (
 	IAC_SUB_IAC = iota
 )
 
+type bufByteArray [40]byte
+
 type telnetBuf struct {
 	escape         int
 	iac            int
-	lineBuf        [30]byte
+	lineBuf        bufByteArray
 	lineSize       int
 	linePos        int
 	subBuf         [5]byte
@@ -71,7 +73,7 @@ func newTelnetBuf() *telnetBuf {
 	return &telnetBuf{
 		escape:         escNone,
 		iac:            IAC_NONE,
-		lineBuf:        [30]byte{},
+		lineBuf:        bufByteArray{},
 		lineSize:       0,
 		linePos:        0,
 		subBuf:         [5]byte{},
