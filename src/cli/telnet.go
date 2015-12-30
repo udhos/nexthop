@@ -440,24 +440,14 @@ func lineDelChar(c *Client, buf *telnetBuf) {
 }
 
 func histPrevious(c *Client, buf *telnetBuf) {
-
-	hist := c.HistoryPrevious()
-	if hist == "" {
-		return
-	}
-	clearLine(c, buf)
-
-	for i, b := range hist {
-		buf.lineBuf[i] = byte(b)
-	}
-	buf.lineSize = len(hist)
-
-	drawLine(c, buf)
+	histMove(c, buf, c.HistoryPrevious())
 }
 
 func histNext(c *Client, buf *telnetBuf) {
+	histMove(c, buf, c.HistoryNext())
+}
 
-	hist := c.HistoryNext()
+func histMove(c *Client, buf *telnetBuf, hist string) {
 	if hist == "" {
 		return
 	}
