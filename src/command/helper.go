@@ -33,6 +33,18 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	//  - include preparatory commands, like deleting addresses from interfaces affected by address change
 	//  - if any command fails, revert previously applied commands
 	// save new active conf with new commit id
+
+	confOld := ctx.ConfRootActive()
+	confNew := ctx.ConfRootCandidate()
+	cmdList := diff(confOld, confNew)
+	for _, conf := range cmdList {
+		c.Sendln(fmt.Sprintf("commit: %s", conf))
+	}
+}
+
+func diff(root1, root2 *ConfNode) []string {
+	list := []string{"command1", "command2"}
+	return list
 }
 
 func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
