@@ -36,15 +36,61 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	confOld := ctx.ConfRootActive()
 	confNew := ctx.ConfRootCandidate()
-	cmdList := diff(confOld, confNew)
-	for _, conf := range cmdList {
+
+	c.Sendln("deleted from active to candidate:")
+	cmdList1 := diff(confOld, confNew)
+	for _, conf := range cmdList1 {
+		c.Sendln(fmt.Sprintf("commit: %s", conf))
+	}
+
+	c.Sendln("deleted from candidate to active:")
+	cmdList2 := diff(confNew, confOld)
+	for _, conf := range cmdList2 {
 		c.Sendln(fmt.Sprintf("commit: %s", conf))
 	}
 }
 
 func diff(root1, root2 *ConfNode) []string {
-	list := []string{"command1", "command2"}
+	list := []string{}
+	searchDeletedNodes(root1, root2, &list)
 	return list
+}
+
+func searchDeletedNodes(n1, root2 *ConfNode, list *[]string) {
+	//log.Printf("searchDeletedNodes: [%s]", n1.Path)
+
+	if len(n1.Children) > 0 {
+		for _, i := range n1.Children {
+			searchDeletedNodes(i, root2, list)
+		}
+		return
+	}
+	if len(n1.Value) > 0 {
+		searchDeletedValues(n1, root2, list)
+		return
+	}
+
+	if _, err := root2.Get(n1.Path); err != nil {
+		// not found
+		*list = append(*list, n1.Path)
+	}
+}
+
+func searchDeletedValues(n1, root2 *ConfNode, list *[]string) {
+	n2, err := root2.Get(n1.Path)
+	if err != nil {
+		// not found
+		*list = append(*list, n1.Path)
+		return
+	}
+
+	for _, v := range n1.Value {
+		//log.Printf("searchDeletedValues: [%s][%s]", n1.Path, v)
+		i := n2.ValueIndex(v)
+		if i < 0 {
+			*list = append(*list, fmt.Sprintf("%s %s", n1.Path, v))
+		}
+	}
 }
 
 func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {

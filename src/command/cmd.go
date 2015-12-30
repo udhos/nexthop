@@ -76,13 +76,21 @@ type ConfNode struct {
 }
 
 func (n *ConfNode) ValueAdd(value string) error {
-	for _, v := range n.Value {
-		if v == value {
-			return nil // already exists
-		}
+	i := n.ValueIndex(value)
+	if i >= 0 {
+		return nil // already exists
 	}
 	n.Value = append(n.Value, value) // append new
 	return nil
+}
+
+func (n *ConfNode) ValueIndex(value string) int {
+	for i, v := range n.Value {
+		if v == value {
+			return i
+		}
+	}
+	return -1
 }
 
 func (n *ConfNode) ValueSet(value string) {
