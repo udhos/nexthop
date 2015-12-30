@@ -157,7 +157,9 @@ func (c *Client) Send(msg string) {
 			break
 		}
 		// end of line found
+		// i: points to LF
 		i++
+		// i: points just past LF
 		c.outputQueue = append(c.outputQueue, c.outputBuf[:i]) // push line into output queue
 		c.outputBuf = c.outputBuf[i:]                          // skip line
 	}
@@ -165,18 +167,22 @@ func (c *Client) Send(msg string) {
 
 // send lines from outputQueue, paging on terminal height
 func (c *Client) SendQueue() bool {
-	sent := 0
-	_, height := c.TermSize()
-	max := height - 2
-	if max < 1 {
-		max = 1
+	width, height := c.TermSize()
+	termMax := height - 2
+	if termMax < 1 {
+		termMax = 1
 	}
+	sent := 0
+	termLines := 0
 	for i, m := range c.outputQueue {
-		if i >= max {
+		lineWidth := len(strings.TrimRight(m, "\r\n"))
+		lineHeight := getLineHeight(lineWidth, width)
+		if termLines+lineHeight >= termMax {
 			break
 		}
 		c.outputChannel <- m
 		c.outputQueue[i] = "" // release line immediately - no need to depend on future append()
+		termLines += lineHeight
 		sent++
 	}
 
@@ -184,6 +190,15 @@ func (c *Client) SendQueue() bool {
 	paging := len(c.outputQueue) > 0
 
 	return paging
+}
+
+// getLineWidth: how many terminal lines will be consumed
+func getLineHeight(lineWidth, termWidth int) int {
+	if lineWidth < 1 {
+		return 1
+	}
+
+	return (lineWidth-1)/termWidth + 1
 }
 
 func (c *Client) SendPrompt(host string, paging bool) {
