@@ -13,6 +13,7 @@ import (
 
 	"cli"
 	"command"
+	"fwd"
 
 	"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
@@ -24,6 +25,8 @@ type RibApp struct {
 
 	daemonName       string
 	configPathPrefix string
+
+	hardware fwd.Dataplane
 }
 
 func (r RibApp) CmdRoot() *command.CmdNode {
@@ -58,6 +61,7 @@ func main() {
 		confRootCandidate: &command.ConfNode{},
 		confRootActive:    &command.ConfNode{},
 		daemonName:        "rib",
+		hardware:          fwd.NewDataplaneBogus(),
 	}
 
 	log.Printf("%s daemon starting", ribConf.daemonName)
