@@ -15,9 +15,8 @@ const (
 )
 
 const (
-	keyBackward  = 8
+	keyBackspace = ctrlH
 	keyEscape    = 27
-	keyBackspace = 127
 )
 
 const (
@@ -28,17 +27,18 @@ const (
 )
 
 const (
-	ctrlA = 'A' - '@'
-	ctrlB = 'B' - '@'
-	ctrlC = 'C' - '@'
-	ctrlD = 'D' - '@'
-	ctrlE = 'E' - '@'
-	ctrlF = 'F' - '@'
-	ctrlH = 'H' - '@'
-	ctrlK = 'K' - '@'
-	ctrlN = 'N' - '@'
-	ctrlP = 'P' - '@'
-	ctrlZ = 'Z' - '@'
+	ctrlA        = 'A' - '@'
+	ctrlB        = 'B' - '@'
+	ctrlC        = 'C' - '@'
+	ctrlD        = 'D' - '@'
+	ctrlE        = 'E' - '@'
+	ctrlF        = 'F' - '@'
+	ctrlH        = 'H' - '@'
+	ctrlK        = 'K' - '@'
+	ctrlN        = 'N' - '@'
+	ctrlP        = 'P' - '@'
+	ctrlZ        = 'Z' - '@'
+	ctrlQuestion = 127
 )
 
 const (
@@ -208,7 +208,7 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 		// hit IAC mark?
 		log.Printf("iacNone: telnet IAC begin")
 		buf.iac = IAC_CMD
-	case b == keyBackspace, b < 32:
+	case b == ctrlQuestion, b < 32:
 		controlChar(s, c, buf, b)
 	default:
 		// push non-commands bytes into line buffer
@@ -248,7 +248,7 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 }
 
 func cursorLeft(c *Client) {
-	c.echoSend(string(byte(keyBackward)))
+	c.echoSend(string(byte(keyBackspace)))
 }
 
 func cursorRight(c *Client, buf *telnetBuf) {
@@ -258,15 +258,16 @@ func cursorRight(c *Client, buf *telnetBuf) {
 
 func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 
-	//log.Printf("controlChar: byte: %d 0x%x", b, b)
+	// RETURN: CR LF
+	// CtrlM: CR NUL
+	// CtrlJ: LF
 
 	switch b {
 	case '\r': // CR
 		buf.expectingCtrlM = true
-		return
 	case '\n': // LF
 		newlineChar(s, c, buf, b)
-	case ctrlH, keyBackspace:
+	case ctrlQuestion, keyBackspace:
 		lineBackspace(c, buf)
 	case ctrlA:
 		lineBegin(c, buf)
@@ -283,7 +284,18 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlF:
 		lineNextChar(c, buf)
 	case ctrlD:
+		if buf.lineSize < 1 {
+			// EOF
+			c.Sendln("use 'quit' to exit remote terminal")
+
+			// make main goroutine to send the message queue and command prompt
+			s.CommandChannel <- Command{Client: c}
+
+			return
+		}
 		lineDelChar(c, buf)
+	case ctrlK:
+		lineKillToEnd(c, buf)
 	case 0:
 		if buf.expectingCtrlM {
 			// controlM
@@ -312,7 +324,6 @@ func newlineChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	buf.linePos = 0
 	c.HistoryReset()
 
-	//c.echoSend("\r\n") // echo newline back to client
 	c.SendlnNow("") // echo newline back to client
 }
 
@@ -369,6 +380,22 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 	return true
 }
 
+func lineKillToEnd(c *Client, buf *telnetBuf) {
+	killCount := buf.lineSize - buf.linePos
+
+	// erase chars
+	for i := 0; i < killCount; i++ {
+		c.echoSend(" ")
+	}
+
+	// return cursor
+	for i := 0; i < killCount; i++ {
+		cursorLeft(c)
+	}
+
+	buf.lineSize = buf.linePos // drop chars from buffer
+}
+
 func lineBackspace(c *Client, buf *telnetBuf) {
 	if buf.linePos < 1 {
 		return
@@ -393,7 +420,7 @@ func lineEnd(c *Client, buf *telnetBuf) {
 }
 
 func lineDelChar(c *Client, buf *telnetBuf) {
-	if buf.lineSize < 1 {
+	if buf.lineSize < 1 || buf.linePos >= buf.lineSize {
 		return
 	}
 
@@ -401,10 +428,10 @@ func lineDelChar(c *Client, buf *telnetBuf) {
 
 	// redraw
 	for i := buf.linePos; i < buf.lineSize; i++ {
-		buf.lineBuf[i] = buf.lineBuf[i+1]
-		c.echoSend(string(buf.lineBuf[i]))
+		buf.lineBuf[i] = buf.lineBuf[i+1]  // shift
+		c.echoSend(string(buf.lineBuf[i])) // redraw
 	}
-	c.echoSend(" ")
+	c.echoSend(" ") // erase last char
 
 	// reposition cursor
 	for i := buf.linePos; i < buf.lineSize+1; i++ {

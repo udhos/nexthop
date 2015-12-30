@@ -36,35 +36,28 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	//cc := c.(*cli.Client)
-	cc := c
-	status := cc.Status()
+	status := c.Status()
 	if status < CONF {
-		cc.StatusConf()
+		c.StatusConf()
 	}
-	output := fmt.Sprintf("configure: new status=%d", cc.Status())
-	log.Printf(output)
 }
 
 func cmdEnable(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	//cc := c.(*cli.Client)
-	cc := c
-	status := cc.Status()
+	status := c.Status()
 	if status < ENAB {
-		cc.StatusEnable()
+		c.StatusEnable()
 	}
-	output := fmt.Sprintf("enable: new status=%d", cc.Status())
-	log.Printf(output)
 }
 
 func cmdExit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	//cc := c.(*cli.Client)
-	cc := c
 
 	path := c.ConfigPath()
 	if path == "" {
-		cc.StatusExit()
-		//log.Printf("exit: new status=%d", cc.Status())
+		if c.Status() <= EXEC {
+			c.Sendln("use 'quit' to exit remote terminal")
+			return
+		}
+		c.StatusExit()
 		return
 	}
 
