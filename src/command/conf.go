@@ -165,7 +165,3 @@ func writeConfig(node *ConfNode, w StringWriter) error {
 
 	return nil
 }
-
-func LoadConfig(path string) (*ConfNode, error) {
-	return nil, fmt.Errorf("LoadConfig: FIXME WRITEME")
-}

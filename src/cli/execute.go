@@ -89,7 +89,7 @@ func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClien
 
 	line := strings.TrimLeft(rawLine, " ")
 
-	if line == "" {
+	if line == "" || line[0] == '!' || line[0] == '#' {
 		return nil // ignore empty lines
 	}
 

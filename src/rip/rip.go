@@ -50,24 +50,7 @@ func main() {
 
 	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rip.conf.", "configuration path prefix")
 
-	lastConfig, err := command.FindLastConfig(rip.configPathPrefix)
-	if err != nil {
-		log.Printf("%s main: error reading config: [%s]: %v", rip.daemonName, rip.configPathPrefix, err)
-	}
-
-	log.Printf("last config file: %s", lastConfig)
-
-	conf, err2 := command.LoadConfig(lastConfig)
-	if err2 != nil {
-		log.Fatalf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err2)
-	}
-
-	rip.confRootCandidate = conf
-	bogusClient := command.NewBogusClient()
-	if err := command.Commit(rip, bogusClient); err != nil {
-		log.Fatalf("%s main: config commit failed: [%s]: %v", rip.daemonName, lastConfig, err)
-	}
-	command.SwitchConf(rip)
+	loadConf(rip)
 
 	cliServer := cli.NewServer()
 
@@ -87,6 +70,26 @@ func main() {
 			c.DiscardOutputQueue()
 		}
 	}
+}
+
+func loadConf(rip *Rip) {
+	lastConfig, err := command.FindLastConfig(rip.configPathPrefix)
+	if err != nil {
+		log.Printf("%s main: error reading config: [%s]: %v", rip.daemonName, rip.configPathPrefix, err)
+	}
+
+	log.Printf("last config file: %s", lastConfig)
+
+	bogusClient := command.NewBogusClient()
+
+	if err := cli.LoadConfig(rip, lastConfig, bogusClient); err != nil {
+		log.Fatalf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err)
+	}
+
+	if err := command.Commit(rip, bogusClient); err != nil {
+		log.Fatalf("%s main: config commit failed: [%s]: %v", rip.daemonName, lastConfig, err)
+	}
+	command.SwitchConf(rip)
 }
 
 func installCommands(root *command.CmdNode) {
