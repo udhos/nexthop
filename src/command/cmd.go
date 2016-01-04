@@ -114,19 +114,17 @@ func (n *ConfNode) ValueSet(value string) {
 }
 
 func (n *ConfNode) ValueDelete(value string) error {
-	for i, v := range n.Value {
-		if v == value {
-
-			size := len(n.Value)
-			last := size - 1
-			n.Value[i] = n.Value[last]
-			n.Value = n.Value[:last]
-
-			return nil
-		}
+	i := n.ValueIndex(value)
+	if i < 0 {
+		return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
 	}
 
-	return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
+	size := len(n.Value)
+	last := size - 1
+	n.Value[i] = n.Value[last]
+	n.Value = n.Value[:last]
+
+	return nil
 }
 
 // remove node from tree.

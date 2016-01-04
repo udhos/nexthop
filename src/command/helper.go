@@ -260,7 +260,7 @@ func list(node *CmdNode, depth int, c CmdClient) {
 }
 
 func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	c.Sendln(fmt.Sprintf("cmdNo: [%s]", line))
+	//c.Sendln(fmt.Sprintf("cmdNo: [%s]", line))
 
 	sep := strings.IndexByte(line, ' ')
 	if sep < 0 {
@@ -270,8 +270,6 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	arg := line[sep:]
 
-	//cc := c.(*cli.Client)
-	//status := cc.Status()
 	status := c.Status()
 
 	node, _, err := CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status)
@@ -288,7 +286,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	matchAny := node.MatchAny()
 	childMatchAny := !matchAny && len(node.Children) == 1 && node.Children[0].MatchAny()
 
-	c.Sendln(fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny))
+	//c.Sendln(fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny))
 
 	expanded, e := CmdExpand(arg, node.Path)
 	if e != nil {
