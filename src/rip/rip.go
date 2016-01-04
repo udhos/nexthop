@@ -22,13 +22,20 @@ type Rip struct {
 func (r Rip) CmdRoot() *command.CmdNode {
 	return r.cmdRoot
 }
-
 func (r Rip) ConfRootCandidate() *command.ConfNode {
 	return r.confRootCandidate
 }
-
 func (r Rip) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
+}
+func (r *Rip) SetCandidate(newCand *command.ConfNode) {
+	r.confRootCandidate = newCand
+}
+func (r *Rip) SetActive(newActive *command.ConfNode) {
+	r.confRootActive = newActive
+}
+func (r Rip) ConfigPathPrefix() string {
+	return r.configPathPrefix
 }
 
 func main() {

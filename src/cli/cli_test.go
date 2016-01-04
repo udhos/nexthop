@@ -21,6 +21,15 @@ func (a testApp) ConfRootCandidate() *command.ConfNode {
 func (a testApp) ConfRootActive() *command.ConfNode {
 	return a.confRootActive
 }
+func (a testApp) SetCandidate(newCand *command.ConfNode) {
+	a.confRootCandidate = newCand
+}
+func (a testApp) SetActive(newActive *command.ConfNode) {
+	a.confRootActive = newActive
+}
+func (a testApp) ConfigPathPrefix() string {
+	return "testApp.configPathPrefix"
+}
 
 type testClient struct {
 	outputChannel chan string

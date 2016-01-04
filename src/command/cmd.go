@@ -283,8 +283,9 @@ type ConfContext interface {
 	CmdRoot() *CmdNode
 	ConfRootCandidate() *ConfNode
 	ConfRootActive() *ConfNode
-
-	//Hostname() string
+	SetCandidate(newCand *ConfNode)
+	SetActive(newActive *ConfNode)
+	ConfigPathPrefix() string
 }
 
 /*

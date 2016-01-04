@@ -48,6 +48,15 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	for _, conf := range cmdList2 {
 		c.Sendln(fmt.Sprintf("commit: %s", conf))
 	}
+
+	if err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate()); err != nil {
+		msg := fmt.Sprintf("cmdCommit: unable to save candidate config: %v", err)
+		log.Printf(msg)
+		c.Sendln(msg)
+	}
+
+	ctx.SetActive(ctx.ConfRootCandidate())
+	ctx.SetCandidate(&ConfNode{})
 }
 
 func findDeleted(root1, root2 *ConfNode) []string {

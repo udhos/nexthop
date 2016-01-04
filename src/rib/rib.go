@@ -32,13 +32,20 @@ type RibApp struct {
 func (r RibApp) CmdRoot() *command.CmdNode {
 	return r.cmdRoot
 }
-
 func (r RibApp) ConfRootCandidate() *command.ConfNode {
 	return r.confRootCandidate
 }
-
 func (r RibApp) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
+}
+func (r *RibApp) SetCandidate(newCand *command.ConfNode) {
+	r.confRootCandidate = newCand
+}
+func (r *RibApp) SetActive(newActive *command.ConfNode) {
+	r.confRootActive = newActive
+}
+func (r RibApp) ConfigPathPrefix() string {
+	return r.configPathPrefix
 }
 
 /*
