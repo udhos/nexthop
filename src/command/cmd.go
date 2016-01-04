@@ -79,13 +79,21 @@ func (n *ConfNode) Clone() *ConfNode {
 	newNode := &ConfNode{Path: n.Path}
 
 	// clone values
-	for _, v := range n.Value {
-		newNode.Value = append(newNode.Value, v)
-	}
+	/*
+		for _, v := range n.Value {
+			newNode.Value = append(newNode.Value, v)
+		}
+	*/
+	/*
+		newNode.Value = make([]string, len(n.Value))
+		copy(newNode.Value, n.Value)
+	*/
+	newNode.Value = append([]string{}, n.Value...)
 
 	// clone children
-	for _, node := range n.Children {
-		newNode.Children = append(newNode.Children, node.Clone())
+	newNode.Children = make([]*ConfNode, len(n.Children))
+	for i, node := range n.Children {
+		newNode.Children[i] = node.Clone()
 	}
 
 	return newNode
