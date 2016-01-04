@@ -84,7 +84,7 @@ func FindLastConfig(configPathPrefix string) (string, error) {
 		return "", fmt.Errorf("FindLastConfig: no config file found for prefix: %s", configPathPrefix)
 	}
 
-	lastConfig := names[m-1]
+	lastConfig := filepath.Join(dirname, names[m-1])
 
 	return lastConfig, nil
 }
@@ -164,4 +164,8 @@ func writeConfig(node *ConfNode, w StringWriter) error {
 	}
 
 	return nil
+}
+
+func LoadConfig(path string) (*ConfNode, error) {
+	return nil, fmt.Errorf("LoadConfig: FIXME WRITEME")
 }

@@ -84,6 +84,20 @@ func main() {
 
 	log.Printf("last config file: %s", lastConfig)
 
+	conf, err2 := command.LoadConfig(lastConfig)
+	if err2 != nil {
+		log.Fatalf("%s main: error loading config: [%s]: %v", ribConf.daemonName, lastConfig, err2)
+	}
+
+	ribConf.confRootCandidate = conf
+	{
+		bogusClient := command.NewBogusClient()
+		if err := command.Commit(ribConf, bogusClient); err != nil {
+			log.Fatalf("%s main: config commit failed: [%s]: %v", ribConf.daemonName, lastConfig, err)
+		}
+	}
+	command.SwitchConf(ribConf)
+
 	cliServer := cli.NewServer()
 
 	go cli.ListenTelnet(":2001", cliServer)

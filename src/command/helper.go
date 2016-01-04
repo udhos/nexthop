@@ -28,25 +28,12 @@ func InstallCommonHelpers(root *CmdNode) {
 }
 
 func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	// get diff from active conf to candidate conf
-	// build command list to apply diff to active conf
-	//  - include preparatory commands, like deleting addresses from interfaces affected by address change
-	//  - if any command fails, revert previously applied commands
-	// save new active conf with new commit id
 
-	confAct := ctx.ConfRootActive()
-	confCand := ctx.ConfRootCandidate()
-
-	c.Sendln("deleted from active to candidate:")
-	cmdList1 := findDeleted(confAct, confCand)
-	for _, conf := range cmdList1 {
-		c.Sendln(fmt.Sprintf("commit: %s", conf))
-	}
-
-	c.Sendln("deleted from candidate to active:")
-	cmdList2 := findDeleted(confCand, confAct)
-	for _, conf := range cmdList2 {
-		c.Sendln(fmt.Sprintf("commit: %s", conf))
+	if err := Commit(ctx, c); err != nil {
+		msg := fmt.Sprintf("cmdCommit: commit failed: %v", err)
+		log.Printf(msg)
+		c.Sendln(msg)
+		return
 	}
 
 	if err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate()); err != nil {
@@ -55,8 +42,12 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 		c.Sendln(msg)
 	}
 
-	newActive := ctx.ConfRootCandidate().Clone()
-	ctx.SetActive(newActive)
+	SwitchConf(ctx)
+}
+
+func SwitchConf(ctx ConfContext) {
+	log.Printf("SwitchConf: cloning configuration from candidate to active")
+	ctx.SetActive(ctx.ConfRootCandidate().Clone())
 }
 
 func findDeleted(root1, root2 *ConfNode) []string {
