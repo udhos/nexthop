@@ -28,9 +28,6 @@ func (r Rip) ConfRootCandidate() *command.ConfNode {
 func (r Rip) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
 }
-func (r *Rip) SetCandidate(newCand *command.ConfNode) {
-	r.confRootCandidate = newCand
-}
 func (r *Rip) SetActive(newActive *command.ConfNode) {
 	r.confRootActive = newActive
 }

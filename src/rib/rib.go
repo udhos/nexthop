@@ -38,9 +38,6 @@ func (r RibApp) ConfRootCandidate() *command.ConfNode {
 func (r RibApp) ConfRootActive() *command.ConfNode {
 	return r.confRootActive
 }
-func (r *RibApp) SetCandidate(newCand *command.ConfNode) {
-	r.confRootCandidate = newCand
-}
 func (r *RibApp) SetActive(newActive *command.ConfNode) {
 	r.confRootActive = newActive
 }

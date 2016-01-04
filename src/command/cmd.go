@@ -75,6 +75,22 @@ type ConfNode struct {
 	Children []*ConfNode
 }
 
+func (n *ConfNode) Clone() *ConfNode {
+	newNode := &ConfNode{Path: n.Path}
+
+	// clone values
+	for _, v := range n.Value {
+		newNode.Value = append(newNode.Value, v)
+	}
+
+	// clone children
+	for _, node := range n.Children {
+		newNode.Children = append(newNode.Children, node.Clone())
+	}
+
+	return newNode
+}
+
 func (n *ConfNode) ValueAdd(value string) error {
 	i := n.ValueIndex(value)
 	if i >= 0 {
@@ -283,7 +299,6 @@ type ConfContext interface {
 	CmdRoot() *CmdNode
 	ConfRootCandidate() *ConfNode
 	ConfRootActive() *ConfNode
-	SetCandidate(newCand *ConfNode)
 	SetActive(newActive *ConfNode)
 	ConfigPathPrefix() string
 }

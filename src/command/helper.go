@@ -50,13 +50,13 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	}
 
 	if err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate()); err != nil {
-		msg := fmt.Sprintf("cmdCommit: unable to save candidate config: %v", err)
+		msg := fmt.Sprintf("cmdCommit: unable to save new current configuration: %v", err)
 		log.Printf(msg)
 		c.Sendln(msg)
 	}
 
-	ctx.SetActive(ctx.ConfRootCandidate())
-	ctx.SetCandidate(&ConfNode{})
+	newActive := ctx.ConfRootCandidate().Clone()
+	ctx.SetActive(newActive)
 }
 
 func findDeleted(root1, root2 *ConfNode) []string {
