@@ -324,6 +324,9 @@ func LastToken(path string) string {
 
 func StripLastToken(path string) (string, string) {
 	last := strings.LastIndexByte(path, ' ')
+	if last < 0 {
+		return "", path
+	}
 	return path[:last], path[last+1:]
 }
 

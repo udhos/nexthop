@@ -22,9 +22,11 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, "Reset candidate configuration from active configuration")
 	CmdInstall(root, cmdNone, "rollback {ID}", CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
 	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, "Show candidate configuration")
-	CmdInstall(root, cmdNone, "show configuration line-mode", EXEC, cmdShowConf, "Show candidate configuration in line-mode")
+	CmdInstall(root, cmdNone, "show configuration compare", EXEC, cmdShowCompare, "Show differences between active and candidate configurations")
+	CmdInstall(root, cmdNone, "show configuration tree", EXEC, cmdShowConf, "Show candidate configuration tree")
 	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, "Show command history")
 	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, "Show active configuration")
+	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, "Show active configuration tree")
 }
 
 func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -146,15 +148,32 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	}
 }
 
+func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	c.Sendln("difference from active to candidate:")
+
+	confAct := ctx.ConfRootActive()
+	confCand := ctx.ConfRootCandidate()
+
+	cmdList1 := findDeleted(confAct, confCand)
+	for _, conf := range cmdList1 {
+		c.Sendln(fmt.Sprintf("no %s", conf))
+	}
+
+	cmdList2 := findDeleted(confCand, confAct)
+	for _, conf := range cmdList2 {
+		c.Sendln(conf)
+	}
+}
+
 func cmdShowConf(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	showConfig(ctx.ConfRootCandidate(), node, line, c, "candidate configuration:")
 }
 
 func showConfig(root *ConfNode, node *CmdNode, line string, c CmdClient, head string) {
 	fields := strings.Fields(line)
-	lineMode := len(fields) > 2 && strings.HasPrefix("line-mode", fields[2])
+	treeMode := len(fields) > 2 && strings.HasPrefix("tree", fields[2])
 	c.Sendln(head)
-	ShowConf(root, node, c, lineMode)
+	ShowConf(root, node, c, treeMode)
 }
 
 func cmdShowHistory(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
