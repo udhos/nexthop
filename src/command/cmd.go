@@ -39,6 +39,7 @@ type CmdClient interface {
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
+type CommitFunc func(ctx ConfContext, node *CmdNode, enable bool, c CmdClient) error
 
 const (
 	CMD_NONE = uint64(0)
@@ -50,6 +51,7 @@ type CmdNode struct {
 	Desc     string
 	MinLevel int
 	Handler  CmdFunc
+	Apply    CommitFunc
 	Children []*CmdNode
 	Options  uint64
 }
@@ -466,10 +468,6 @@ func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNo
 		return nil, lookupPath, fmt.Errorf("CmdFindRelative: command not found: %s", err)
 	}
 
-	if node.MinLevel > status {
-		return nil, lookupPath, fmt.Errorf("CmdFindRelative: command level prohibited: [%s]", lookupPath)
-	}
-
 	return node, lookupPath, nil
 }
 
@@ -494,7 +492,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 
 		if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == CMD_WILDCARD_ANY {
 			// {ANY} is special construct for consuming anything
-			return parent.Children[0], nil // found
+			return checkLevel(parent.Children[0], "CmdNode", path, level) // found
 		}
 
 		children := matchChildren(parent.Children, label)
@@ -508,7 +506,15 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 		parent = children[0]
 	}
 
-	return parent, nil // found
+	return checkLevel(parent, "CmdNode", path, level) // found
+}
+
+func checkLevel(node *CmdNode, caller, path string, level int) (*CmdNode, error) {
+	if node.MinLevel > level {
+		return nil, fmt.Errorf("%s: command level prohibited: [%s]", caller, path)
+	}
+
+	return node, nil // found
 }
 
 // originalLine:    int eth0 ipv4 addr 1.1.1.1/30
