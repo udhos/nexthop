@@ -36,9 +36,7 @@ func executeKey(ctx command.ConfContext, line string, c *Client) {
 }
 
 func hostname(ctx command.ConfContext) string {
-	root := ctx.ConfRootCandidate()
-
-	log.Printf("cli.hostname(): FIXME: query ACTIVE config")
+	root := ctx.ConfRootActive()
 
 	node, err := root.Get("hostname")
 	if err != nil {

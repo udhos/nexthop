@@ -311,8 +311,19 @@ type ConfContext interface {
 	CmdRoot() *CmdNode
 	ConfRootCandidate() *ConfNode
 	ConfRootActive() *ConfNode
+	SetCandidate(newCand *ConfNode)
 	SetActive(newActive *ConfNode)
 	ConfigPathPrefix() string
+}
+
+func ConfActiveFromCandidate(ctx ConfContext) {
+	log.Printf("cloning configuration from candidate to active")
+	ctx.SetActive(ctx.ConfRootCandidate().Clone())
+}
+
+func ConfCandidateFromActive(ctx ConfContext) {
+	log.Printf("restoring candidate configuration from active")
+	ctx.SetCandidate(ctx.ConfRootActive().Clone())
 }
 
 /*

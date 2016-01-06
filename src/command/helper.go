@@ -12,6 +12,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	//cmdConf := CMD_CONF
 
 	CmdInstall(root, cmdNone, "commit", CONF, cmdCommit, nil, "Apply current candidate configuration")
+	CmdInstall(root, cmdNone, "commit force", CONF, cmdCommitForce, nil, "Force saving candidate configuration even if unchanged")
 	CmdInstall(root, cmdNone, "configure", ENAB, cmdConfig, nil, "Enter configuration mode")
 	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
 	CmdInstall(root, cmdNone, "exit", EXEC, cmdExit, nil, "Exit current location")
@@ -34,8 +35,15 @@ func ApplyBogus(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient
 	return nil
 }
 
-func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+func cmdCommitForce(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	doCommit(ctx, node, line, c, true)
+}
 
+func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	doCommit(ctx, node, line, c, false)
+}
+
+func doCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient, force bool) {
 	if err := Commit(ctx, c, true); err != nil {
 		msg := fmt.Sprintf("cmdCommit: commit failed: %v", err)
 		log.Printf(msg)
@@ -43,18 +51,24 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 		return
 	}
 
-	if err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate()); err != nil {
-		msg := fmt.Sprintf("cmdCommit: unable to save new current configuration: %v", err)
-		log.Printf(msg)
-		c.Sendln(msg)
+	c.Sendln("cmdCommit: configuration changes commited")
+
+	if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) && !force {
+		c.Sendln("cmdCommit: refusing to save unchanged configuration - consider 'commit force'")
+	} else {
+		path, err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate())
+		if err != nil {
+			msg := fmt.Sprintf("cmdCommit: unable to save new current configuration: %v", err)
+			log.Printf(msg)
+			c.Sendln(msg)
+		} else {
+			c.Sendln(fmt.Sprintf("cmdCommit: new configuration saved: [%s]", path))
+		}
 	}
 
-	SwitchConf(ctx)
-}
+	ConfActiveFromCandidate(ctx)
 
-func SwitchConf(ctx ConfContext) {
-	log.Printf("SwitchConf: cloning configuration from candidate to active")
-	ctx.SetActive(ctx.ConfRootCandidate().Clone())
+	c.Sendln("cmdCommit: active configuration updated")
 }
 
 func findDeleted(root1, root2 *ConfNode) ([]string, []*ConfNode) {
@@ -166,10 +180,17 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	fields := strings.Fields(line)
 	if len(fields) > 1 {
 		id := fields[1]
-		log.Printf("cmdRollback: reset candidate config from rollback: %s", id)
-	} else {
-		log.Printf("cmdRollback: reset candidate config from active configuration")
+		c.Sendln(fmt.Sprintf("FIXME WRITEME cmdRollback: reset candidate config from rollback: %s", id))
+		return
 	}
+
+	if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
+		c.Sendln("rollback: notice: there is no uncommited change to discard")
+	}
+
+	c.Sendln("rollback: restoring candidate configuration from active configuration")
+
+	ConfCandidateFromActive(ctx)
 }
 
 func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {

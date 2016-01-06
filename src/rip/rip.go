@@ -31,6 +31,9 @@ func (r Rip) ConfRootActive() *command.ConfNode {
 func (r *Rip) SetActive(newActive *command.ConfNode) {
 	r.confRootActive = newActive
 }
+func (r *Rip) SetCandidate(newCand *command.ConfNode) {
+	r.confRootCandidate = newCand
+}
 func (r Rip) ConfigPathPrefix() string {
 	return r.configPathPrefix
 }
@@ -89,7 +92,8 @@ func loadConf(rip *Rip) {
 	if err := command.Commit(rip, bogusClient, false); err != nil {
 		log.Fatalf("%s main: config commit failed: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
-	command.SwitchConf(rip)
+
+	command.ConfActiveFromCandidate(rip)
 }
 
 func installCommands(root *command.CmdNode) {

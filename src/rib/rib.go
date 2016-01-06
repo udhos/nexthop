@@ -41,6 +41,9 @@ func (r RibApp) ConfRootActive() *command.ConfNode {
 func (r *RibApp) SetActive(newActive *command.ConfNode) {
 	r.confRootActive = newActive
 }
+func (r *RibApp) SetCandidate(newCand *command.ConfNode) {
+	r.confRootCandidate = newCand
+}
 func (r RibApp) ConfigPathPrefix() string {
 	return r.configPathPrefix
 }
@@ -116,5 +119,6 @@ func loadConf(rib *RibApp) {
 	if err := command.Commit(rib, bogusClient, false); err != nil {
 		log.Fatalf("%s main: config commit failed: [%s]: %v", rib.daemonName, lastConfig, err)
 	}
-	command.SwitchConf(rib)
+
+	command.ConfActiveFromCandidate(rib)
 }

@@ -89,17 +89,16 @@ func FindLastConfig(configPathPrefix string) (string, error) {
 	return lastConfig, nil
 }
 
-func SaveNewConfig(configPathPrefix string, root *ConfNode) error {
-	log.Printf("SaveNewConfig: prefix=[%s]", configPathPrefix)
+func SaveNewConfig(configPathPrefix string, root *ConfNode) (string, error) {
 
 	lastConfig, err1 := FindLastConfig(configPathPrefix)
 	if err1 != nil {
-		return fmt.Errorf("SaveNewConfig: error reading config: [%s]: %v", configPathPrefix, err1)
+		return "", fmt.Errorf("SaveNewConfig: error reading config: [%s]: %v", configPathPrefix, err1)
 	}
 
 	id, err2 := extractCommitIdFromFilename(lastConfig)
 	if err2 != nil {
-		return fmt.Errorf("SaveNewConfig: error parsing config path: [%s]: %v", lastConfig, err2)
+		return "", fmt.Errorf("SaveNewConfig: error parsing config path: [%s]: %v", lastConfig, err2)
 	}
 
 	newCommitId := id + 1
@@ -110,24 +109,24 @@ func SaveNewConfig(configPathPrefix string, root *ConfNode) error {
 
 	f, err3 := os.Create(newFilepath)
 	if err3 != nil {
-		return fmt.Errorf("SaveNewConfig: error creating file: [%s]: %v", newFilepath, err3)
+		return "", fmt.Errorf("SaveNewConfig: error creating file: [%s]: %v", newFilepath, err3)
 	}
 
 	w := bufio.NewWriter(f)
 
 	if err := writeConfig(root, w); err != nil {
-		return fmt.Errorf("SaveNewConfig: error writing file: [%s]: %v", newFilepath, err)
+		return "", fmt.Errorf("SaveNewConfig: error writing file: [%s]: %v", newFilepath, err)
 	}
 
 	if err := w.Flush(); err != nil {
-		return fmt.Errorf("SaveNewConfig: error flushing file: [%s]: %v", newFilepath, err)
+		return "", fmt.Errorf("SaveNewConfig: error flushing file: [%s]: %v", newFilepath, err)
 	}
 
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("SaveNewConfig: error closing file: [%s]: %v", newFilepath, err)
+		return "", fmt.Errorf("SaveNewConfig: error closing file: [%s]: %v", newFilepath, err)
 	}
 
-	return nil
+	return newFilepath, nil
 }
 
 type StringWriter interface {
