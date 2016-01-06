@@ -234,5 +234,43 @@ func TestConf(t *testing.T) {
 		return
 	}
 
+	f := func() {
+		dispatchCommand(app, "interface eth5 ipv4 address 1", c, command.CONF)
+	}
+	noCmd, err := command.CmdFind(root, "no X", command.CONF)
+	if err != nil {
+		t.Errorf("could not find 'no' command: %v", err)
+	}
+	f()
+	cmd := "no interface eth5 ipv4 address 1"
+	if err := command.CmdNo(app, noCmd, cmd, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", cmd, err)
+	}
+	f()
+	cmd = "no interface eth5 ipv4 address"
+	if err := command.CmdNo(app, noCmd, cmd, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", cmd, err)
+	}
+	f()
+	cmd = "no interface eth5 ipv4"
+	if err := command.CmdNo(app, noCmd, cmd, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", cmd, err)
+	}
+	f()
+	cmd = "no interface eth5"
+	if err := command.CmdNo(app, noCmd, cmd, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", cmd, err)
+	}
+	f()
+	cmd = "no interface"
+	if err := command.CmdNo(app, noCmd, cmd, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", cmd, err)
+	}
+	f()
+	cmd = "no"
+	if err := command.CmdNo(app, noCmd, cmd, c); err == nil {
+		t.Errorf("bad cmd silently accepted: [%s]", cmd)
+	}
+
 	close(c.outputChannel)
 }

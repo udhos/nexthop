@@ -294,12 +294,15 @@ func list(node *CmdNode, depth int, c CmdClient) {
 }
 
 func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	//c.Sendln(fmt.Sprintf("cmdNo: [%s]", line))
+	if err := CmdNo(ctx, node, line, c); err != nil {
+		c.Sendln(fmt.Sprintf("error: %v", err))
+	}
+}
 
+func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 	sep := strings.IndexByte(line, ' ')
 	if sep < 0 {
-		c.Sendln(fmt.Sprintf("cmdNo: missing argument: %v", line))
-		return
+		return fmt.Errorf("cmdNo: missing argument: %v", line)
 	}
 
 	arg := line[sep:]
@@ -308,13 +311,11 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	node, _, err := CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status)
 	if err != nil {
-		c.Sendln(fmt.Sprintf("cmdNo: not found [%s]: %v", arg, err))
-		return
+		return fmt.Errorf("cmdNo: not found [%s]: %v", arg, err)
 	}
 
 	if !node.IsConfig() {
-		c.Sendln(fmt.Sprintf("cmdNo: not a configuration command: [%s]", arg))
-		return
+		return fmt.Errorf("cmdNo: not a configuration command: [%s]", arg)
 	}
 
 	matchAny := node.MatchAny()
@@ -324,8 +325,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	expanded, e := CmdExpand(arg, node.Path)
 	if e != nil {
-		c.Sendln(fmt.Sprintf("cmdNo: could not expand arg=[%s] cmd=[%s]: %v", arg, node.Path, e))
-		return
+		return fmt.Errorf("cmdNo: could not expand arg=[%s] cmd=[%s]: %v", arg, node.Path, e)
 	}
 
 	var parentConf *ConfNode
@@ -340,8 +340,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
-			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
-			return
+			return fmt.Errorf("cmdNo: config parent node not found [%s]: %v", parentPath, e)
 		}
 
 		childIndex = parentConf.FindChild(childLabel)
@@ -353,8 +352,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
-			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
-			return
+			return fmt.Errorf("cmdNo: config parent node not found [%s]: %v", parentPath, e)
 		}
 
 		childIndex = parentConf.FindChild(childLabel)
@@ -366,8 +364,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
-			c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
-			return
+			return fmt.Errorf("cmdNo: config parent node not found [%s]: %v", parentPath, e)
 		}
 
 		childIndex = parentConf.FindChild(childLabel)
@@ -375,12 +372,11 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 		_, cmdLast := StripLastToken(node.Path)
 		if IsConfigValueKeyword(cmdLast) {
 			if e2 := parentConf.ValueDelete(childLabel); e2 != nil {
-				c.Sendln(fmt.Sprintf("cmdNo: could not delete value: %v", e2))
-				return
+				return fmt.Errorf("cmdNo: could not delete value: %v", e2)
 			}
 
 			if len(parentConf.Value) > 0 {
-				return // done, can't delete node
+				return nil // done, can't delete node
 			}
 
 			// node without value
@@ -389,8 +385,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 			parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 			if e != nil {
-				c.Sendln(fmt.Sprintf("cmdNo: config parent node not found [%s]: %v", parentPath, e))
-				return
+				return fmt.Errorf("cmdNo: config parent node not found [%s]: %v", parentPath, e)
 			}
 
 			childIndex = parentConf.FindChild(childLabel)
@@ -401,4 +396,6 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
 
 	ctx.ConfRootCandidate().Prune(parentConf, parentConf.Children[childIndex], c)
+
+	return nil // ok
 }
