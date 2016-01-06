@@ -29,7 +29,8 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
 }
 
-func ApplyBogus(ctx ConfContext, node *CmdNode, enable bool, c CmdClient) error {
+func ApplyBogus(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient) error {
+	// do nothing
 	return nil
 }
 
@@ -56,38 +57,41 @@ func SwitchConf(ctx ConfContext) {
 	ctx.SetActive(ctx.ConfRootCandidate().Clone())
 }
 
-func findDeleted(root1, root2 *ConfNode) []string {
-	list := []string{}
-	searchDeletedNodes(root1, root2, &list)
-	return list
+func findDeleted(root1, root2 *ConfNode) ([]string, []*ConfNode) {
+	pathList := []string{}
+	nodeList := []*ConfNode{}
+	searchDeletedNodes(root1, root2, &pathList, &nodeList)
+	return pathList, nodeList
 }
 
-func searchDeletedNodes(n1, root2 *ConfNode, list *[]string) {
+func searchDeletedNodes(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
 	//log.Printf("searchDeletedNodes: [%s]", n1.Path)
 
 	if len(n1.Children) > 0 {
 		for _, i := range n1.Children {
-			searchDeletedNodes(i, root2, list)
+			searchDeletedNodes(i, root2, pathList, nodeList)
 		}
 		return
 	}
 	if len(n1.Value) > 0 {
-		searchDeletedValues(n1, root2, list)
+		searchDeletedValues(n1, root2, pathList, nodeList)
 		return
 	}
 
 	if _, err := root2.Get(n1.Path); err != nil {
 		// not found
-		*list = append(*list, n1.Path)
+		*pathList = append(*pathList, n1.Path)
+		*nodeList = append(*nodeList, n1)
 	}
 }
 
-func searchDeletedValues(n1, root2 *ConfNode, list *[]string) {
+func searchDeletedValues(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
 	n2, err := root2.Get(n1.Path)
 	if err != nil {
 		// not found
 		for _, v := range n1.Value {
-			*list = append(*list, fmt.Sprintf("%s %s", n1.Path, v))
+			*pathList = append(*pathList, fmt.Sprintf("%s %s", n1.Path, v))
+			*nodeList = append(*nodeList, n1)
 		}
 		return
 	}
@@ -95,7 +99,8 @@ func searchDeletedValues(n1, root2 *ConfNode, list *[]string) {
 	for _, v := range n1.Value {
 		i := n2.ValueIndex(v)
 		if i < 0 {
-			*list = append(*list, fmt.Sprintf("%s %s", n1.Path, v))
+			*pathList = append(*pathList, fmt.Sprintf("%s %s", n1.Path, v))
+			*nodeList = append(*nodeList, n1)
 		}
 	}
 }
@@ -173,13 +178,13 @@ func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	confAct := ctx.ConfRootActive()
 	confCand := ctx.ConfRootCandidate()
 
-	cmdList1 := findDeleted(confAct, confCand)
-	for _, conf := range cmdList1 {
+	pathList1, _ := findDeleted(confAct, confCand)
+	for _, conf := range pathList1 {
 		c.Sendln(fmt.Sprintf("no %s", conf))
 	}
 
-	cmdList2 := findDeleted(confCand, confAct)
-	for _, conf := range cmdList2 {
+	pathList2, _ := findDeleted(confCand, confAct)
+	for _, conf := range pathList2 {
 		c.Sendln(conf)
 	}
 }

@@ -39,7 +39,7 @@ type CmdClient interface {
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
-type CommitFunc func(ctx ConfContext, node *CmdNode, enable bool, c CmdClient) error
+type CommitFunc func(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient) error
 
 const (
 	CMD_NONE = uint64(0)

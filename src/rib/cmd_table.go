@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	//"strings"
+	"strings"
 
 	//"cli"
 	"command"
@@ -17,7 +17,7 @@ func installRibCommands(root *command.CmdNode) {
 	cmdConf := command.CMD_CONF
 
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, command.ApplyBogus, "Set interface description")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, command.ApplyBogus, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, command.ApplyBogus, "Assign VRF to interface")
@@ -40,6 +40,53 @@ func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c com
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	command.HelperIfaceAddr(ctx, node, line, c)
+}
+
+func applyIfaceAddr(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	app := ctx.(*RibApp)
+	hw := app.hardware
+
+	fields := strings.Fields(action.Cmd)
+	ifname := fields[1]
+	ifaddr := fields[4]
+
+	if action.Enable {
+
+		if err := hw.InterfaceAddressAdd(ifname, ifaddr); err != nil {
+			return fmt.Errorf("applyIfaceAddr: add addr error: %v", err)
+		}
+
+		addrs, err1 := hw.InterfaceAddressGet(ifname)
+		if err1 != nil {
+			return fmt.Errorf("applyIfaceAddr: get addr error: %v", err1)
+		}
+
+		for _, a := range addrs {
+			if a == ifaddr {
+				return nil // success
+			}
+		}
+
+		return fmt.Errorf("applyIfaceAddr: added address not found")
+	}
+
+	if err := hw.InterfaceAddressDel(ifname, ifaddr); err != nil {
+		return fmt.Errorf("applyIfaceAddr: del addr error: %v", err)
+	}
+
+	addrs, err1 := hw.InterfaceAddressGet(ifname)
+	if err1 != nil {
+		return fmt.Errorf("applyIfaceAddr: get addr error: %v", err1)
+	}
+
+	for _, a := range addrs {
+		if a == ifaddr {
+			return fmt.Errorf("applyIfaceAddr: deleted address found")
+		}
+	}
+
+	return nil // success
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

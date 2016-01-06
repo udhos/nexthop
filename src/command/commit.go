@@ -5,13 +5,16 @@ import (
 	"log"
 )
 
-type commitAction struct {
-	cmd    string
-	enable bool
+type CommitAction struct {
+	Cmd    string
+	Enable bool
+	conf   *ConfNode
 }
 
 func ConfEqual(root1, root2 *ConfNode) bool {
-	return len(findDeleted(root1, root2))+len(findDeleted(root2, root1)) == 0
+	pathList1, _ := findDeleted(root1, root2)
+	pathList2, _ := findDeleted(root2, root1)
+	return len(pathList1)+len(pathList2) == 0
 }
 
 // get diff from active conf to candidate conf
@@ -24,29 +27,27 @@ func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 
 	c.Sendln("commit: building commit plan")
 
-	var commitPlan []commitAction
+	var commitPlan []CommitAction
 
 	//c.Sendln("deleted from active to candidate:")
-	disableList := findDeleted(confAct, confCand)
-	for _, conf := range disableList {
-		//c.Sendln(fmt.Sprintf("commit: %s", conf))
-		commitPlan = append(commitPlan, commitAction{cmd: conf, enable: false})
+	disablePathList, disableNodeList := findDeleted(confAct, confCand)
+	for i, cmdPath := range disablePathList {
+		commitPlan = append(commitPlan, CommitAction{Cmd: cmdPath, conf: disableNodeList[i], Enable: false})
 	}
 
 	//c.Sendln("deleted from candidate to active:")
-	enableList := findDeleted(confCand, confAct)
-	for _, conf := range enableList {
-		//c.Sendln(fmt.Sprintf("commit: %s", conf))
-		commitPlan = append(commitPlan, commitAction{cmd: conf, enable: true})
+	enablePathList, enableNodeList := findDeleted(confCand, confAct)
+	for i, cmdPath := range enablePathList {
+		commitPlan = append(commitPlan, CommitAction{Cmd: cmdPath, conf: enableNodeList[i], Enable: true})
 	}
 
 	c.Sendln("commit: applying")
 
 	for i, action := range commitPlan {
-		c.Sendln(fmt.Sprintf("commit: applying: action[%d]: cmd=[%s] enable=%v", i, action.cmd, action.enable))
-		node, err := CmdFind(ctx.CmdRoot(), action.cmd, c.Status())
+		c.Sendln(fmt.Sprintf("commit: applying: action[%d]: cmd=[%s] enable=%v", i, action.Cmd, action.Enable))
+		node, err := CmdFind(ctx.CmdRoot(), action.Cmd, c.Status())
 		if err != nil {
-			fail := fmt.Sprintf("Commit: action failed: cmd=[%s] enable=%v: error: %v", action.cmd, action.enable, err)
+			fail := fmt.Sprintf("Commit: action failed: cmd=[%s] enable=%v: error: %v", action.Cmd, action.Enable, err)
 			log.Printf(fail)
 			c.Sendln(fail)
 			revert(ctx, c, commitPlan, i-1)
@@ -55,7 +56,7 @@ func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 
 		// force last action to fail
 		if forceFailure && i == len(commitPlan)-1 {
-			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: error: HARD-CODED FAILURE", i, action.cmd, action.enable)
+			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: error: HARD-CODED FAILURE", i, action.Cmd, action.Enable)
 			log.Printf(fail)
 			c.Sendln(fail)
 			revert(ctx, c, commitPlan, i-1)
@@ -63,15 +64,15 @@ func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 		}
 
 		if node.Apply == nil {
-			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: missing commit func", i, action.cmd, action.enable)
+			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: missing commit func", i, action.Cmd, action.Enable)
 			log.Printf(fail)
 			c.Sendln(fail)
 			revert(ctx, c, commitPlan, i-1)
 			return fmt.Errorf(fail)
 		}
 
-		if e := node.Apply(ctx, node, action.enable, c); e != nil {
-			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: commit func error: %v", i, action.cmd, action.enable, e)
+		if e := node.Apply(ctx, node, action, c); e != nil {
+			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: commit func error: %v", i, action.Cmd, action.Enable, e)
 			log.Printf(fail)
 			c.Sendln(fail)
 			revert(ctx, c, commitPlan, i-1)
@@ -84,30 +85,30 @@ func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 	return nil
 }
 
-func revert(ctx ConfContext, c CmdClient, plan []commitAction, index int) {
+func revert(ctx ConfContext, c CmdClient, plan []CommitAction, index int) {
 	for i := index; i >= 0; i-- {
 		action := plan[i]
 
-		undo := !action.enable
+		action.Enable = !action.Enable
 
-		c.Sendln(fmt.Sprintf("revert: action[%d] cmd=[%s] enable=%v", i, action.cmd, undo))
-		node, err := CmdFind(ctx.CmdRoot(), action.cmd, c.Status())
+		c.Sendln(fmt.Sprintf("revert: action[%d] cmd=[%s] enable=%v", i, action.Cmd, action.Enable))
+		node, err := CmdFind(ctx.CmdRoot(), action.Cmd, c.Status())
 		if err != nil {
-			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: error: %v", i, action.cmd, undo, err)
+			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: error: %v", i, action.Cmd, action.Enable, err)
 			log.Printf(fail)
 			c.Sendln(fail)
 			continue
 		}
 
 		if node.Apply == nil {
-			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: missing commit func", i, action.cmd, undo)
+			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: missing commit func", i, action.Cmd, action.Enable)
 			log.Printf(fail)
 			c.Sendln(fail)
 			continue
 		}
 
-		if e := node.Apply(ctx, node, undo, c); e != nil {
-			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: commit func error: %v", i, action.cmd, undo, e)
+		if e := node.Apply(ctx, node, action, c); e != nil {
+			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: commit func error: %v", i, action.Cmd, action.Enable, e)
 			log.Printf(fail)
 			c.Sendln(fail)
 			continue
