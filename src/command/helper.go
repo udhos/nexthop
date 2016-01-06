@@ -31,7 +31,7 @@ func InstallCommonHelpers(root *CmdNode) {
 
 func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
-	if err := Commit(ctx, c); err != nil {
+	if err := Commit(ctx, c, true); err != nil {
 		msg := fmt.Sprintf("cmdCommit: commit failed: %v", err)
 		log.Printf(msg)
 		c.Sendln(msg)

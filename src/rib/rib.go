@@ -113,7 +113,7 @@ func loadConf(rib *RibApp) {
 		log.Fatalf("%s main: error loading config: [%s]: %v", rib.daemonName, lastConfig, err)
 	}
 
-	if err := command.Commit(rib, bogusClient); err != nil {
+	if err := command.Commit(rib, bogusClient, false); err != nil {
 		log.Fatalf("%s main: config commit failed: [%s]: %v", rib.daemonName, lastConfig, err)
 	}
 	command.SwitchConf(rib)

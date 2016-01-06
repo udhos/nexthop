@@ -86,7 +86,7 @@ func loadConf(rip *Rip) {
 		log.Fatalf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
 
-	if err := command.Commit(rip, bogusClient); err != nil {
+	if err := command.Commit(rip, bogusClient, false); err != nil {
 		log.Fatalf("%s main: config commit failed: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
 	command.SwitchConf(rip)
