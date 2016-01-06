@@ -62,8 +62,6 @@ func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 			return fmt.Errorf(fail)
 		}
 
-		continue //FIXME
-
 		if node.Apply == nil {
 			fail := fmt.Sprintf("Commit: action[%d] failed: cmd=[%s] enable=%v: missing commit func", i, action.cmd, action.enable)
 			log.Printf(fail)

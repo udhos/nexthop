@@ -11,22 +11,26 @@ func InstallCommonHelpers(root *CmdNode) {
 	cmdNone := CMD_NONE
 	//cmdConf := CMD_CONF
 
-	CmdInstall(root, cmdNone, "commit", CONF, cmdCommit, "Apply current candidate configuration")
-	CmdInstall(root, cmdNone, "configure", ENAB, cmdConfig, "Enter configuration mode")
-	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, "Enter privileged mode")
-	CmdInstall(root, cmdNone, "exit", EXEC, cmdExit, "Exit current location")
-	CmdInstall(root, cmdNone, "list", EXEC, cmdList, "List command tree")
-	CmdInstall(root, cmdNone, "no {ANY}", CONF, HelperNo, "Remove a configuration item")
-	CmdInstall(root, cmdNone, "quit", EXEC, cmdQuit, "Quit session")
-	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, "Reload")
-	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, "Reset candidate configuration from active configuration")
-	CmdInstall(root, cmdNone, "rollback {ID}", CONF, cmdRollback, "Reset candidate configuration from rollback configuration")
-	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, "Show candidate configuration")
-	CmdInstall(root, cmdNone, "show configuration compare", EXEC, cmdShowCompare, "Show differences between active and candidate configurations")
-	CmdInstall(root, cmdNone, "show configuration tree", EXEC, cmdShowConf, "Show candidate configuration tree")
-	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, "Show command history")
-	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, "Show active configuration")
-	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, "Show active configuration tree")
+	CmdInstall(root, cmdNone, "commit", CONF, cmdCommit, nil, "Apply current candidate configuration")
+	CmdInstall(root, cmdNone, "configure", ENAB, cmdConfig, nil, "Enter configuration mode")
+	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
+	CmdInstall(root, cmdNone, "exit", EXEC, cmdExit, nil, "Exit current location")
+	CmdInstall(root, cmdNone, "list", EXEC, cmdList, nil, "List command tree")
+	CmdInstall(root, cmdNone, "no {ANY}", CONF, HelperNo, nil, "Remove a configuration item")
+	CmdInstall(root, cmdNone, "quit", EXEC, cmdQuit, nil, "Quit session")
+	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, nil, "Reload")
+	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, nil, "Reset candidate configuration from active configuration")
+	CmdInstall(root, cmdNone, "rollback {ID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
+	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, nil, "Show candidate configuration")
+	CmdInstall(root, cmdNone, "show configuration compare", EXEC, cmdShowCompare, nil, "Show differences between active and candidate configurations")
+	CmdInstall(root, cmdNone, "show configuration tree", EXEC, cmdShowConf, nil, "Show candidate configuration tree")
+	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, nil, "Show command history")
+	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
+	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
+}
+
+func ApplyBogus(ctx ConfContext, node *CmdNode, enable bool, c CmdClient) error {
+	return nil
 }
 
 func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {

@@ -99,8 +99,8 @@ func installCommands(root *command.CmdNode) {
 	cmdNone := command.CMD_NONE
 	cmdConf := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, "Assign hostname")
-	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, "Show version")
+	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
+	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 }
 
 func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

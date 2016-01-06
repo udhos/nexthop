@@ -68,13 +68,13 @@ func TestConf(t *testing.T) {
 	cmdBogus := func(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	}
 
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, command.HelperDescription, "Set interface description")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, command.HelperIfaceAddr, "Assign IPv4 address to interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdBogus, "Assign IPv6 address to interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdBogus, "Disable interface")
-	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdBogus, "Enable IP routing")
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, "Assign hostname")
-	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, "Remove a configuration item")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, command.HelperDescription, command.ApplyBogus, "Set interface description")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, command.HelperIfaceAddr, command.ApplyBogus, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdBogus, command.ApplyBogus, "Assign IPv6 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdBogus, command.ApplyBogus, "Disable interface")
+	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdBogus, command.ApplyBogus, "Enable IP routing")
+	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Assign hostname")
+	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
 	c := &testClient{outputChannel: make(chan string)}
 

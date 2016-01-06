@@ -57,7 +57,11 @@ type CmdNode struct {
 }
 
 func (n *CmdNode) IsConfig() bool {
-	return n.Options&CMD_CONF != 0
+	return ConfigNodeFlag(n.Options)
+}
+
+func ConfigNodeFlag(options uint64) bool {
+	return options&CMD_CONF != 0
 }
 
 func (n *CmdNode) MatchAny() bool {
@@ -205,7 +209,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 		return nil, fmt.Errorf("ConfNode.Set error: %v", err), false
 	}
 
-	log.Printf("ConfNode.Set: line=[%v] path=[%v] expand=[%s]", line, path, expanded)
+	//log.Printf("ConfNode.Set: line=[%v] path=[%v] expand=[%s]", line, path, expanded)
 
 	labels := strings.Fields(expanded)
 	size := len(labels)
@@ -346,14 +350,24 @@ func pushChild(node, child *CmdNode) {
 	//log.Printf("pushChild: parent=[%s] child=[%s] after: [%v]", node.Path, child.Path, dumpChildren(node))
 }
 
-func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) {
-	if _, err := cmdAdd(root, opt, path, min, cmd, desc); err != nil {
+func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply CommitFunc, desc string) {
+	if _, err := cmdAdd(root, opt, path, min, cmd, apply, desc); err != nil {
 		log.Printf("cmdInstall: error %s", err)
 	}
 }
 
-func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc string) (*CmdNode, error) {
+func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply CommitFunc, desc string) (*CmdNode, error) {
 	//log.Printf("cmdInstall: [%s]", path)
+
+	isConfig := ConfigNodeFlag(opt)
+
+	if isConfig && apply == nil {
+		return nil, fmt.Errorf("cmdAdd: [%s] configuration node missing commit func", path)
+	}
+
+	if !isConfig && apply != nil {
+		return nil, fmt.Errorf("cmdAdd: [%s] non-configuration node does not use commit func", path)
+	}
 
 	labelList := strings.Fields(path)
 	size := len(labelList)
@@ -386,7 +400,7 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc s
 		// last label
 		label = labelList[size-1]
 		//log.Printf("cmdInstall: %d: leaf curr=[%s] label=[%s]", i, path, label)
-		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd, Options: opt}
+		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd, Apply: apply, Options: opt}
 		pushChild(parent, newNode)
 
 		// did this command create an unreachable location?
@@ -405,7 +419,7 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, desc s
 
 	// command node found
 
-	return parent, fmt.Errorf("[%s] already exists", path)
+	return parent, fmt.Errorf("cmdAdd: [%s] already exists", path)
 }
 
 func findChild(node *CmdNode, label string) *CmdNode {
