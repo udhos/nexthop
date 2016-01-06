@@ -15,7 +15,8 @@ const (
 )
 
 const (
-	keyBackspace = ctrlH
+	keyBackspace = ctrlH // 8
+	keyTab       = 9
 	keyEscape    = 27
 )
 
@@ -210,6 +211,8 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 		buf.iac = IAC_CMD
 	case b == ctrlQuestion, b < 32:
 		controlChar(s, c, buf, b)
+	case b == '?':
+		msg(s, c, "? key: command context help - FIXME WRITEME")
 	default:
 		// push non-commands bytes into line buffer
 
@@ -256,6 +259,13 @@ func cursorRight(c *Client, buf *telnetBuf) {
 	buf.linePos++
 }
 
+func msg(s *Server, c *Client, str string) {
+	c.Sendln(str)
+
+	// make main goroutine to send the message queue and command prompt
+	s.CommandChannel <- Command{Client: c}
+}
+
 func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 	// RETURN: CR LF
@@ -269,6 +279,8 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 		newlineChar(s, c, buf, b)
 	case ctrlQuestion, keyBackspace:
 		lineBackspace(c, buf)
+	case keyTab:
+		msg(s, c, "TAB key: command completion - FIXME WRITEME")
 	case ctrlA:
 		lineBegin(c, buf)
 	case ctrlE:
@@ -286,11 +298,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlD:
 		if buf.lineSize < 1 {
 			// EOF
-			c.Sendln("use 'quit' to exit remote terminal")
-
-			// make main goroutine to send the message queue and command prompt
-			s.CommandChannel <- Command{Client: c}
-
+			msg(s, c, "use 'quit' to exit remote terminal")
 			return
 		}
 		lineDelChar(c, buf)
