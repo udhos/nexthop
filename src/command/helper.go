@@ -100,6 +100,7 @@ func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	status := c.Status()
 	if status < CONF {
 		c.StatusConf()
+		reportUncommitedChanges(ctx, c)
 	}
 }
 
@@ -110,13 +111,27 @@ func cmdEnable(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	}
 }
 
+func reportUncommitedChanges(ctx ConfContext, c CmdClient) {
+	confChanged := !ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate())
+	if confChanged {
+		c.Sendln("candidate configuration has uncommited changes")
+		c.Sendln("use: 'commit' to apply changes")
+		c.Sendln("     'rollback' to discard changes")
+		c.Sendln("     'show configuration compare' to see uncommited changes")
+	}
+}
+
 func cmdExit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	path := c.ConfigPath()
 	if path == "" {
-		if c.Status() <= EXEC {
+		status := c.Status()
+		if status <= EXEC {
 			c.Sendln("use 'quit' to exit remote terminal")
 			return
+		}
+		if status == CONF {
+			reportUncommitedChanges(ctx, c)
 		}
 		c.StatusExit()
 		return

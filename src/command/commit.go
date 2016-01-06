@@ -10,6 +10,10 @@ type commitAction struct {
 	enable bool
 }
 
+func ConfEqual(root1, root2 *ConfNode) bool {
+	return len(findDeleted(root1, root2))+len(findDeleted(root2, root1)) == 0
+}
+
 // get diff from active conf to candidate conf
 // build command list to apply diff to active conf
 //  - include preparatory commands, like deleting addresses from interfaces affected by address change
