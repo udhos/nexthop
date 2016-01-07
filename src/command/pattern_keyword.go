@@ -43,9 +43,12 @@ func LoadKeywordTable(ifScannerFunc strListFunc) {
 
 func MatchKeyword(word, label string) error {
 	requirePattern(word)
+
 	kw, found := keyword_table.table[word]
 	if !found {
-		return nil // accept unknown keyword
+		// accept unknown keyword
+		//log.Printf("MatchKeyword: accepting unknown keyword: '%s'", word)
+		return nil
 	}
 
 	if err := kw.match(label); err != nil {
@@ -53,6 +56,17 @@ func MatchKeyword(word, label string) error {
 	}
 
 	return nil // accept
+}
+
+func findKeyword(word string) *keyword {
+	requirePattern(word)
+
+	kw, found := keyword_table.table[word]
+	if !found {
+		return nil
+	}
+
+	return &kw
 }
 
 func keywordAdd(word string, m matchFunc) {
@@ -63,17 +77,22 @@ func keywordAdd(word string, m matchFunc) {
 	}
 	kw := keyword{label: word, match: m}
 	keyword_table.table[word] = kw
+	log.Printf("keywordAdd: new keyword registered: '%s'", word)
 }
 
 func requireIfScanner() {
 	if keyword_table.ifScanFunc == nil {
-		log.Fatalf("missing interface scanner func")
+		msg := fmt.Sprintf("missing interface scanner func")
+		log.Printf(msg)
+		panic(msg)
 	}
 }
 
 func requirePattern(word string) {
 	if !IsUserPatternKeyword(word) {
-		log.Fatalf("not a keyword pattern: '%s'", word)
+		msg := fmt.Sprintf("not a keyword pattern: '%s'", word)
+		log.Printf(msg)
+		panic(msg)
 	}
 }
 
@@ -86,9 +105,11 @@ func matchIfAddr(ifaddr string) error {
 	if err != nil {
 		return err
 	}
-	if ip4 := ip.To4(); ip4 == nil {
+	ip4 := ip.To4()
+	if ip4 == nil {
 		return fmt.Errorf("address '%s' is not IPv4", ifaddr)
 	}
+	log.Printf("matchIfAddr: '%s' => '%v'", ifaddr, ip4)
 	return nil // accept
 }
 

@@ -386,6 +386,12 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 	for i, label := range labelList {
 		currPath := strings.Join(labelList[:i+1], " ")
 		//log.Printf("cmdInstall: %d: curr=[%s] label=[%s]", i, currPath, label)
+
+		if IsUserPatternKeyword(label) && findKeyword(label) == nil {
+			// warning only
+			log.Printf("cmdAdd: command [%s] using unknown keyword '%s'", path, label)
+		}
+
 		child := findChild(parent, label)
 		if child != nil {
 			// found, search next
@@ -475,22 +481,10 @@ func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNo
 
 func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode, error) {
 
-	/*
-		var s scanner.Scanner
-		s.Error = func(s *scanner.Scanner, msg string) {
-			log.Printf("command scan error: %s [%s]", msg, path)
-		}
-		s.Init(strings.NewReader(path))
-	*/
-
 	tokens := strings.Fields(path)
 
 	parent := root
-	//for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
 	for _, label := range tokens {
-		//log.Printf("cmdFind: token: [%s]", s.TokenText())
-		//label := s.TokenText()
-		//log.Printf("cmdFind: token: [%s]", label)
 
 		if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == CMD_WILDCARD_ANY {
 			// {ANY} is special construct for consuming anything
@@ -508,6 +502,9 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 		if size > 1 {
 			return nil, fmt.Errorf("CmdFind: ambiguous: [%s] under [%s]", label, parent.Path)
 		}
+
+		//log.Printf("CmdFind: full=[%s] label=[%s] OK", path, label)
+
 		parent = children[0]
 	}
 

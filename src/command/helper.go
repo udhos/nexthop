@@ -21,7 +21,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "quit", EXEC, cmdQuit, nil, "Quit session")
 	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, nil, "Reload")
 	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, nil, "Reset candidate configuration from active configuration")
-	CmdInstall(root, cmdNone, "rollback {ID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
+	CmdInstall(root, cmdNone, "rollback {COMMITID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
 	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, nil, "Show candidate configuration")
 	CmdInstall(root, cmdNone, "show configuration compare", EXEC, cmdShowCompare, nil, "Show differences between active and candidate configurations")
 	CmdInstall(root, cmdNone, "show configuration tree", EXEC, cmdShowConf, nil, "Show candidate configuration tree")
