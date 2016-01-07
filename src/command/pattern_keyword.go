@@ -39,6 +39,7 @@ func LoadKeywordTable(ifScannerFunc strListFunc) {
 	keywordAdd("{ANY}", matchAny)
 	keywordAdd("{IFNAME}", matchIfName)
 	keywordAdd("{IFADDR}", matchIfAddr)
+	keywordAdd("{IFADDR6}", matchIfAddr6)
 }
 
 func MatchKeyword(word, label string) error {
@@ -117,7 +118,18 @@ func matchIfAddr(ifaddr string) error {
 	if ip4 == nil {
 		return fmt.Errorf("address '%s' is not IPv4", ifaddr)
 	}
-	log.Printf("matchIfAddr: '%s' => '%v'", ifaddr, ip4)
+	return nil // accept
+}
+
+func matchIfAddr6(ifaddr string) error {
+	ip, _, err := net.ParseCIDR(ifaddr)
+	if err != nil {
+		return err
+	}
+	ip6 := ip.To16()
+	if ip6 == nil {
+		return fmt.Errorf("address '%s' is not IPv6", ifaddr)
+	}
 	return nil // accept
 }
 
