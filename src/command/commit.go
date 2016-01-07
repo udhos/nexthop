@@ -45,7 +45,7 @@ func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 
 	for i, action := range commitPlan {
 		c.Sendln(fmt.Sprintf("commit: applying: action[%d]: cmd=[%s] enable=%v", i, action.Cmd, action.Enable))
-		node, err := CmdFind(ctx.CmdRoot(), action.Cmd, c.Status())
+		node, err := CmdFind(ctx.CmdRoot(), action.Cmd, c.Status(), true)
 		if err != nil {
 			fail := fmt.Sprintf("Commit: action failed: cmd=[%s] enable=%v: error: %v", action.Cmd, action.Enable, err)
 			log.Printf(fail)
@@ -92,7 +92,7 @@ func revert(ctx ConfContext, c CmdClient, plan []CommitAction, index int) {
 		action.Enable = !action.Enable
 
 		c.Sendln(fmt.Sprintf("revert: action[%d] cmd=[%s] enable=%v", i, action.Cmd, action.Enable))
-		node, err := CmdFind(ctx.CmdRoot(), action.Cmd, c.Status())
+		node, err := CmdFind(ctx.CmdRoot(), action.Cmd, c.Status(), true)
 		if err != nil {
 			fail := fmt.Sprintf("revert: action[%d] failed: cmd=[%s] enable=%v: error: %v", i, action.Cmd, action.Enable, err)
 			log.Printf(fail)

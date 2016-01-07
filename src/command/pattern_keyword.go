@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"log"
+	"net"
 )
 
 type interfaceScanner interface {
@@ -37,10 +38,11 @@ func LoadKeywordTable(ifScannerFunc strListFunc) {
 
 	keywordAdd("{ANY}", matchAny)
 	keywordAdd("{IFNAME}", matchIfName)
-	//keywordAdd("{IFADDR}", matchIfAddr)
+	keywordAdd("{IFADDR}", matchIfAddr)
 }
 
 func MatchKeyword(word, label string) error {
+	requirePattern(word)
 	kw, found := keyword_table.table[word]
 	if !found {
 		return nil // accept unknown keyword
@@ -80,7 +82,14 @@ func matchAny(str string) error {
 }
 
 func matchIfAddr(ifaddr string) error {
-	return fmt.Errorf("matchIfAddr: FIXME WRITEME")
+	ip, _, err := net.ParseCIDR(ifaddr)
+	if err != nil {
+		return err
+	}
+	if ip4 := ip.To4(); ip4 == nil {
+		return fmt.Errorf("address '%s' is not IPv4", ifaddr)
+	}
+	return nil // accept
 }
 
 func matchIfName(ifname string) error {

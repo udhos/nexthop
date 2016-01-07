@@ -416,7 +416,7 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 
 		// did this command create an unreachable location?
 
-		n, err := CmdFind(root, path, CONF)
+		n, err := CmdFind(root, path, CONF, false)
 		if err != nil {
 			return newNode, fmt.Errorf("root=[%s] cmd=[%s] created unreachable command node: %v", root.Path, path, err)
 		}
@@ -448,7 +448,7 @@ func findChild(node *CmdNode, label string) *CmdNode {
 func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNode, string, error) {
 
 	prependConfigPath := true // assume it's a config cmd
-	n, e := CmdFind(root, line, status)
+	n, e := CmdFind(root, line, status, true)
 	if e == nil {
 		// found at root
 		if !n.IsConfig() {
@@ -465,7 +465,7 @@ func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNo
 		lookupPath = line
 	}
 
-	node, err := CmdFind(root, lookupPath, status)
+	node, err := CmdFind(root, lookupPath, status, true)
 	if err != nil {
 		return nil, lookupPath, fmt.Errorf("CmdFindRelative: command not found: %s", err)
 	}
@@ -473,7 +473,7 @@ func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNo
 	return node, lookupPath, nil
 }
 
-func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
+func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode, error) {
 
 	/*
 		var s scanner.Scanner
@@ -497,7 +497,7 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 			return checkLevel(parent.Children[0], "CmdNode", path, level) // found
 		}
 
-		children, err := matchChildren(parent.Children, label)
+		children, err := matchChildren(parent.Children, label, checkPattern)
 		if err != nil {
 			return nil, fmt.Errorf("CmdFind: bad command: [%s] under [%s]: %v", label, parent.Path, err)
 		}
@@ -514,14 +514,16 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 	return checkLevel(parent, "CmdNode", path, level) // found
 }
 
-func matchChildren(children []*CmdNode, label string) ([]*CmdNode, error) {
+func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*CmdNode, error) {
 	c := []*CmdNode{}
 
 	for _, n := range children {
 		last := LastToken(n.Path)
 		if IsUserPatternKeyword(last) {
-			if err := MatchKeyword(last, label); err != nil {
-				return nil, err
+			if checkPattern {
+				if err := MatchKeyword(last, label); err != nil {
+					return nil, err
+				}
 			}
 			c = append(c, n)
 			continue

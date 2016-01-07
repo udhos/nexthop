@@ -240,7 +240,7 @@ func TestConf(t *testing.T) {
 	f := func() {
 		dispatchCommand(app, "interface eth5 ipv4 address 1", c, command.CONF)
 	}
-	noCmd, err := command.CmdFind(root, "no X", command.CONF)
+	noCmd, err := command.CmdFind(root, "no X", command.CONF, true)
 	if err != nil {
 		t.Errorf("could not find 'no' command: %v", err)
 	}
