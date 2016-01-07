@@ -44,7 +44,10 @@ func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func doCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient, force bool) {
-	if err := Commit(ctx, c, true); err != nil {
+
+	forceFailure := false
+
+	if err := Commit(ctx, c, forceFailure); err != nil {
 		msg := fmt.Sprintf("cmdCommit: commit failed: %v", err)
 		log.Printf(msg)
 		c.Sendln(msg)
