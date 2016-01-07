@@ -32,12 +32,10 @@ func executeKey(ctx command.ConfContext, line string, c *Client) {
 	// RETURN is empty line (line == "")
 	c.Output() <- fmt.Sprintf("%s\r\n", line)
 
-	commandFeedback(c, hostname(ctx))
+	commandFeedback(c, getHostname(ctx.ConfRootActive()))
 }
 
-func hostname(ctx command.ConfContext) string {
-	root := ctx.ConfRootActive()
-
+func getHostname(root *command.ConfNode) string {
 	node, err := root.Get("hostname")
 	if err != nil {
 		return "hostname?"
@@ -73,7 +71,7 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.Sendln(msg)
 	}
 
-	commandFeedback(c, hostname(ctx))
+	commandFeedback(c, getHostname(ctx.ConfRootActive()))
 }
 
 func commandFeedback(c *Client, hostname string) {

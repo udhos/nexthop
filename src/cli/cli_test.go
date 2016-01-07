@@ -106,7 +106,7 @@ func TestConf(t *testing.T) {
 	}
 
 	dispatchCommand(app, "hostname nexthop-router", c, command.CONF)
-	if host := hostname(app); host != "nexthop-router" {
+	if host := getHostname(app.ConfRootCandidate()); host != "nexthop-router" {
 		t.Errorf("bad hostname: %s", host)
 	}
 
