@@ -54,11 +54,25 @@ func MatchKeyword(word, label string) error {
 }
 
 func keywordAdd(word string, m matchFunc) {
+	requireIfScanner()
+	requirePattern(word)
 	if _, found := keyword_table.table[word]; found {
 		log.Fatalf("keywordAdd: duplicate keyword=%s", word)
 	}
 	kw := keyword{label: word, match: m}
 	keyword_table.table[word] = kw
+}
+
+func requireIfScanner() {
+	if keyword_table.ifScanFunc == nil {
+		log.Fatalf("missing interface scanner func")
+	}
+}
+
+func requirePattern(word string) {
+	if !IsUserPatternKeyword(word) {
+		log.Fatalf("not a keyword pattern: '%s'", word)
+	}
 }
 
 func matchAny(str string) error {
@@ -70,9 +84,7 @@ func matchIfAddr(ifaddr string) error {
 }
 
 func matchIfName(ifname string) error {
-	if keyword_table.ifScanFunc == nil {
-		log.Fatalf("matchIfName: missing interface scanner func")
-	}
+	requireIfScanner()
 	ifNames := keyword_table.ifScanFunc()
 	for _, i := range ifNames {
 		if i == ifname {
