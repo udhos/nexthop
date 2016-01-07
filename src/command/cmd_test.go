@@ -6,6 +6,11 @@ import (
 
 func TestCmdInstall(t *testing.T) {
 
+	listInterfaces := func() []string {
+		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	}
+	LoadKeywordTable(listInterfaces)
+
 	cmdNone := CMD_NONE
 	cmdConf := CMD_CONF
 
@@ -24,13 +29,13 @@ func TestCmdInstall(t *testing.T) {
 	if _, err := cmdAdd(root, cmdConf, descUnreach, CONF, cmdBogus, ApplyBogus, "Interface description"); err == nil {
 		t.Errorf("error: silently installed unreachable command location: [%s]", descUnreach)
 	}
-	if _, err := cmdAdd(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", CONF, cmdBogus, ApplyBogus, "Assign IPv4 address to interface"); err != nil {
+	if _, err := cmdAdd(root, cmdConf, "interface {IFNAME} ipv4 address {IFADDR}", CONF, cmdBogus, ApplyBogus, "Assign IPv4 address to interface"); err != nil {
 		t.Errorf("error: %v", err)
 	}
-	if _, err := cmdAdd(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", CONF, cmdBogus, ApplyBogus, "Assign IPv6 address to interface"); err != nil {
+	if _, err := cmdAdd(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", CONF, cmdBogus, ApplyBogus, "Assign IPv6 address to interface"); err != nil {
 		t.Errorf("error: %v", err)
 	}
-	c := "interface {IFNAME} ip address {IPADDR}"
+	c := "interface {IFNAME} ip address {IFADDR}"
 	if _, err := cmdAdd(root, cmdConf, c, CONF, cmdBogus, ApplyBogus, "Assign address to interface"); err == nil {
 		t.Errorf("error: silently installed ambiguous command location: [%s]", c)
 	}

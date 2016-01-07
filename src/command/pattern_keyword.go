@@ -44,6 +44,14 @@ func LoadKeywordTable(ifScannerFunc strListFunc) {
 func MatchKeyword(word, label string) error {
 	requirePattern(word)
 
+	err := matchK(word, label)
+
+	//log.Printf("MatchKeyword: pattern=%s string=%s error=%v", word, label, err)
+
+	return err
+}
+
+func matchK(word, label string) error {
 	kw, found := keyword_table.table[word]
 	if !found {
 		// accept unknown keyword

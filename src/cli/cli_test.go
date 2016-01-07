@@ -64,6 +64,11 @@ func TestConf(t *testing.T) {
 		confRootActive:    &command.ConfNode{},
 	}
 
+	listInterfaces := func() []string {
+		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	}
+	command.LoadKeywordTable(listInterfaces)
+
 	root := app.cmdRoot
 	cmdNone := command.CMD_NONE
 	cmdConf := command.CMD_CONF
@@ -72,8 +77,8 @@ func TestConf(t *testing.T) {
 	}
 
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, command.HelperDescription, command.ApplyBogus, "Set interface description")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, command.HelperIfaceAddr, command.ApplyBogus, "Assign IPv4 address to interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdBogus, command.ApplyBogus, "Assign IPv6 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IFADDR}", command.CONF, command.HelperIfaceAddr, command.ApplyBogus, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdBogus, command.ApplyBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdBogus, command.ApplyBogus, "Disable interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdBogus, command.ApplyBogus, "Enable IP routing")
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Assign hostname")

@@ -90,7 +90,9 @@ func loadConf(rip *Rip) {
 
 	bogusClient := command.NewBogusClient()
 
-	if err := cli.LoadConfig(rip, lastConfig, bogusClient); err != nil {
+	abortOnError := false
+
+	if err := cli.LoadConfig(rip, lastConfig, bogusClient, abortOnError); err != nil {
 		log.Printf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
 

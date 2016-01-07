@@ -3,12 +3,13 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 
 	"command"
 )
 
-func LoadConfig(ctx command.ConfContext, path string, c command.CmdClient) error {
+func LoadConfig(ctx command.ConfContext, path string, c command.CmdClient, abortOnError bool) error {
 
 	f, err1 := os.Open(path)
 	if err1 != nil {
@@ -19,16 +20,22 @@ func LoadConfig(ctx command.ConfContext, path string, c command.CmdClient) error
 
 	scanner := bufio.NewScanner(f)
 
+	var lastErr error
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if err := dispatchCommand(ctx, line, c, command.CONF); err != nil {
-			return fmt.Errorf("cli.LoadConfig: error reading config file: [%s]: %v", path, err)
+			lastErr = fmt.Errorf("cli.LoadConfig: error reading config file: [%s]: %v", path, err)
+			log.Printf("%v", lastErr)
+			if abortOnError {
+				return lastErr
+			}
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("cli.LoadConfig: error scanning config file: [%s]: %v", path, err)
+		lastErr = fmt.Errorf("cli.LoadConfig: error scanning config file: [%s]: %v", path, err)
 	}
 
-	return nil
+	return lastErr
 }

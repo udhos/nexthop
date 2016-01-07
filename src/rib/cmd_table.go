@@ -17,8 +17,8 @@ func installRibCommands(root *command.CmdNode) {
 	cmdConf := command.CMD_CONF
 
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, command.ApplyBogus, "Set interface description")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IPADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IPADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IFADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, command.ApplyBogus, "Assign VRF to interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, command.ApplyBogus, "Enable IP routing")
