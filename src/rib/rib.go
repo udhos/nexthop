@@ -76,6 +76,11 @@ func main() {
 	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
 	log.Printf("IP version: %v", ipv4.Version)
 
+	listInterfaces := func() []string {
+		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	}
+	command.LoadKeywordTable(listInterfaces)
+
 	installRibCommands(ribConf.CmdRoot())
 
 	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rib.conf.", "configuration path prefix")
@@ -113,11 +118,11 @@ func loadConf(rib *RibApp) {
 	bogusClient := command.NewBogusClient()
 
 	if err := cli.LoadConfig(rib, lastConfig, bogusClient); err != nil {
-		log.Fatalf("%s main: error loading config: [%s]: %v", rib.daemonName, lastConfig, err)
+		log.Printf("%s main: error loading config: [%s]: %v", rib.daemonName, lastConfig, err)
 	}
 
 	if err := command.Commit(rib, bogusClient, false); err != nil {
-		log.Fatalf("%s main: config commit failed: [%s]: %v", rib.daemonName, lastConfig, err)
+		log.Printf("%s main: config commit failed: [%s]: %v", rib.daemonName, lastConfig, err)
 	}
 
 	command.ConfActiveFromCandidate(rib)

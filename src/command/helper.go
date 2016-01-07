@@ -174,6 +174,7 @@ func cmdQuit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func cmdReload(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	log.Printf("cmdReload: not implemented FIXME WRITEME")
 }
 
 func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -254,9 +255,9 @@ func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient)
 	// line: "interf  XXXX   descrip   YYY ZZZ WWW"
 	//                                 ^^^^^^^^^^^
 
-	// find 3rd space
 	ln := strings.TrimLeft(line, " ") // drop leading spaces
 
+	// find 3rd space
 	i := IndexByte(ln, ' ', 3)
 	if i < 0 {
 		c.Sendln(fmt.Sprintf("cmdDescr: could not find description argument: [%s]", line))
@@ -391,7 +392,7 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 		childIndex = parentConf.FindChild(childLabel)
 
 		_, cmdLast := StripLastToken(node.Path)
-		if IsConfigValueKeyword(cmdLast) {
+		if IsUserPatternKeyword(cmdLast) {
 			if e2 := parentConf.ValueDelete(childLabel); e2 != nil {
 				return fmt.Errorf("cmdNo: could not delete value: %v", e2)
 			}

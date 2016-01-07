@@ -49,6 +49,11 @@ func main() {
 
 	log.Printf("%s daemon starting", rip.daemonName)
 
+	listInterfaces := func() []string {
+		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	}
+	command.LoadKeywordTable(listInterfaces)
+
 	installCommands(rip.CmdRoot())
 
 	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rip.conf.", "configuration path prefix")
@@ -86,11 +91,11 @@ func loadConf(rip *Rip) {
 	bogusClient := command.NewBogusClient()
 
 	if err := cli.LoadConfig(rip, lastConfig, bogusClient); err != nil {
-		log.Fatalf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err)
+		log.Printf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
 
 	if err := command.Commit(rip, bogusClient, false); err != nil {
-		log.Fatalf("%s main: config commit failed: [%s]: %v", rip.daemonName, lastConfig, err)
+		log.Printf("%s main: config commit failed: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
 
 	command.ConfActiveFromCandidate(rip)

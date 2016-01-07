@@ -445,29 +445,6 @@ func findChild(node *CmdNode, label string) *CmdNode {
 	return nil
 }
 
-func IsConfigValueKeyword(str string) bool {
-	return str[0] == '{' && str[len(str)-1] == '}'
-}
-
-func matchChildren(children []*CmdNode, label string) []*CmdNode {
-	c := []*CmdNode{}
-
-	for _, n := range children {
-		last := LastToken(n.Path)
-		if IsConfigValueKeyword(last) {
-			// these keywords match any label
-			c = append(c, n)
-			continue
-		}
-		if strings.HasPrefix(last, label) {
-			c = append(c, n)
-			continue
-		}
-	}
-
-	return c
-}
-
 func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNode, string, error) {
 
 	prependConfigPath := true // assume it's a config cmd
@@ -520,7 +497,10 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 			return checkLevel(parent.Children[0], "CmdNode", path, level) // found
 		}
 
-		children := matchChildren(parent.Children, label)
+		children, err := matchChildren(parent.Children, label)
+		if err != nil {
+			return nil, fmt.Errorf("CmdFind: bad command: [%s] under [%s]: %v", label, parent.Path, err)
+		}
 		size := len(children)
 		if size < 1 {
 			return nil, fmt.Errorf("CmdFind: not found: [%s] under [%s]", label, parent.Path)
@@ -532,6 +512,27 @@ func CmdFind(root *CmdNode, path string, level int) (*CmdNode, error) {
 	}
 
 	return checkLevel(parent, "CmdNode", path, level) // found
+}
+
+func matchChildren(children []*CmdNode, label string) ([]*CmdNode, error) {
+	c := []*CmdNode{}
+
+	for _, n := range children {
+		last := LastToken(n.Path)
+		if IsUserPatternKeyword(last) {
+			if err := MatchKeyword(last, label); err != nil {
+				return nil, err
+			}
+			c = append(c, n)
+			continue
+		}
+		if strings.HasPrefix(last, label) {
+			c = append(c, n)
+			continue
+		}
+	}
+
+	return c, nil
 }
 
 func checkLevel(node *CmdNode, caller, path string, level int) (*CmdNode, error) {
@@ -557,7 +558,7 @@ func CmdExpand(originalLine, commandFullPath string) (string, error) {
 	}
 
 	for i, label := range pathFields {
-		if label[0] == '{' {
+		if IsUserPatternKeyword(label) {
 			pathFields[i] = lineFields[i]
 			continue
 		}
