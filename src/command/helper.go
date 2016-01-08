@@ -182,44 +182,43 @@ func cmdReload(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	fields := strings.Fields(line)
-	if len(fields) > 1 {
-
-		if !ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
-			c.Sendln("rollback: refusing to load rollback config over uncommited changes")
-			return
-		}
-
-		id := fields[1]
-
-		path := fmt.Sprintf("%s%s", ctx.ConfigPathPrefix(), id)
-
-		/*
-			abortOnError := false
-			if err := cli.LoadConfig(ctx, path, c, abortOnError); err != nil {
-				c.Sendln(fmt.Sprintf("rollback: CAUTION: there was error loading config from: [%s]: %v", path, err))
-			}
-		*/
-
-		c.Sendln(fmt.Sprintf("rollback: commit '%s' loaded from [%s] as candidate config", id, path))
-
+	if len(fields) == 1 {
 		if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
-			c.Sendln(fmt.Sprintf("rollback: notice: loaded commit '%s' is identical to active configuration", id))
+			c.Sendln("rollback: notice: there is no uncommited change to discard")
 		}
 
-		c.Sendln("rollback: use 'show configuration compare' to verify candidate changes")
-		c.Sendln("rollback: use 'commit' to apply candidate changes")
-		c.Sendln("rollback: use 'rollback' to discard candidate changes")
+		c.Sendln("rollback: restoring candidate configuration from active configuration")
+
+		ConfCandidateFromActive(ctx)
 
 		return
 	}
 
-	if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
-		c.Sendln("rollback: notice: there is no uncommited change to discard")
+	if !ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
+		c.Sendln("rollback: refusing to load rollback config over uncommited changes")
+		return
 	}
 
-	c.Sendln("rollback: restoring candidate configuration from active configuration")
+	id := fields[1]
 
-	ConfCandidateFromActive(ctx)
+	path := fmt.Sprintf("%s%s", ctx.ConfigPathPrefix(), id)
+
+	/*
+		abortOnError := false
+		if err := cli.LoadConfig(ctx, path, c, abortOnError); err != nil {
+			c.Sendln(fmt.Sprintf("rollback: CAUTION: there was error loading config from: [%s]: %v", path, err))
+		}
+	*/
+
+	c.Sendln(fmt.Sprintf("rollback: commit '%s' loaded from [%s] as candidate config", id, path))
+
+	if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
+		c.Sendln(fmt.Sprintf("rollback: notice: loaded commit '%s' is identical to active configuration", id))
+	}
+
+	c.Sendln("rollback: use 'show configuration compare' to verify candidate changes")
+	c.Sendln("rollback: use 'commit' to apply candidate changes")
+	c.Sendln("rollback: use 'rollback' to discard candidate changes")
 }
 
 func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
