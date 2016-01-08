@@ -164,3 +164,40 @@ func writeConfig(node *ConfNode, w StringWriter) error {
 
 	return nil
 }
+
+func LoadConfig(ctx ConfContext, path string, c CmdClient, abortOnError bool) (int, error) {
+
+	f, err1 := os.Open(path)
+	if err1 != nil {
+		return 0, fmt.Errorf("LoadConfig: error opening config file: [%s]: %v", path, err1)
+	}
+
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+
+	var lastErr error
+
+	goodLines := 0
+	i := 0
+
+	for scanner.Scan() {
+		i++
+		line := scanner.Text()
+		if err := Dispatch(ctx, line, c, CONF); err != nil {
+			lastErr = fmt.Errorf("LoadConfig: error applying line %d [%s] from file: [%s]: %v", i, line, path, err)
+			log.Printf("%v", lastErr)
+			if abortOnError {
+				return goodLines, lastErr
+			}
+			continue
+		}
+		goodLines++
+	}
+
+	if err := scanner.Err(); err != nil {
+		lastErr = fmt.Errorf("LoadConfig: error scanning config file: [%s]: %v", path, err)
+	}
+
+	return goodLines, lastErr
+}

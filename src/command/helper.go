@@ -142,8 +142,8 @@ func reportUncommitedChanges(ctx ConfContext, c CmdClient) {
 	if confChanged {
 		c.Sendln("candidate configuration has uncommited changes")
 		c.Sendln("use: 'commit' to apply changes")
-		c.Sendln("     'rollback' to discard changes")
-		c.Sendln("     'show configuration compare' to see uncommited changes")
+		c.Sendln("     'rollback' to discard uncommited changes")
+		c.Sendln("     'show configuration compare' to view uncommited changes")
 	}
 }
 
@@ -203,22 +203,23 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	path := fmt.Sprintf("%s%s", ctx.ConfigPathPrefix(), id)
 
-	/*
-		abortOnError := false
-		if err := cli.LoadConfig(ctx, path, c, abortOnError); err != nil {
-			c.Sendln(fmt.Sprintf("rollback: CAUTION: there was error loading config from: [%s]: %v", path, err))
-		}
-	*/
-
-	c.Sendln(fmt.Sprintf("rollback: commit '%s' loaded from [%s] as candidate config", id, path))
-
-	if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
-		c.Sendln(fmt.Sprintf("rollback: notice: loaded commit '%s' is identical to active configuration", id))
+	abortOnError := false
+	goodLines, err := LoadConfig(ctx, path, c, abortOnError)
+	if err != nil {
+		c.Sendln(fmt.Sprintf("rollback: CAUTION: there was error loading config from: [%s]: %v", path, err))
 	}
 
-	c.Sendln("rollback: use 'show configuration compare' to verify candidate changes")
-	c.Sendln("rollback: use 'commit' to apply candidate changes")
-	c.Sendln("rollback: use 'rollback' to discard candidate changes")
+	if goodLines > 0 {
+		c.Sendln(fmt.Sprintf("rollback: commit '%s' loaded from [%s] as candidate config", id, path))
+		if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) {
+			c.Sendln(fmt.Sprintf("rollback: notice: loaded commit '%s' is identical to active configuration", id))
+		}
+
+		c.Sendln("rollback: use 'show configuration compare' to verify candidate changes")
+		c.Sendln("rollback: use 'commit' to apply candidate changes")
+		c.Sendln("rollback: use 'rollback' to discard candidate changes")
+	}
+
 }
 
 func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {

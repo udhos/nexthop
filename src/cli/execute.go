@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 	"log"
-	"strings"
+	//"strings"
 
 	"command"
 )
@@ -62,7 +62,8 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.EchoEnable()
 		c.StatusSet(command.EXEC)
 	case command.EXEC, command.ENAB, command.CONF:
-		if err := dispatchCommand(ctx, line, c, status); err != nil {
+		//if err := command.dispatchCommand(ctx, line, c, status); err != nil {
+		if err := command.Dispatch(ctx, line, c, status); err != nil {
 			c.Sendln(fmt.Sprintf("executeLine: error: %v", err))
 		}
 	default:
@@ -81,6 +82,7 @@ func commandFeedback(c *Client, hostname string) {
 	c.Flush()
 }
 
+/*
 func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClient, status int) error {
 
 	line := strings.TrimLeft(rawLine, " ")
@@ -110,3 +112,4 @@ func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClien
 
 	return nil
 }
+*/

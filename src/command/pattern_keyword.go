@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
+	"unicode"
 )
 
 type interfaceListFunc func() ([]string, []string) // ifname, ifvrf
@@ -43,6 +45,7 @@ func LoadKeywordTable(ifScannerFunc interfaceListFunc) {
 	keywordAdd("{IFNAME}", matchIfName)
 	keywordAdd("{IFADDR}", matchIfAddr)
 	keywordAdd("{IFADDR6}", matchIfAddr6)
+	keywordAdd("{COMMITID}", matchCommitId)
 }
 
 func MatchKeyword(word, label string) error {
@@ -145,4 +148,16 @@ func matchIfName(ifname string) error {
 		}
 	}
 	return fmt.Errorf("interface '%s' does not exist", ifname)
+}
+
+func matchCommitId(id string) error {
+	for i, d := range id {
+		if !unicode.IsDigit(d) {
+			return fmt.Errorf("non-digit char in commit id '%s': decimal=%d (index %d)", id, d, i)
+		}
+	}
+	if _, err := strconv.Atoi(id); err != nil {
+		return fmt.Errorf("could not parse commit id '%s': %v", id, err)
+	}
+	return nil // accept
 }

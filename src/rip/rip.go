@@ -102,7 +102,7 @@ func loadConf(rip *Rip) {
 
 	abortOnError := false
 
-	if err := cli.LoadConfig(rip, lastConfig, bogusClient, abortOnError); err != nil {
+	if _, err := command.LoadConfig(rip, lastConfig, bogusClient, abortOnError); err != nil {
 		log.Printf("%s main: error loading config: [%s]: %v", rip.daemonName, lastConfig, err)
 	}
 

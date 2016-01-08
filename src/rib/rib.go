@@ -125,7 +125,7 @@ func loadConf(rib *RibApp) {
 
 	abortOnError := false
 
-	if err := cli.LoadConfig(rib, lastConfig, bogusClient, abortOnError); err != nil {
+	if _, err := command.LoadConfig(rib, lastConfig, bogusClient, abortOnError); err != nil {
 		log.Printf("%s main: error loading config: [%s]: %v", rib.daemonName, lastConfig, err)
 	}
 

@@ -565,3 +565,33 @@ func CmdExpand(originalLine, commandFullPath string) (string, error) {
 
 	return strings.Join(pathFields, " "), nil
 }
+
+func Dispatch(ctx ConfContext, rawLine string, c CmdClient, status int) error {
+
+	line := strings.TrimLeft(rawLine, " ")
+
+	if line == "" || line[0] == '!' || line[0] == '#' {
+		return nil // ignore empty lines
+	}
+
+	c.HistoryAdd(rawLine)
+
+	node, lookupPath, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
+	if err != nil {
+		e := fmt.Errorf("dispatchCommand: not found [%s]: %v", line, err)
+		return e
+	}
+
+	if node.Handler == nil {
+		if node.IsConfig() {
+			c.ConfigPathSet(lookupPath) // enter config path
+			return nil
+		}
+		err := fmt.Errorf("dispatchCommand: command missing handler: [%s]", line)
+		return err
+	}
+
+	node.Handler(ctx, node, lookupPath, c)
+
+	return nil
+}
