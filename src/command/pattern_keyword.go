@@ -6,12 +6,15 @@ import (
 	"net"
 )
 
+type interfaceListFunc func() ([]string, []string) // ifname, ifvrf
+
+/*
 type interfaceScanner interface {
-	interfaceList() []string
+	interfaceList interfaceListFunc
 }
+*/
 
 type matchFunc func(label string) error
-type strListFunc func() []string
 
 type keyword struct {
 	label string
@@ -20,7 +23,7 @@ type keyword struct {
 
 type keywordTable struct {
 	table      map[string]keyword
-	ifScanFunc strListFunc // list existing interface names
+	ifScanFunc interfaceListFunc
 }
 
 var keyword_table = keywordTable{table: map[string]keyword{}}
@@ -33,7 +36,7 @@ func IsUserPatternKeyword(str string) bool {
 	return str[0] == '{' && str[size-1] == '}'
 }
 
-func LoadKeywordTable(ifScannerFunc strListFunc) {
+func LoadKeywordTable(ifScannerFunc interfaceListFunc) {
 	keyword_table.ifScanFunc = ifScannerFunc
 
 	keywordAdd("{ANY}", matchAny)
@@ -135,7 +138,7 @@ func matchIfAddr6(ifaddr string) error {
 
 func matchIfName(ifname string) error {
 	requireIfScanner()
-	ifNames := keyword_table.ifScanFunc()
+	ifNames, _ := keyword_table.ifScanFunc()
 	for _, i := range ifNames {
 		if i == ifname {
 			return nil // found interface

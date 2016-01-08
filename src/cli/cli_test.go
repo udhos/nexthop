@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"command"
+	"fwd"
 )
 
 type testApp struct {
@@ -64,8 +65,14 @@ func TestConf(t *testing.T) {
 		confRootActive:    &command.ConfNode{},
 	}
 
-	listInterfaces := func() []string {
-		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	hardware := fwd.NewDataplaneBogus()
+
+	listInterfaces := func() ([]string, []string) {
+		ifaces, vrfs, err := hardware.Interfaces()
+		if err != nil {
+			t.Errorf("hardware.Interfaces(): error: %v", err)
+		}
+		return ifaces, vrfs
 	}
 	command.LoadKeywordTable(listInterfaces)
 

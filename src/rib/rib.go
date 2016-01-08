@@ -63,21 +63,27 @@ func (r RibApp) Hostname() string {
 
 func main() {
 
-	ribConf := &RibApp{
-		cmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
-		confRootCandidate: &command.ConfNode{},
-		confRootActive:    &command.ConfNode{},
-		daemonName:        "rib",
-		hardware:          fwd.NewDataplaneBogus(),
-	}
+	daemonName := "rib"
 
-	log.Printf("%s daemon starting", ribConf.daemonName)
+	log.Printf("%s daemon starting", daemonName)
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)
 	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
 	log.Printf("IP version: %v", ipv4.Version)
 
-	listInterfaces := func() []string {
-		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	ribConf := &RibApp{
+		cmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
+		confRootCandidate: &command.ConfNode{},
+		confRootActive:    &command.ConfNode{},
+		daemonName:        daemonName,
+		hardware:          fwd.NewDataplaneBogus(),
+	}
+
+	listInterfaces := func() ([]string, []string) {
+		ifaces, vrfs, err := ribConf.hardware.Interfaces()
+		if err != nil {
+			log.Printf("%s main: Interfaces(): error: %v", ribConf.daemonName, err)
+		}
+		return ifaces, vrfs
 	}
 	command.LoadKeywordTable(listInterfaces)
 

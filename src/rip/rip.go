@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"fwd"
 	"log"
 	"time"
 
@@ -17,6 +18,8 @@ type Rip struct {
 
 	daemonName       string
 	configPathPrefix string
+
+	hardware fwd.Dataplane
 }
 
 func (r Rip) CmdRoot() *command.CmdNode {
@@ -40,17 +43,24 @@ func (r Rip) ConfigPathPrefix() string {
 
 func main() {
 
+	daemonName := "rip"
+
+	log.Printf("%s daemon starting", daemonName)
+
 	rip := &Rip{
 		cmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
 		confRootCandidate: &command.ConfNode{},
 		confRootActive:    &command.ConfNode{},
-		daemonName:        "rip",
+		daemonName:        daemonName,
+		hardware:          fwd.NewDataplaneBogus(),
 	}
 
-	log.Printf("%s daemon starting", rip.daemonName)
-
-	listInterfaces := func() []string {
-		return []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5"} // FIXME
+	listInterfaces := func() ([]string, []string) {
+		ifaces, vrfs, err := rip.hardware.Interfaces()
+		if err != nil {
+			log.Printf("%s main: Interfaces(): error: %v", rip.daemonName, err)
+		}
+		return ifaces, vrfs
 	}
 	command.LoadKeywordTable(listInterfaces)
 

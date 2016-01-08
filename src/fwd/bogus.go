@@ -2,20 +2,38 @@ package fwd
 
 import (
 	"fmt"
-	//"log"
+	"log"
 )
 
 func NewDataplaneBogus() *bogusDataplane {
-	return &bogusDataplane{interfaceTable: map[string]*bogusIface{}}
+	d := &bogusDataplane{interfaceTable: map[string]*bogusIface{}}
+	d.interfaceAdd("eth0", "")
+	d.interfaceAdd("eth1", "")
+	d.interfaceAdd("eth2", "")
+	d.interfaceAdd("eth3", "VRF1")
+	d.interfaceAdd("eth4", "VRF1")
+	d.interfaceAdd("eth5", "VRF2")
+	return d
 }
 
 type bogusIface struct {
 	name      string
 	addresses []string
+	vrf       string
 }
 
 type bogusDataplane struct {
 	interfaceTable map[string]*bogusIface
+}
+
+func (d *bogusDataplane) interfaceAdd(ifname, vrfname string) {
+	log.Printf("bogusDataplane.interfaceAdd: ifname=%s on vrf=[%s]", ifname, vrfname)
+	i, ok := d.interfaceTable[ifname]
+	if !ok {
+		i = &bogusIface{name: ifname}
+		d.interfaceTable[ifname] = i
+	}
+	i.vrf = vrfname
 }
 
 func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
@@ -57,4 +75,12 @@ func (d *bogusDataplane) InterfaceAddressGet(ifname string) ([]string, error) {
 	a := append([]string{}, i.addresses...) // clone
 	//log.Printf("InterfaceAddressGet: %v", a)
 	return a, nil
+}
+func (d *bogusDataplane) Interfaces() ([]string, []string, error) {
+	var ifnames, vrfnames []string
+	for ifname, i := range d.interfaceTable {
+		ifnames = append(ifnames, ifname)
+		vrfnames = append(vrfnames, i.vrf)
+	}
+	return ifnames, vrfnames, nil
 }
