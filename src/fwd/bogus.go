@@ -36,7 +36,7 @@ func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
 func (d *bogusDataplane) InterfaceAddressDel(ifname, addr string) error {
 	i, ok := d.interfaceTable[ifname]
 	if !ok {
-		fmt.Errorf("InterfaceAddressDel: interface not found")
+		return fmt.Errorf("InterfaceAddressDel: interface not found")
 	}
 	for j, a := range i.addresses {
 		if a == addr {

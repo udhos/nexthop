@@ -264,7 +264,6 @@ func cmdShowRun(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	linePath, addr := StripLastToken(line)
-	log.Printf("cmdIfaceAddr: FIXME check IPv4/plen syntax: ipv4=%s", addr)
 
 	path, _ := StripLastToken(node.Path)
 
