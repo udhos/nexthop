@@ -199,6 +199,9 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 		return
 	}
 
+	// clear candidate configuration because we will load entire new config over it
+	ctx.SetCandidate(&ConfNode{})
+
 	id := fields[1]
 
 	path := fmt.Sprintf("%s%s", ctx.ConfigPathPrefix(), id)
