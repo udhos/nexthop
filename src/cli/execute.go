@@ -62,7 +62,6 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.EchoEnable()
 		c.StatusSet(command.EXEC)
 	case command.EXEC, command.ENAB, command.CONF:
-		//if err := command.dispatchCommand(ctx, line, c, status); err != nil {
 		if err := command.Dispatch(ctx, line, c, status); err != nil {
 			c.Sendln(fmt.Sprintf("executeLine: error: %v", err))
 		}

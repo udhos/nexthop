@@ -91,7 +91,6 @@ func applyIfaceAddr(ctx command.ConfContext, node *command.CmdNode, action comma
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	linePath, addr := command.StripLastToken(line)
-	log.Printf("cmdIfaceAddr: FIXME check IPv6/plen syntax: ipv6=%s", addr)
 
 	path, _ := command.StripLastToken(node.Path)
 
