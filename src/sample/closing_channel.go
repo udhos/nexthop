@@ -16,11 +16,12 @@ func main() {
 }
 
 // how to write on possibly closed channel
-func write(out chan int, i int) {
+func write(out chan int, i int) (err error) {
 
 	defer func() {
 		// recover from panic caused by writing to a closed channel
-		if err := recover(); err != nil {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
 			fmt.Printf("write: error writing %d on channel: %v\n", i, err)
 			return
 		}
@@ -29,4 +30,6 @@ func write(out chan int, i int) {
 	}()
 
 	out <- i // write on possibly closed channel
+
+	return err
 }
