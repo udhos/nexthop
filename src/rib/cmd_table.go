@@ -20,7 +20,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IFADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, command.ApplyBogus, "Assign VRF to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, applyIfaceVrf, "Assign VRF to interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, command.ApplyBogus, "Enable IP routing")
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, nil, "Show interfaces")
@@ -89,6 +89,51 @@ func applyIfaceAddr(ctx command.ConfContext, node *command.CmdNode, action comma
 	return nil // success
 }
 
+func applyIfaceVrf(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	app := ctx.(*RibApp)
+	hw := app.hardware
+
+	fields := strings.Fields(action.Cmd)
+	ifname := fields[1]
+	vrfName := fields[3]
+
+	if action.Enable {
+
+		if err := hw.InterfaceVrf(ifname, vrfName); err != nil {
+			return fmt.Errorf("applyIfaceVrf: error: %v", err)
+		}
+
+		ifnames, vrfnames, err := hw.Interfaces()
+		if err != nil {
+			return fmt.Errorf("applyIfaceVrf: error querying interfaces: %v", err)
+		}
+		for i, ifn := range ifnames {
+			if ifn == ifname && vrfnames[i] == vrfName {
+				return nil // success
+			}
+		}
+
+		return fmt.Errorf("applyIfaceVrf: iface/vrf not found")
+	}
+
+	if err := hw.InterfaceVrf(ifname, ""); err != nil {
+		return fmt.Errorf("applyIfaceVrf: del vrf error: %v", err)
+	}
+
+	ifnames, vrfnames, err := hw.Interfaces()
+	if err != nil {
+		return fmt.Errorf("applyIfaceVrf: error querying interfaces: %v", err)
+	}
+	for i, ifn := range ifnames {
+		if ifn == ifname && vrfnames[i] == vrfName {
+			return fmt.Errorf("applyIfaceVrf: deleted iface/vrf found")
+		}
+	}
+
+	return nil // success
+}
+
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	linePath, addr := command.StripLastToken(line)
 
@@ -114,9 +159,27 @@ func cmdIfaceShutdown(ctx command.ConfContext, node *command.CmdNode, line strin
 }
 
 func cmdIfaceVrf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	linePath, vrfName := command.StripLastToken(line)
+
+	path, _ := command.StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		log.Printf("iface vrf: error: %v", err)
+		return
+	}
+
+	confNode.ValueSet(vrfName)
 }
 
 func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	confCand := ctx.ConfRootCandidate()
+	_, err, _ := confCand.Set(node.Path, line)
+	if err != nil {
+		log.Printf("ip routing: error: %v", err)
+		return
+	}
 }
 
 func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -142,7 +205,31 @@ func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c c
 }
 
 func cmdVrfImportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	linePath, rt := command.StripLastToken(line)
+
+	path, _ := command.StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		log.Printf("vrf import rt: error: %v", err)
+		return
+	}
+
+	confNode.ValueAdd(rt)
 }
 
 func cmdVrfExportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	linePath, rt := command.StripLastToken(line)
+
+	path, _ := command.StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		log.Printf("vrf export rt: error: %v", err)
+		return
+	}
+
+	confNode.ValueAdd(rt)
 }

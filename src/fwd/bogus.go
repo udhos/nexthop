@@ -26,6 +26,15 @@ type bogusDataplane struct {
 	interfaceTable map[string]*bogusIface
 }
 
+func (d *bogusDataplane) InterfaceVrf(ifname, vrfname string) error {
+	i, ok := d.interfaceTable[ifname]
+	if !ok {
+		return fmt.Errorf("InterfaceVrf: interface not found")
+	}
+	i.vrf = vrfname
+	return nil
+}
+
 func (d *bogusDataplane) interfaceAdd(ifname, vrfname string) {
 	log.Printf("bogusDataplane.interfaceAdd: ifname=%s on vrf=[%s]", ifname, vrfname)
 	i, ok := d.interfaceTable[ifname]
@@ -39,8 +48,7 @@ func (d *bogusDataplane) interfaceAdd(ifname, vrfname string) {
 func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
 	i, ok := d.interfaceTable[ifname]
 	if !ok {
-		i = &bogusIface{name: ifname}
-		d.interfaceTable[ifname] = i
+		return fmt.Errorf("InterfaceAddressAdd: interface not found")
 	}
 	for _, a := range i.addresses {
 		if a == addr {
