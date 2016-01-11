@@ -14,8 +14,7 @@ import (
 	"cli"
 	"command"
 	"fwd"
-
-	"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
+	//"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
 
 type RibApp struct {
@@ -72,7 +71,7 @@ func main() {
 	log.Printf("%s daemon starting", daemonName)
 	log.Printf("runtime operating system: [%v]", runtime.GOOS)
 	log.Printf("CPUs: NumCPU=%d GOMAXPROCS=%d", runtime.NumCPU(), runtime.GOMAXPROCS(0))
-	log.Printf("IP version: %v", ipv4.Version)
+	//log.Printf("IP version: %v", ipv4.Version)
 
 	ribConf := &RibApp{
 		cmdRoot:           &command.CmdNode{Path: "", MinLevel: command.EXEC, Handler: nil},
