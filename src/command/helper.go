@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 )
 
@@ -24,6 +25,8 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "rollback {COMMITID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
 	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, nil, "Show candidate configuration")
 	CmdInstall(root, cmdNone, "show configuration compare", EXEC, cmdShowCompare, nil, "Show differences between active and candidate configurations")
+	CmdInstall(root, cmdNone, "show configuration rollback", EXEC, cmdShowCommitList, nil, "Show list of saved configurations")
+	CmdInstall(root, cmdNone, "show configuration rollback {COMMITID}", EXEC, cmdShowCommit, nil, "Show saved configuration")
 	CmdInstall(root, cmdNone, "show configuration tree", EXEC, cmdShowConf, nil, "Show candidate configuration tree")
 	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
@@ -204,7 +207,8 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	id := fields[1]
 
-	path := fmt.Sprintf("%s%s", ctx.ConfigPathPrefix(), id)
+	//path := fmt.Sprintf("%s%s", ctx.ConfigPathPrefix(), id)
+	path := getConfigPath(ctx.ConfigPathPrefix(), id)
 
 	abortOnError := false
 	goodLines, err := LoadConfig(ctx, path, c, abortOnError)
@@ -223,6 +227,45 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 		c.Sendln("rollback: use 'rollback' to discard candidate changes")
 	}
 
+}
+
+func cmdShowCommitList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	dirname, matches, err := listConfig(ctx.ConfigPathPrefix())
+	if err != nil {
+		c.Sendln(fmt.Sprintf("cound't retrieve list of configuration files: %v", err))
+		return
+	}
+
+	c.Sendln(fmt.Sprintf("found %d configuration files:", len(matches)))
+
+	for _, m := range matches {
+		path := filepath.Join(dirname, m)
+		c.Sendln(path)
+	}
+}
+
+func cmdShowCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+
+	id := LastToken(line)
+
+	path := getConfigPath(ctx.ConfigPathPrefix(), id)
+
+	lineCount := 0
+
+	consume := func(line string) error {
+		c.Sendln(line)
+		lineCount++
+		return nil // no error
+	}
+
+	c.Sendln(fmt.Sprintf("configuration file for commit id '%s':", id))
+
+	abortOnError := false
+	err := scanConfigFile(consume, path, abortOnError)
+	if err != nil {
+		c.Sendln(fmt.Sprintf("error scaning config file '%s': %v", path, err))
+	}
+	c.Sendln(fmt.Sprintf("(found %d lines)", lineCount))
 }
 
 func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {

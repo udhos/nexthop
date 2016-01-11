@@ -33,6 +33,10 @@ func (s sortByCommitId) Less(i, j int) bool {
 	return id1 < id2
 }
 
+func getConfigPath(configPathPrefix, id string) string {
+	return fmt.Sprintf("%s%s", configPathPrefix, id)
+}
+
 func extractCommitIdFromFilename(filename string) (int, error) {
 	lastDot := strings.LastIndexByte(filename, '.')
 	commitId := filename[lastDot+1:]
@@ -96,18 +100,6 @@ func listConfig(configPathPrefix string) (string, []string, error) {
 	}
 
 	sort.Sort(sortByCommitId(matches))
-
-	/*
-		m := len(matches)
-
-		log.Printf("FindLastConfig: found %d matching files: %v", m, matches)
-
-		if m < 1 {
-			return "", fmt.Errorf("FindLastConfig: no config file found for prefix: %s", configPathPrefix)
-		}
-
-		lastConfig := filepath.Join(dirname, matches[m-1])
-	*/
 
 	return dirname, matches, nil
 }
@@ -225,9 +217,27 @@ func writeConfig(node *ConfNode, w StringWriter) error {
 
 func LoadConfig(ctx ConfContext, path string, c CmdClient, abortOnError bool) (int, error) {
 
+	goodLines := 0
+
+	consume := func(line string) error {
+		if err := Dispatch(ctx, line, c, CONF); err != nil {
+			return fmt.Errorf("LoadConfig: dispatch error: %v", err)
+		}
+		goodLines++
+		return nil // no error
+	}
+
+	err := scanConfigFile(consume, path, abortOnError)
+
+	return goodLines, err
+}
+
+type lineConsumerFunc func(line string) error
+
+func scanConfigFile(consumer lineConsumerFunc, path string, abortOnError bool) error {
 	f, err1 := os.Open(path)
 	if err1 != nil {
-		return 0, fmt.Errorf("LoadConfig: error opening config file: [%s]: %v", path, err1)
+		return fmt.Errorf("scanConfigFile: error opening config file: [%s]: %v", path, err1)
 	}
 
 	defer f.Close()
@@ -235,27 +245,23 @@ func LoadConfig(ctx ConfContext, path string, c CmdClient, abortOnError bool) (i
 	scanner := bufio.NewScanner(f)
 
 	var lastErr error
-
-	goodLines := 0
 	i := 0
 
 	for scanner.Scan() {
 		i++
 		line := scanner.Text()
-		if err := Dispatch(ctx, line, c, CONF); err != nil {
-			lastErr = fmt.Errorf("LoadConfig: error applying line %d [%s] from file: [%s]: %v", i, line, path, err)
+		if err := consumer(line); err != nil {
+			lastErr = fmt.Errorf("scanConfigFile: error consuming line %d [%s] from file: [%s]: %v", i, line, path, err)
 			log.Printf("%v", lastErr)
 			if abortOnError {
-				return goodLines, lastErr
+				return lastErr
 			}
-			continue
 		}
-		goodLines++
 	}
 
 	if err := scanner.Err(); err != nil {
-		lastErr = fmt.Errorf("LoadConfig: error scanning config file: [%s]: %v", path, err)
+		lastErr = fmt.Errorf("scanConfigFile: error scanning config file: [%s]: %v", path, err)
 	}
 
-	return goodLines, lastErr
+	return lastErr
 }
