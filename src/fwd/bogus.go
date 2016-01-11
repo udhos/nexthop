@@ -3,6 +3,7 @@ package fwd
 import (
 	"fmt"
 	"log"
+	"net"
 )
 
 func NewDataplaneBogus() *bogusDataplane {
@@ -55,6 +56,29 @@ func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
 			return fmt.Errorf("address exists")
 		}
 	}
+	vrfName := i.vrf
+
+	_, n1, err1 := net.ParseCIDR(addr)
+	if err1 != nil {
+		return fmt.Errorf("cidr parse '%s': error %v", addr, err1)
+	}
+
+	for _, j := range d.interfaceTable {
+		if j.vrf == vrfName {
+			for _, a := range j.addresses {
+
+				_, n2, err2 := net.ParseCIDR(a)
+				if err2 != nil {
+					return fmt.Errorf("cidr parse '%s': error %v", a, err2)
+				}
+
+				if intersect(n1, n2) {
+					return fmt.Errorf("'%s' conflicts with '%s' from interface '%s'", addr, a, j.name)
+				}
+			}
+		}
+	}
+
 	i.addresses = append(i.addresses, addr)
 	//log.Printf("InterfaceAddressAdd: %v", i.addresses)
 	return nil
