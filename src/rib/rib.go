@@ -25,6 +25,7 @@ type RibApp struct {
 
 	daemonName       string
 	configPathPrefix string
+	maxConfigFiles   int
 
 	hardware fwd.Dataplane
 }
@@ -46,6 +47,9 @@ func (r *RibApp) SetCandidate(newCand *command.ConfNode) {
 }
 func (r RibApp) ConfigPathPrefix() string {
 	return r.configPathPrefix
+}
+func (r RibApp) MaxConfigFiles() int {
+	return r.maxConfigFiles
 }
 
 /*
@@ -90,6 +94,7 @@ func main() {
 	installRibCommands(ribConf.CmdRoot())
 
 	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rib.conf.", "configuration path prefix")
+	flag.IntVar(&ribConf.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
 
 	loadConf(ribConf)
 

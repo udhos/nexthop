@@ -38,7 +38,7 @@ func extractCommitIdFromFilename(filename string) (int, error) {
 	commitId := filename[lastDot+1:]
 	id, err := strconv.Atoi(commitId)
 	if err != nil {
-		return 0, fmt.Errorf("extractCommitIdFromFilename: error parsing filename [%s]: %v", filename, err)
+		return -1, fmt.Errorf("extractCommitIdFromFilename: error parsing filename [%s]: %v", filename, err)
 	}
 
 	return id, nil
@@ -47,16 +47,37 @@ func extractCommitIdFromFilename(filename string) (int, error) {
 func FindLastConfig(configPathPrefix string) (string, error) {
 	log.Printf("FindLastConfig: configuration path prefix: %s", configPathPrefix)
 
+	dirname, matches, err := listConfig(configPathPrefix)
+	if err != nil {
+		return "", err
+	}
+
+	m := len(matches)
+
+	log.Printf("FindLastConfig: found %d matching files: %v", m, matches)
+
+	if m < 1 {
+		return "", fmt.Errorf("FindLastConfig: no config file found for prefix: %s", configPathPrefix)
+	}
+
+	lastConfig := filepath.Join(dirname, matches[m-1])
+
+	return lastConfig, nil
+}
+
+func listConfig(configPathPrefix string) (string, []string, error) {
+	//log.Printf("FindLastConfig: configuration path prefix: %s", configPathPrefix)
+
 	dirname := filepath.Dir(configPathPrefix)
 
 	dir, err := os.Open(dirname)
 	if err != nil {
-		return "", fmt.Errorf("FindLastConfig: error opening dir '%s': %v", dirname, err)
+		return "", nil, fmt.Errorf("FindLastConfig: error opening dir '%s': %v", dirname, err)
 	}
 
 	names, e := dir.Readdirnames(0)
 	if e != nil {
-		return "", fmt.Errorf("FindLastConfig: error reading dir '%s': %v", dirname, e)
+		return "", nil, fmt.Errorf("FindLastConfig: error reading dir '%s': %v", dirname, e)
 	}
 
 	dir.Close()
@@ -76,29 +97,31 @@ func FindLastConfig(configPathPrefix string) (string, error) {
 
 	sort.Sort(sortByCommitId(matches))
 
-	m := len(matches)
+	/*
+		m := len(matches)
 
-	log.Printf("FindLastConfig: found %d matching files: %v", m, matches)
+		log.Printf("FindLastConfig: found %d matching files: %v", m, matches)
 
-	if m < 1 {
-		return "", fmt.Errorf("FindLastConfig: no config file found for prefix: %s", configPathPrefix)
-	}
+		if m < 1 {
+			return "", fmt.Errorf("FindLastConfig: no config file found for prefix: %s", configPathPrefix)
+		}
 
-	lastConfig := filepath.Join(dirname, names[m-1])
+		lastConfig := filepath.Join(dirname, matches[m-1])
+	*/
 
-	return lastConfig, nil
+	return dirname, matches, nil
 }
 
-func SaveNewConfig(configPathPrefix string, root *ConfNode) (string, error) {
+func SaveNewConfig(configPathPrefix string, root *ConfNode, maxFiles int) (string, error) {
 
 	lastConfig, err1 := FindLastConfig(configPathPrefix)
 	if err1 != nil {
-		return "", fmt.Errorf("SaveNewConfig: error reading config: [%s]: %v", configPathPrefix, err1)
+		log.Printf("SaveNewConfig: error reading config: [%s]: %v", configPathPrefix, err1)
 	}
 
 	id, err2 := extractCommitIdFromFilename(lastConfig)
 	if err2 != nil {
-		return "", fmt.Errorf("SaveNewConfig: error parsing config path: [%s]: %v", lastConfig, err2)
+		log.Printf("SaveNewConfig: error parsing config path: [%s]: %v", lastConfig, err2)
 	}
 
 	newCommitId := id + 1
@@ -106,6 +129,10 @@ func SaveNewConfig(configPathPrefix string, root *ConfNode) (string, error) {
 	newFilepath := fmt.Sprintf("%s%d", configPathPrefix, newCommitId)
 
 	log.Printf("SaveNewConfig: newPath=[%s]", newFilepath)
+
+	if _, err := os.Stat(newFilepath); err == nil {
+		return "", fmt.Errorf("SaveNewConfig: new file exists: [%s]", newFilepath)
+	}
 
 	f, err3 := os.Create(newFilepath)
 	if err3 != nil {
@@ -126,7 +153,38 @@ func SaveNewConfig(configPathPrefix string, root *ConfNode) (string, error) {
 		return "", fmt.Errorf("SaveNewConfig: error closing file: [%s]: %v", newFilepath, err)
 	}
 
+	eraseOldFiles(configPathPrefix, root, maxFiles)
+
 	return newFilepath, nil
+}
+
+func eraseOldFiles(configPathPrefix string, root *ConfNode, maxFiles int) {
+
+	if maxFiles < 1 {
+		return
+	}
+
+	dirname, matches, err := listConfig(configPathPrefix)
+	if err != nil {
+		log.Printf("eraseOldFiles: %v", err)
+		return
+	}
+
+	totalFiles := len(matches)
+
+	toDelete := totalFiles - maxFiles
+	if toDelete < 1 {
+		log.Printf("eraseOldFiles: nothing to delete existing=%d <= max=%d", totalFiles, maxFiles)
+		return
+	}
+
+	for i := 0; i < toDelete; i++ {
+		path := filepath.Join(dirname, matches[i])
+		log.Printf("eraseOldFiles: delete: [%s]", path)
+		if err := os.Remove(path); err != nil {
+			log.Printf("eraseOldFiles: delete: error: [%s]: %v", path, err)
+		}
+	}
 }
 
 type StringWriter interface {

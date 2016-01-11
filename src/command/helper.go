@@ -59,7 +59,7 @@ func doCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient, force bo
 	if ConfEqual(ctx.ConfRootActive(), ctx.ConfRootCandidate()) && !force {
 		c.Sendln("cmdCommit: refusing to save unchanged configuration - consider 'commit force'")
 	} else {
-		path, err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate())
+		path, err := SaveNewConfig(ctx.ConfigPathPrefix(), ctx.ConfRootCandidate(), ctx.MaxConfigFiles())
 		if err != nil {
 			msg := fmt.Sprintf("cmdCommit: unable to save new current configuration: %v", err)
 			log.Printf(msg)

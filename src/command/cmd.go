@@ -314,6 +314,7 @@ type ConfContext interface {
 	SetCandidate(newCand *ConfNode)
 	SetActive(newActive *ConfNode)
 	ConfigPathPrefix() string
+	MaxConfigFiles() int
 }
 
 func ConfActiveFromCandidate(ctx ConfContext) {

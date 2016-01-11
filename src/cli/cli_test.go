@@ -31,6 +31,9 @@ func (a testApp) SetCandidate(newCand *command.ConfNode) {
 func (a testApp) ConfigPathPrefix() string {
 	return "testApp.configPathPrefix"
 }
+func (a testApp) MaxConfigFiles() int {
+	return 3
+}
 
 type testClient struct {
 	outputChannel chan string

@@ -1,10 +1,27 @@
 package command
 
 import (
+	"sort"
+	"strings"
 	"testing"
 
 	"fwd"
 )
+
+func TestCommitSort(t *testing.T) {
+
+	list := []string{".1", ".10", ".5", ".0", ".15"}
+
+	ordered := ".0 .1 .5 .10 .15"
+
+	sort.Sort(sortByCommitId(list))
+
+	result := strings.Join(list, " ")
+
+	if result != ordered {
+		t.Errorf("bad sort result: %v", result)
+	}
+}
 
 func TestCmdInstall(t *testing.T) {
 

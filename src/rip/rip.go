@@ -18,6 +18,7 @@ type Rip struct {
 
 	daemonName       string
 	configPathPrefix string
+	maxConfigFiles   int
 
 	hardware fwd.Dataplane
 }
@@ -39,6 +40,9 @@ func (r *Rip) SetCandidate(newCand *command.ConfNode) {
 }
 func (r Rip) ConfigPathPrefix() string {
 	return r.configPathPrefix
+}
+func (r Rip) MaxConfigFiles() int {
+	return r.maxConfigFiles
 }
 
 func main() {
@@ -67,6 +71,7 @@ func main() {
 	installCommands(rip.CmdRoot())
 
 	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rip.conf.", "configuration path prefix")
+	flag.IntVar(&rip.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
 
 	loadConf(rip)
 
