@@ -38,6 +38,8 @@ type Client struct {
 	history      []string
 	historyLimit int
 	historyPos   int
+
+	telnetLine *telnetBuf
 }
 
 func (c *Client) HistoryAdd(cmd string) {
@@ -207,6 +209,8 @@ func (c *Client) SendPrompt(host string, paging bool) {
 		return
 	}
 
+	defer c.RedrawLineBuffer()
+
 	path := c.ConfigPath()
 	if path != "" {
 		path = fmt.Sprintf(":%s", path)
@@ -235,6 +239,31 @@ func (c *Client) SendPrompt(host string, paging bool) {
 	// output is flushed by caller
 	//c.outputChannel <- fmt.Sprintf("\r\n%s%s%s ", host, path, p)
 	c.outputChannel <- fmt.Sprintf("%s%s%s ", host, path, p)
+}
+
+// redraw line edit buffer
+func (c *Client) RedrawLineBuffer() {
+
+	var buf []byte
+
+	c.mutex.RLock()
+	pos := c.telnetLine.linePos
+	size := c.telnetLine.lineSize
+	{
+		s := c.telnetLine.lineBuf[:size] // slice
+		buf = append(buf, s...)          // clone slice
+	}
+	c.mutex.RUnlock()
+
+	// draw full line (will put cursor at end of line)
+	for i := 0; i < size; i++ {
+		drawByte(c, buf[i])
+	}
+
+	// move cursor back to original position
+	for i := size; i > pos; i-- {
+		cursorLeft(c)
+	}
 }
 
 func (c *Client) Flush() {
@@ -348,6 +377,7 @@ func NewClient(conn net.Conn) *Client {
 		echo:          true,
 		historyLimit:  20,
 		historyPos:    -1,
+		telnetLine:    newTelnetBuf(),
 	}
 }
 
@@ -356,7 +386,7 @@ func InputLoop(s *Server, c *Client, notifyAppInputClosed bool) {
 
 	readCh := spawnReadLoop(c.conn)
 
-	buf := newTelnetBuf()
+	buf := c.telnetLine
 
 	timeout := time.Minute * 1
 	readTimer := time.NewTimer(timeout)

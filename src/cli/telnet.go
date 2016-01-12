@@ -251,12 +251,20 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 }
 
 func cursorLeft(c *Client) {
-	c.echoSend(string(byte(keyBackspace)))
+	drawByte(c, byte(keyBackspace))
 }
 
 func cursorRight(c *Client, buf *telnetBuf) {
-	c.echoSend(string(buf.lineBuf[buf.linePos]))
+	drawCurrent(c, buf)
 	buf.linePos++
+}
+
+func drawCurrent(c *Client, buf *telnetBuf) {
+	drawByte(c, buf.lineBuf[buf.linePos])
+}
+
+func drawByte(c *Client, b byte) {
+	c.echoSend(string(b))
 }
 
 func msg(s *Server, c *Client, str string) {
