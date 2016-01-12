@@ -57,7 +57,7 @@ const (
 	IAC_SUB_IAC = iota
 )
 
-type bufByteArray [40]byte
+type bufByteArray [100]byte // affects max input line length
 
 type telnetBuf struct {
 	escape         int

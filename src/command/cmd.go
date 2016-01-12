@@ -105,15 +105,6 @@ func (n *ConfNode) Clone() *ConfNode {
 	return newNode
 }
 
-func (n *ConfNode) ValueAdd(value string) error {
-	i := n.ValueIndex(value)
-	if i >= 0 {
-		return nil // already exists
-	}
-	n.Value = append(n.Value, value) // append new
-	return nil
-}
-
 func (n *ConfNode) ValueIndex(value string) int {
 	for i, v := range n.Value {
 		if v == value {
@@ -125,20 +116,6 @@ func (n *ConfNode) ValueIndex(value string) int {
 
 func (n *ConfNode) ValueSet(value string) {
 	n.Value = []string{value}
-}
-
-func (n *ConfNode) ValueDelete(value string) error {
-	i := n.ValueIndex(value)
-	if i < 0 {
-		return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
-	}
-
-	size := len(n.Value)
-	last := size - 1
-	n.Value[i] = n.Value[last]
-	n.Value = n.Value[:last]
-
-	return nil
 }
 
 // remove node from tree.
@@ -194,14 +171,6 @@ func (n *ConfNode) deleteChild(child *ConfNode) error {
 	return fmt.Errorf("command.deleteChild: child not found: node=[%s] child[%s]", n.Path, child.Path)
 }
 
-// remove child node unconditionally
-func (n *ConfNode) deleteChildByIndex(i int) {
-	size := len(n.Children)
-	last := size - 1
-	n.Children[i] = n.Children[last]
-	n.Children = n.Children[:last]
-}
-
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 	expanded, err := CmdExpand(line, path)
@@ -248,61 +217,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	return parent, nil, true
 }
 
-func pushConfChild(node, child *ConfNode) {
-
-	size := len(node.Children)
-	if size < 1 {
-		// first element is special
-		// because both insert position=0 and current size=0
-		node.Children = append(node.Children, child)
-		return
-	}
-
-	newLabel := LastToken(child.Path)
-	found := size
-	for i, n := range node.Children {
-		label := LastToken(n.Path)
-		if newLabel < label {
-			found = i // 0..size-1
-			break
-		}
-	}
-
-	if found == size {
-		// not found - insert into last position can be optimized as append
-		node.Children = append(node.Children, child)
-		return
-	}
-
-	// insert
-	node.Children = append(node.Children, nil)           // grow
-	copy(node.Children[found+1:], node.Children[found:]) // shift
-	node.Children[found] = child                         // insert
-}
-
-/*
-func (n *ConfNode) GetParent(childPath string) (*ConfNode, error) {
-
-	childFields := strings.Fields(childPath)
-	parentFields := childFields[:len(childFields)-1]
-	parentPath := strings.Join(parentFields, " ")
-
-	node, err := n.Get(parentPath)
-	if err != nil {
-		return node, fmt.Errorf("ConfNode.GetParent: not found child=[%s] parent=[%s]: %v", childPath, parentPath, err)
-	}
-
-	return node, nil
-}
-*/
-
 func (n *ConfNode) Get(path string) (*ConfNode, error) {
-
-	/*
-		if strings.TrimSpace(path) == "" {
-			panic("command.Get: bad path")
-		}
-	*/
 
 	labels := strings.Fields(path)
 	parent := n
@@ -388,38 +303,6 @@ func dumpChildren(node *CmdNode) string {
 		str += fmt.Sprintf(",%s", p.Path)
 	}
 	return str
-}
-
-func pushCmdChild(node, child *CmdNode) {
-
-	size := len(node.Children)
-	if size < 1 {
-		// first element is special
-		// because both insert position=0 and current size=0
-		node.Children = append(node.Children, child)
-		return
-	}
-
-	newLabel := LastToken(child.Path)
-	found := size
-	for i, n := range node.Children {
-		label := LastToken(n.Path)
-		if newLabel < label {
-			found = i // 0..size-1
-			break
-		}
-	}
-
-	if found == size {
-		// not found - insert into last position can be optimized as append
-		node.Children = append(node.Children, child)
-		return
-	}
-
-	// insert
-	node.Children = append(node.Children, nil)           // grow
-	copy(node.Children[found+1:], node.Children[found:]) // shift
-	node.Children[found] = child                         // insert
 }
 
 func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply CommitFunc, desc string) {
