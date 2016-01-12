@@ -33,17 +33,23 @@ func showConfLine(node *ConfNode, c CmdClient) {
 
 func showConfTree(node *ConfNode, depth int, c CmdClient) {
 
-	_, label := StripLastToken(node.Path)
+	label := LastToken(node.Path)
 	c.Sendln(fmt.Sprintf("%*s%s", depth, "", label))
 
-	depth += 2
+	newDepth := depth + 2
 
 	for _, v := range node.Value {
-		c.Sendln(fmt.Sprintf("%*s%s", depth, "", v))
+		c.Sendln(fmt.Sprintf("%*s%s", newDepth, "", v))
+	}
+	if len(node.Value) > 0 {
+		c.Sendln(fmt.Sprintf("%*s%s", depth, "", "exit"))
 	}
 
 	for _, n := range node.Children {
-		showConfTree(n, depth, c)
+		showConfTree(n, newDepth, c)
+	}
+	if len(node.Children) > 0 {
+		c.Sendln(fmt.Sprintf("%*s%s", depth, "", "exit"))
 	}
 }
 
