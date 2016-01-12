@@ -229,14 +229,16 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 			label = labels[i]
 			currPath := strings.Join(labels[:i+1], " ")
 			newNode := &ConfNode{Path: currPath}
-			parent.Children = append(parent.Children, newNode)
+			//parent.Children = append(parent.Children, newNode)
+			pushConfChild(parent, newNode)
 			parent = newNode
 		}
 
 		// last label
 		label = labels[size-1]
 		newNode := &ConfNode{Path: expanded}
-		parent.Children = append(parent.Children, newNode)
+		//parent.Children = append(parent.Children, newNode)
+		pushConfChild(parent, newNode)
 
 		return newNode, nil, false
 	}
@@ -244,6 +246,38 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	// existing node found
 
 	return parent, nil, true
+}
+
+func pushConfChild(node, child *ConfNode) {
+
+	size := len(node.Children)
+	if size < 1 {
+		// first element is special
+		// because both insert position=0 and current size=0
+		node.Children = append(node.Children, child)
+		return
+	}
+
+	newLabel := LastToken(child.Path)
+	found := size
+	for i, n := range node.Children {
+		label := LastToken(n.Path)
+		if newLabel < label {
+			found = i // 0..size-1
+			break
+		}
+	}
+
+	if found == size {
+		// not found - insert into last position can be optimized as append
+		node.Children = append(node.Children, child)
+		return
+	}
+
+	// insert
+	node.Children = append(node.Children, nil)           // grow
+	copy(node.Children[found+1:], node.Children[found:]) // shift
+	node.Children[found] = child                         // insert
 }
 
 /*
@@ -356,8 +390,7 @@ func dumpChildren(node *CmdNode) string {
 	return str
 }
 
-// a b d e
-func pushChild(node, child *CmdNode) {
+func pushCmdChild(node, child *CmdNode) {
 
 	size := len(node.Children)
 	if size < 1 {
@@ -378,7 +411,7 @@ func pushChild(node, child *CmdNode) {
 	}
 
 	if found == size {
-		// insert into last position can be optimizaded as append
+		// not found - insert into last position can be optimized as append
 		node.Children = append(node.Children, child)
 		return
 	}
@@ -438,7 +471,7 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 			currPath = strings.Join(labelList[:i+1], " ")
 			//log.Printf("cmdInstall: %d: intermmediate curr=[%s] label=[%s]", i, currPath, label)
 			newNode := &CmdNode{Path: currPath, MinLevel: min, Options: opt}
-			pushChild(parent, newNode)
+			pushCmdChild(parent, newNode)
 			parent = newNode
 		}
 
@@ -446,7 +479,7 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 		label = labelList[size-1]
 		//log.Printf("cmdInstall: %d: leaf curr=[%s] label=[%s]", i, path, label)
 		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd, Apply: apply, Options: opt}
-		pushChild(parent, newNode)
+		pushCmdChild(parent, newNode)
 
 		// did this command create an unreachable location?
 
