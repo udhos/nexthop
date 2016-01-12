@@ -356,10 +356,37 @@ func dumpChildren(node *CmdNode) string {
 	return str
 }
 
+// a b d e
 func pushChild(node, child *CmdNode) {
-	//log.Printf("pushChild: parent=[%s] child=[%s] before: [%v]", node.Path, child.Path, dumpChildren(node))
-	node.Children = append(node.Children, child)
-	//log.Printf("pushChild: parent=[%s] child=[%s] after: [%v]", node.Path, child.Path, dumpChildren(node))
+
+	size := len(node.Children)
+	if size < 1 {
+		// first element is special
+		// because both insert position=0 and current size=0
+		node.Children = append(node.Children, child)
+		return
+	}
+
+	newLabel := LastToken(child.Path)
+	found := size
+	for i, n := range node.Children {
+		label := LastToken(n.Path)
+		if newLabel < label {
+			found = i // 0..size-1
+			break
+		}
+	}
+
+	if found == size {
+		// insert into last position can be optimizaded as append
+		node.Children = append(node.Children, child)
+		return
+	}
+
+	// insert
+	node.Children = append(node.Children, nil)           // grow
+	copy(node.Children[found+1:], node.Children[found:]) // shift
+	node.Children[found] = child                         // insert
 }
 
 func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply CommitFunc, desc string) {
