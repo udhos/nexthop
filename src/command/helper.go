@@ -31,12 +31,6 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
 	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
-
-	CmdInstall(root, cmdNone, "a", EXEC, cmdBogus, nil, "a")
-	CmdInstall(root, cmdNone, "z", EXEC, cmdBogus, nil, "z")
-}
-
-func cmdBogus(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func ApplyBogus(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient) error {
