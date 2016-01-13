@@ -443,8 +443,9 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 			return nil, fmt.Errorf("CmdFind: bad command: [%s] under [%s]: %v", label, parent.Path, err)
 		}
 		if isAny {
-			checkLevel(children[0], "CmdFind", path, level) // found
+			return checkLevel(children[0], "CmdFind", path, level) // found
 		}
+
 		size := len(children)
 		if size < 1 {
 			return nil, fmt.Errorf("CmdFind: not found: [%s] under [%s]", label, parent.Path)
@@ -465,7 +466,7 @@ func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*Cmd
 
 	if len(children) == 1 && LastToken(children[0].Path) == CMD_WILDCARD_ANY {
 		// {ANY} is special construct for consuming anything
-		return []*CmdNode{children[0]}, true, nil // found
+		return children, true, nil // found
 	}
 
 	c := []*CmdNode{}
@@ -591,6 +592,8 @@ func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
 	lineSize := len(line)
 	listChildren := lineSize < 1 || line[lineSize-1] == ' '
 
+	var children []*CmdNode
+
 	if listChildren {
 
 		// List children
@@ -601,38 +604,28 @@ func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
 			return
 		}
 
-		for _, child := range node.Children {
-			if status == CONF && !child.IsConfig() {
-				continue // Hide non-config commands in config mode
-			}
-			if status < child.MinLevel {
-				continue // Hide prohibited commands
-			}
-			if child.Desc == "" {
-				c.Sendln(fmt.Sprintf("%s", LastToken(child.Path)))
-			} else {
-				c.Sendln(fmt.Sprintf("%s - %s", LastToken(child.Path), child.Desc))
-			}
+		children = node.Children
+
+	} else {
+
+		// List ambiguous siblings
+
+		parentPath, prefix := StripLastToken(line)
+
+		parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status)
+		if err1 != nil {
+			c.Sendln(fmt.Sprintf("helpKeyQuestion: not found [%s]: %v", parentPath, err1))
+			return
 		}
 
-		return
-	}
+		checkPattern := true
+		var err2 error
+		children, _, err2 = matchChildren(parent.Children, prefix, checkPattern)
+		if err2 != nil {
+			c.Sendln(fmt.Sprintf("helpKeyQuestion: bad command: [%s] under [%s]: %v", prefix, parent.Path, err2))
+			return
+		}
 
-	// List ambiguous siblings
-
-	parentPath, prefix := StripLastToken(line)
-
-	parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status)
-	if err1 != nil {
-		c.Sendln(fmt.Sprintf("helpKeyQuestion: not found [%s]: %v", parentPath, err1))
-		return
-	}
-
-	checkPattern := true
-	children, _, err2 := matchChildren(parent.Children, prefix, checkPattern)
-	if err2 != nil {
-		c.Sendln(fmt.Sprintf("helpKeyQuestion: bad command: [%s] under [%s]: %v", prefix, parent.Path, err2))
-		return
 	}
 
 	for _, child := range children {
