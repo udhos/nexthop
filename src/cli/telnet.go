@@ -212,7 +212,7 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case b == ctrlQuestion, b < 32:
 		controlChar(s, c, buf, b)
 	case b == '?':
-		msg(s, c, "? key: command context help - FIXME WRITEME")
+		helpCommandChar(s, c, buf, b)
 	default:
 		// push non-commands bytes into line buffer
 
@@ -288,7 +288,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlQuestion, keyBackspace:
 		lineBackspace(c, buf)
 	case keyTab:
-		msg(s, c, "TAB key: command completion - FIXME WRITEME")
+		helpCommandChar(s, c, buf, b)
 	case ctrlA:
 		lineBegin(c, buf)
 	case ctrlE:
@@ -327,7 +327,7 @@ func newlineChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 	sendEveryChar := c.SendEveryChar()
 	if sendEveryChar {
-		s.CommandChannel <- Command{Client: c, Cmd: "", IsLine: false}
+		s.CommandChannel <- Command{Client: c}
 		return
 	}
 
@@ -341,6 +341,11 @@ func newlineChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	c.HistoryReset()
 
 	c.SendlnNow("") // echo newline back to client
+}
+
+func helpCommandChar(s *Server, c *Client, buf *telnetBuf, b byte) {
+	cmdLine := string(buf.lineBuf[:buf.lineSize]) + string(b) // string is safe for sharing (immutable)
+	s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true, HideFromHistory: true}
 }
 
 func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {

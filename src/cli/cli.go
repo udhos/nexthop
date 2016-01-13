@@ -146,6 +146,10 @@ func (c *Client) Sendln(msg string) {
 	c.Send(fmt.Sprintf("%s\r\n", msg))
 }
 
+func (c *Client) Newline() {
+	c.Send("\r\n")
+}
+
 // enqueue message for client
 // break messages into LF-terminated lines
 // append every line to outputQueue

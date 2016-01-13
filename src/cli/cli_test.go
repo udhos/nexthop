@@ -49,6 +49,7 @@ func (c testClient) StatusConf()               {}
 func (c testClient) StatusEnable()             {}
 func (c testClient) StatusExit()               {}
 func (c testClient) ConfigPathSet(path string) {}
+func (c testClient) Newline()                  {}
 func (c testClient) Send(msg string)           {}
 func (c testClient) SendNow(msg string)        {}
 func (c testClient) Sendln(msg string)         {}

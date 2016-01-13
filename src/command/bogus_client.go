@@ -14,6 +14,7 @@ func (c bogusClient) StatusConf()               {}
 func (c bogusClient) StatusEnable()             {}
 func (c bogusClient) StatusExit()               {}
 func (c bogusClient) ConfigPathSet(path string) {}
+func (c bogusClient) Newline()                  {}
 func (c bogusClient) Send(msg string)           {}
 func (c bogusClient) SendNow(msg string)        {}
 func (c bogusClient) Sendln(msg string)         {}

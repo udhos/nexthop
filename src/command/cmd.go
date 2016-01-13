@@ -26,6 +26,7 @@ type CmdClient interface {
 	ConfigPathSet(path string)
 	Send(msg string)
 	SendNow(msg string)
+	Newline()
 	Sendln(msg string)
 	SendlnNow(msg string)
 	InputQuit()
@@ -512,6 +513,10 @@ func CmdExpand(originalLine, commandFullPath string) (string, error) {
 
 func Dispatch(ctx ConfContext, rawLine string, c CmdClient, status int, history bool) error {
 
+	if helpKey(ctx, rawLine, c, status) {
+		return nil
+	}
+
 	line := strings.TrimLeft(rawLine, " ")
 
 	if line == "" {
@@ -544,4 +549,26 @@ func Dispatch(ctx ConfContext, rawLine string, c CmdClient, status int, history 
 	node.Handler(ctx, node, lookupPath, c)
 
 	return nil
+}
+
+func helpKey(ctx ConfContext, rawLine string, c CmdClient, status int) bool {
+	size := len(rawLine)
+	if size < 1 {
+		return false
+	}
+
+	b := rawLine[size-1] // help key command
+
+	switch b {
+	case '?':
+		c.Newline()
+		c.Sendln("helpKey: ? - FIXME WRITEME")
+		return true
+	case byte(9): // tab
+		c.Newline()
+		c.Sendln("helpKey: TAB - FIXME WRITEME")
+		return true
+	}
+
+	return false
 }
