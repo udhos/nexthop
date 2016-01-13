@@ -32,6 +32,13 @@ func (d *bogusDataplane) InterfaceVrf(ifname, vrfname string) error {
 	if !ok {
 		return fmt.Errorf("InterfaceVrf: interface not found")
 	}
+
+	for _, a := range i.addresses {
+		if err := checkAddressConflict(d, vrfname, a); err != nil {
+			return err
+		}
+	}
+
 	i.vrf = vrfname
 	return nil
 }
@@ -51,20 +58,24 @@ func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
 	if !ok {
 		return fmt.Errorf("InterfaceAddressAdd: interface not found")
 	}
-	for _, a := range i.addresses {
-		if a == addr {
-			return fmt.Errorf("address exists")
-		}
-	}
-	vrfName := i.vrf
 
+	if err := checkAddressConflict(d, i.vrf, addr); err != nil {
+		return err
+	}
+
+	i.addresses = append(i.addresses, addr)
+	//log.Printf("InterfaceAddressAdd: %v", i.addresses)
+	return nil
+}
+
+func checkAddressConflict(d *bogusDataplane, vrfname, addr string) error {
 	_, n1, err1 := net.ParseCIDR(addr)
 	if err1 != nil {
 		return fmt.Errorf("cidr parse '%s': error %v", addr, err1)
 	}
 
 	for _, j := range d.interfaceTable {
-		if j.vrf == vrfName {
+		if j.vrf == vrfname {
 			for _, a := range j.addresses {
 
 				_, n2, err2 := net.ParseCIDR(a)
@@ -79,10 +90,9 @@ func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
 		}
 	}
 
-	i.addresses = append(i.addresses, addr)
-	//log.Printf("InterfaceAddressAdd: %v", i.addresses)
 	return nil
 }
+
 func (d *bogusDataplane) InterfaceAddressDel(ifname, addr string) error {
 	i, ok := d.interfaceTable[ifname]
 	if !ok {
