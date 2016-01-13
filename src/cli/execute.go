@@ -8,12 +8,12 @@ import (
 	"command"
 )
 
-func Execute(ctx command.ConfContext, line string, isLine bool, c *Client) {
+func Execute(ctx command.ConfContext, line string, isLine, history bool, c *Client) {
 	log.Printf("cli.Execute: isLine=%v cmd=[%s]", isLine, line)
 
 	if isLine {
 		// full-line command
-		executeLine(ctx, line, c)
+		executeLine(ctx, line, history, c)
 		return
 	}
 
@@ -44,7 +44,7 @@ func getHostname(root *command.ConfNode) string {
 	return node.Value[0]
 }
 
-func executeLine(ctx command.ConfContext, line string, c *Client) {
+func executeLine(ctx command.ConfContext, line string, history bool, c *Client) {
 	log.Printf("executeLine: [%v]", line)
 
 	status := c.Status()
@@ -62,7 +62,7 @@ func executeLine(ctx command.ConfContext, line string, c *Client) {
 		c.EchoEnable()
 		c.StatusSet(command.EXEC)
 	case command.EXEC, command.ENAB, command.CONF:
-		if err := command.Dispatch(ctx, line, c, status); err != nil {
+		if err := command.Dispatch(ctx, line, c, status, history); err != nil {
 			c.Sendln(fmt.Sprintf("executeLine: error: %v", err))
 		}
 	default:
@@ -80,35 +80,3 @@ func commandFeedback(c *Client, hostname string) {
 	c.SendPrompt(hostname, paging)
 	c.Flush()
 }
-
-/*
-func dispatchCommand(ctx command.ConfContext, rawLine string, c command.CmdClient, status int) error {
-
-	line := strings.TrimLeft(rawLine, " ")
-
-	if line == "" || line[0] == '!' || line[0] == '#' {
-		return nil // ignore empty lines
-	}
-
-	c.HistoryAdd(rawLine)
-
-	node, lookupPath, err := command.CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
-	if err != nil {
-		e := fmt.Errorf("dispatchCommand: not found [%s]: %v", line, err)
-		return e
-	}
-
-	if node.Handler == nil {
-		if node.IsConfig() {
-			c.ConfigPathSet(lookupPath) // enter config path
-			return nil
-		}
-		err := fmt.Errorf("dispatchCommand: command missing handler: [%s]", line)
-		return err
-	}
-
-	node.Handler(ctx, node, lookupPath, c)
-
-	return nil
-}
-*/

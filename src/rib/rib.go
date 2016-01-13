@@ -107,7 +107,7 @@ func main() {
 			log.Printf("rib main: tick")
 		case comm := <-cliServer.CommandChannel:
 			log.Printf("rib main: command: isLine=%v len=%d [%s]", comm.IsLine, len(comm.Cmd), comm.Cmd)
-			cli.Execute(ribConf, comm.Cmd, comm.IsLine, comm.Client)
+			cli.Execute(ribConf, comm.Cmd, comm.IsLine, !comm.HideFromHistory, comm.Client)
 		case c := <-cliServer.InputClosed:
 			// inputLoop hit closed connection. it's finished.
 			// we should discard pending output (if any).

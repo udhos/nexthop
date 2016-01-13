@@ -220,7 +220,7 @@ func LoadConfig(ctx ConfContext, path string, c CmdClient, abortOnError bool) (i
 	goodLines := 0
 
 	consume := func(line string) error {
-		if err := Dispatch(ctx, line, c, CONF); err != nil {
+		if err := Dispatch(ctx, line, c, CONF, false); err != nil {
 			return fmt.Errorf("LoadConfig: dispatch error: %v", err)
 		}
 		goodLines++

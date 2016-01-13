@@ -510,15 +510,21 @@ func CmdExpand(originalLine, commandFullPath string) (string, error) {
 	return strings.Join(pathFields, " "), nil
 }
 
-func Dispatch(ctx ConfContext, rawLine string, c CmdClient, status int) error {
+func Dispatch(ctx ConfContext, rawLine string, c CmdClient, status int, history bool) error {
 
 	line := strings.TrimLeft(rawLine, " ")
 
-	if line == "" || line[0] == '!' || line[0] == '#' {
+	if line == "" {
 		return nil // ignore empty lines
 	}
 
-	c.HistoryAdd(rawLine)
+	if history {
+		c.HistoryAdd(rawLine)
+	}
+
+	if line[0] == '!' || line[0] == '#' {
+		return nil // ignore comments
+	}
 
 	node, lookupPath, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
 	if err != nil {

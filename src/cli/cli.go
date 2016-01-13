@@ -352,9 +352,10 @@ func (c *Client) StatusExit() {
 
 // Command is copied from cli.InputLoop goroutine to main goroutine
 type Command struct {
-	Client *Client
-	Cmd    string
-	IsLine bool // true=line false=char
+	Client          *Client
+	Cmd             string
+	IsLine          bool // true=line false=char
+	HideFromHistory bool
 }
 
 func NewServer() *Server {
@@ -365,7 +366,8 @@ func NewServer() *Server {
 }
 
 func NewClient(conn net.Conn) *Client {
-	return &Client{mutex: &sync.RWMutex{},
+	return &Client{
+		mutex:         &sync.RWMutex{},
 		conn:          conn,
 		status:        command.MOTD,
 		outputWriter:  bufio.NewWriter(conn),
