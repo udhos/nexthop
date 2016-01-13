@@ -431,14 +431,19 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 	parent := root
 	for _, label := range tokens {
 
-		if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == CMD_WILDCARD_ANY {
-			// {ANY} is special construct for consuming anything
-			return checkLevel(parent.Children[0], "CmdNode", path, level) // found
-		}
+		/*
+			if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == CMD_WILDCARD_ANY {
+				// {ANY} is special construct for consuming anything
+				return checkLevel(parent.Children[0], "CmdNode", path, level) // found
+			}
+		*/
 
-		children, err := matchChildren(parent.Children, label, checkPattern)
+		children, isAny, err := matchChildren(parent.Children, label, checkPattern)
 		if err != nil {
 			return nil, fmt.Errorf("CmdFind: bad command: [%s] under [%s]: %v", label, parent.Path, err)
+		}
+		if isAny {
+			checkLevel(children[0], "CmdFind", path, level) // found
 		}
 		size := len(children)
 		if size < 1 {
@@ -456,7 +461,13 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 	return checkLevel(parent, "CmdNode", path, level) // found
 }
 
-func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*CmdNode, error) {
+func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*CmdNode, bool, error) {
+
+	if len(children) == 1 && LastToken(children[0].Path) == CMD_WILDCARD_ANY {
+		// {ANY} is special construct for consuming anything
+		return []*CmdNode{children[0]}, true, nil // found
+	}
+
 	c := []*CmdNode{}
 
 	for _, n := range children {
@@ -464,7 +475,7 @@ func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*Cmd
 		if IsUserPatternKeyword(last) {
 			if checkPattern {
 				if err := MatchKeyword(last, label); err != nil {
-					return nil, err
+					return nil, false, err
 				}
 			}
 			c = append(c, n)
@@ -476,7 +487,7 @@ func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*Cmd
 		}
 	}
 
-	return c, nil
+	return c, false, nil
 }
 
 func checkLevel(node *CmdNode, caller, path string, level int) (*CmdNode, error) {
@@ -561,14 +572,86 @@ func helpKey(ctx ConfContext, rawLine string, c CmdClient, status int) bool {
 
 	switch b {
 	case '?':
-		c.Newline()
-		c.Sendln("helpKey: ? - FIXME WRITEME")
+		helpKeyQuestion(ctx, rawLine, c, status)
 		return true
 	case byte(9): // tab
-		c.Newline()
-		c.Sendln("helpKey: TAB - FIXME WRITEME")
+		helpKeyTab(ctx, rawLine, c, status)
 		return true
 	}
 
 	return false
+}
+
+func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
+	c.Newline()
+	//c.Sendln("helpKey: ? - FIXME WRITEME")
+
+	line := rawLine[:len(rawLine)-1]
+
+	lineSize := len(line)
+	listChildren := lineSize < 1 || line[lineSize-1] == ' '
+
+	if listChildren {
+
+		// List children
+
+		node, _, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
+		if err != nil {
+			c.Sendln(fmt.Sprintf("helpKeyQuestion: not found [%s]: %v", line, err))
+			return
+		}
+
+		for _, child := range node.Children {
+			if status == CONF && !child.IsConfig() {
+				continue // Hide non-config commands in config mode
+			}
+			if status < child.MinLevel {
+				continue // Hide prohibited commands
+			}
+			if child.Desc == "" {
+				c.Sendln(fmt.Sprintf("%s", LastToken(child.Path)))
+			} else {
+				c.Sendln(fmt.Sprintf("%s - %s", LastToken(child.Path), child.Desc))
+			}
+		}
+
+		return
+	}
+
+	// List ambiguous siblings
+
+	parentPath, prefix := StripLastToken(line)
+
+	parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status)
+	if err1 != nil {
+		c.Sendln(fmt.Sprintf("helpKeyQuestion: not found [%s]: %v", parentPath, err1))
+		return
+	}
+
+	checkPattern := true
+	children, _, err2 := matchChildren(parent.Children, prefix, checkPattern)
+	if err2 != nil {
+		c.Sendln(fmt.Sprintf("helpKeyQuestion: bad command: [%s] under [%s]: %v", prefix, parent.Path, err2))
+		return
+	}
+
+	for _, child := range children {
+		if status == CONF && !child.IsConfig() {
+			continue // Hide non-config commands in config mode
+		}
+		if status < child.MinLevel {
+			continue // Hide prohibited commands
+		}
+		if child.Desc == "" {
+			c.Sendln(fmt.Sprintf("%s", LastToken(child.Path)))
+		} else {
+			c.Sendln(fmt.Sprintf("%s - %s", LastToken(child.Path), child.Desc))
+		}
+	}
+
+}
+
+func helpKeyTab(ctx ConfContext, rawLine string, c CmdClient, status int) {
+	c.Newline()
+	c.Sendln("helpKey: TAB - FIXME WRITEME")
 }

@@ -136,8 +136,9 @@ func TestConf(t *testing.T) {
 
 	command.Dispatch(app, "int eth0 desc  aa  bb   ccc", c, command.CONF, false)
 	node, err := app.confRootCandidate.Get("interface eth0 description")
-	if err != nil {
+	if err != nil || node == nil {
 		t.Errorf("bad description: %v", err)
+		return
 	}
 	if node.Path != "interface eth0 description" {
 		t.Errorf("bad description path: [%s]", node.Path)
