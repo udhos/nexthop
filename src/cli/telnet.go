@@ -238,7 +238,7 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 		// redraw
 		for i := buf.linePos - 1; i < buf.lineSize; i++ {
-			c.echoSend(string(buf.lineBuf[i]))
+			drawByte(c, buf.lineBuf[i])
 		}
 
 		// reposition cursor
@@ -401,7 +401,7 @@ func lineKillToEnd(c *Client, buf *telnetBuf) {
 
 	// erase chars
 	for i := 0; i < killCount; i++ {
-		c.echoSend(" ")
+		drawByte(c, ' ')
 	}
 
 	// return cursor
@@ -444,10 +444,10 @@ func lineDelChar(c *Client, buf *telnetBuf) {
 
 	// redraw
 	for i := buf.linePos; i < buf.lineSize; i++ {
-		buf.lineBuf[i] = buf.lineBuf[i+1]  // shift
-		c.echoSend(string(buf.lineBuf[i])) // redraw
+		buf.lineBuf[i] = buf.lineBuf[i+1] // shift
+		drawByte(c, buf.lineBuf[i])
 	}
-	c.echoSend(" ") // erase last char
+	drawByte(c, ' ') // erase last char
 
 	// reposition cursor
 	for i := buf.linePos; i < buf.lineSize+1; i++ {
