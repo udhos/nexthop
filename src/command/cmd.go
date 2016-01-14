@@ -199,7 +199,6 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 			label = labels[i]
 			currPath := strings.Join(labels[:i+1], " ")
 			newNode := &ConfNode{Path: currPath}
-			//parent.Children = append(parent.Children, newNode)
 			pushConfChild(parent, newNode)
 			parent = newNode
 		}
@@ -207,7 +206,6 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 		// last label
 		label = labels[size-1]
 		newNode := &ConfNode{Path: expanded}
-		//parent.Children = append(parent.Children, newNode)
 		pushConfChild(parent, newNode)
 
 		return newNode, nil, false
@@ -223,7 +221,6 @@ func (n *ConfNode) Get(path string) (*ConfNode, error) {
 	labels := strings.Fields(path)
 	parent := n
 	for _, label := range labels {
-		//log.Printf("ConfNode.Get: search label=[%s] under parent=[%s]", label, parent.Path)
 		child := parent.FindChild(label)
 		if child >= 0 {
 			// found, search next
@@ -277,17 +274,9 @@ func ConfCandidateFromActive(ctx ConfContext) {
 	ctx.SetCandidate(ctx.ConfRootActive().Clone())
 }
 
-/*
-func firstToken(path string) string {
-	// fixme with tokenizer
-	return strings.Fields(path)[0]
-}
-*/
-
 func LastToken(path string) string {
-	// fixme with tokenizer
-	f := strings.Fields(path)
-	return f[len(f)-1]
+	_, last := StripLastToken(path)
+	return last
 }
 
 func StripLastToken(path string) (string, string) {
@@ -313,7 +302,6 @@ func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, ap
 }
 
 func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply CommitFunc, desc string) (*CmdNode, error) {
-	//log.Printf("cmdInstall: [%s]", path)
 
 	isConfig := ConfigNodeFlag(opt)
 
@@ -330,7 +318,6 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 	parent := root
 	for i, label := range labelList {
 		currPath := strings.Join(labelList[:i+1], " ")
-		//log.Printf("cmdInstall: %d: curr=[%s] label=[%s]", i, currPath, label)
 
 		if IsUserPatternKeyword(label) && findKeyword(label) == nil {
 			// warning only
@@ -340,20 +327,16 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 		child := findChild(parent, label)
 		if child != nil {
 			// found, search next
-			//log.Printf("cmdInstall: found [%s]", currPath)
 			parent = child
 			continue
 		}
 
 		// not found
 
-		//log.Printf("cmdInstall: new [%s]", currPath)
-
 		for ; i < size-1; i++ {
 			// intermmediate label
 			label = labelList[i]
 			currPath = strings.Join(labelList[:i+1], " ")
-			//log.Printf("cmdInstall: %d: intermmediate curr=[%s] label=[%s]", i, currPath, label)
 			newNode := &CmdNode{Path: currPath, MinLevel: min, Options: opt}
 			pushCmdChild(parent, newNode)
 			parent = newNode
@@ -361,7 +344,6 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 
 		// last label
 		label = labelList[size-1]
-		//log.Printf("cmdInstall: %d: leaf curr=[%s] label=[%s]", i, path, label)
 		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd, Apply: apply, Options: opt}
 		pushCmdChild(parent, newNode)
 
@@ -453,8 +435,6 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 		if size > 1 {
 			return nil, fmt.Errorf("CmdFind: ambiguous: [%s] under [%s]", label, parent.Path)
 		}
-
-		//log.Printf("CmdFind: full=[%s] label=[%s] OK", path, label)
 
 		parent = children[0]
 	}
@@ -571,26 +551,67 @@ func helpKey(ctx ConfContext, rawLine string, c CmdClient, status int) bool {
 
 	b := rawLine[size-1] // help key command
 
+	line := rawLine[:len(rawLine)-1]
+	lineSize := len(line)
+	listChildren := lineSize < 1 || line[lineSize-1] == ' '
+	// listChildren=true  -> search for children
+	// listChildren=false -> search for siblings
+
+	c.Newline()
+
 	switch b {
-	case '?':
-		helpKeyQuestion(ctx, rawLine, c, status)
+	case '?': // question mark key
+		helpKeyQuestion(ctx, line, c, status, listChildren)
 		return true
-	case byte(9): // tab
-		helpKeyTab(ctx, rawLine, c, status)
+	case byte(9): // tab key
+		helpKeyTab(ctx, line, c, status, listChildren)
 		return true
 	}
 
 	return false
 }
 
-func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
-	c.Newline()
-	//c.Sendln("helpKey: ? - FIXME WRITEME")
+func helpKeyQuestion(ctx ConfContext, line string, c CmdClient, status int, listChildren bool) {
 
-	line := rawLine[:len(rawLine)-1]
+	children := helpOptions(ctx, line, c, status, listChildren)
 
-	lineSize := len(line)
-	listChildren := lineSize < 1 || line[lineSize-1] == ' '
+	showOptions(c, children)
+}
+
+func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChildren bool) {
+
+	children := helpOptions(ctx, line, c, status, listChildren)
+
+	if len(children) != 1 {
+		// behave like question mark
+		showOptions(c, children)
+		return
+	}
+
+	// auto-complete
+
+	autoComplete := LastToken(children[0].Path)
+
+	c.Sendln(fmt.Sprintf("helpKeyTab: auto-complete='%s' FIXME WRITEME", autoComplete))
+
+	if listChildren {
+		// add label to end-of-buffer
+	} else {
+		// rewrite current label
+	}
+}
+
+func showOptions(c CmdClient, children []*CmdNode) {
+	for _, child := range children {
+		if child.Desc == "" {
+			c.Sendln(fmt.Sprintf("%s", LastToken(child.Path)))
+		} else {
+			c.Sendln(fmt.Sprintf("%s - %s", LastToken(child.Path), child.Desc))
+		}
+	}
+}
+
+func helpOptions(ctx ConfContext, line string, c CmdClient, status int, listChildren bool) []*CmdNode {
 
 	var children []*CmdNode
 
@@ -600,8 +621,8 @@ func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
 
 		node, _, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
 		if err != nil {
-			c.Sendln(fmt.Sprintf("helpKeyQuestion: not found [%s]: %v", line, err))
-			return
+			c.Sendln(fmt.Sprintf("helpOptions: not found [%s]: %v", line, err))
+			return nil
 		}
 
 		children = node.Children
@@ -614,19 +635,21 @@ func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
 
 		parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status)
 		if err1 != nil {
-			c.Sendln(fmt.Sprintf("helpKeyQuestion: not found [%s]: %v", parentPath, err1))
-			return
+			c.Sendln(fmt.Sprintf("helpOptions: not found [%s]: %v", parentPath, err1))
+			return nil
 		}
 
 		checkPattern := true
 		var err2 error
 		children, _, err2 = matchChildren(parent.Children, prefix, checkPattern)
 		if err2 != nil {
-			c.Sendln(fmt.Sprintf("helpKeyQuestion: bad command: [%s] under [%s]: %v", prefix, parent.Path, err2))
-			return
+			c.Sendln(fmt.Sprintf("helpOptions: bad command: [%s] under [%s]: %v", prefix, parent.Path, err2))
+			return nil
 		}
 
 	}
+
+	var visible []*CmdNode
 
 	for _, child := range children {
 		if status == CONF && !child.IsConfig() {
@@ -635,16 +658,8 @@ func helpKeyQuestion(ctx ConfContext, rawLine string, c CmdClient, status int) {
 		if status < child.MinLevel {
 			continue // Hide prohibited commands
 		}
-		if child.Desc == "" {
-			c.Sendln(fmt.Sprintf("%s", LastToken(child.Path)))
-		} else {
-			c.Sendln(fmt.Sprintf("%s - %s", LastToken(child.Path), child.Desc))
-		}
+		visible = append(visible, child)
 	}
 
-}
-
-func helpKeyTab(ctx ConfContext, rawLine string, c CmdClient, status int) {
-	c.Newline()
-	c.Sendln("helpKey: TAB - FIXME WRITEME")
+	return visible
 }
