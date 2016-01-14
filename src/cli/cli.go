@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -268,6 +269,33 @@ func (c *Client) RedrawLineBuffer() {
 	for i := size; i > pos; i-- {
 		cursorLeft(c)
 	}
+}
+
+func (c *Client) LineBufferComplete(autoComplete string, attach bool) {
+
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
+
+	buf := c.telnetLine
+
+	if !attach {
+		// overwrite current label
+		spc := bytes.LastIndexByte(buf.lineBuf[:buf.linePos], ' ')
+		buf.lineSize = spc + 1
+	}
+
+	// append label
+
+	for _, b := range autoComplete {
+		if buf.lineSize >= len(buf.lineBuf) {
+			break // overflow
+		}
+
+		// copy byte
+		buf.lineBuf[buf.lineSize] = byte(b)
+		buf.lineSize++
+	}
+	buf.linePos = buf.lineSize
 }
 
 func (c *Client) Flush() {

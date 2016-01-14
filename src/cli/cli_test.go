@@ -45,18 +45,19 @@ func (c testClient) ConfigPath() string {
 func (c testClient) Status() int {
 	return command.CONF
 }
-func (c testClient) StatusConf()               {}
-func (c testClient) StatusEnable()             {}
-func (c testClient) StatusExit()               {}
-func (c testClient) ConfigPathSet(path string) {}
-func (c testClient) Newline()                  {}
-func (c testClient) Send(msg string)           {}
-func (c testClient) SendNow(msg string)        {}
-func (c testClient) Sendln(msg string)         {}
-func (c testClient) SendlnNow(msg string)      {}
-func (c testClient) InputQuit()                {}
-func (c testClient) HistoryAdd(cmd string)     {}
-func (c testClient) HistoryShow()              {}
+func (c testClient) StatusConf()                                         {}
+func (c testClient) StatusEnable()                                       {}
+func (c testClient) StatusExit()                                         {}
+func (c testClient) ConfigPathSet(path string)                           {}
+func (c testClient) Newline()                                            {}
+func (c testClient) Send(msg string)                                     {}
+func (c testClient) SendNow(msg string)                                  {}
+func (c testClient) Sendln(msg string)                                   {}
+func (c testClient) SendlnNow(msg string)                                {}
+func (c testClient) InputQuit()                                          {}
+func (c testClient) HistoryAdd(cmd string)                               {}
+func (c testClient) HistoryShow()                                        {}
+func (c testClient) LineBufferComplete(autoComplete string, attach bool) {}
 func (c testClient) Output() chan<- string {
 	return c.outputChannel
 }

@@ -9,8 +9,8 @@ go tool vet %NEXTHOP%\src\sample %NEXTHOP%\src\rib-old %NEXTHOP%\src\rib %NEXTHO
 gofmt -s -w %NEXTHOP%\src
 
 @rem build server
-go install rib-old rib rip
+go install -race rib-old rib rip
 
-go test command cli
+go test -race command cli
 
 @rem eof

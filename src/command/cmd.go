@@ -37,6 +37,7 @@ type CmdClient interface {
 	StatusExit()
 	HistoryAdd(cmd string)
 	HistoryShow()
+	LineBufferComplete(autoComplete string, attach bool)
 }
 
 type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
@@ -583,7 +584,7 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 	children := helpOptions(ctx, line, c, status, listChildren)
 
 	if len(children) != 1 {
-		// behave like question mark
+		// behave like question mark key
 		showOptions(c, children)
 		return
 	}
@@ -594,11 +595,7 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 
 	c.Sendln(fmt.Sprintf("helpKeyTab: auto-complete='%s' FIXME WRITEME", autoComplete))
 
-	if listChildren {
-		// add label to end-of-buffer
-	} else {
-		// rewrite current label
-	}
+	c.LineBufferComplete(autoComplete, listChildren)
 }
 
 func showOptions(c CmdClient, children []*CmdNode) {

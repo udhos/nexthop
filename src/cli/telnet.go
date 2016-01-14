@@ -87,6 +87,14 @@ func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 
 	//log.Printf("telnetHandleByte: byte: %d 0x%x", b, b)
 
+	// Exclusive write access required because
+	// cli.Client is shared between main goroutine
+	// and InputLoop (current goroutine).
+	/*
+		defer c.mutex.Unlock()
+		c.mutex.Lock()
+	*/
+
 	switch buf.iac {
 	case IAC_NONE:
 		iacNone(s, c, buf, b)
