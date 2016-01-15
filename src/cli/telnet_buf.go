@@ -33,6 +33,73 @@ func newTelnetBuf() *telnetBuf {
 	}
 }
 
+func (buf *telnetBuf) linePosInc() {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+	buf.linePos++
+}
+
+func (buf *telnetBuf) getByteCurrent() byte {
+	defer buf.mutex.RUnlock()
+	buf.mutex.RLock()
+	return buf.lineBuf[buf.linePos]
+}
+
+func (buf *telnetBuf) insert(c *Client, b byte) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	if buf.lineSize >= len(buf.lineBuf) {
+		// line buffer overflow
+		return
+	}
+
+	// insert
+	for i := buf.lineSize; i > buf.linePos; i-- {
+		buf.lineBuf[i] = buf.lineBuf[i-1]
+	}
+
+	buf.lineBuf[buf.linePos] = b
+	buf.lineSize++
+	buf.linePos++
+
+	// redraw
+	for i := buf.linePos - 1; i < buf.lineSize; i++ {
+		drawByte(c, buf.lineBuf[i])
+	}
+
+	// reposition cursor
+	for i := buf.linePos; i < buf.lineSize; i++ {
+		cursorLeft(c)
+	}
+
+	log.Printf("telnetBuf.insert: pos=%d size=%d line=[%v]", buf.linePos, buf.lineSize, string(buf.lineBuf[:buf.lineSize]))
+}
+
+func (buf *telnetBuf) escapeSet(esc int) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+	buf.escape = esc
+}
+
+func (buf *telnetBuf) escapeGet() int {
+	defer buf.mutex.RUnlock()
+	buf.mutex.RLock()
+	return buf.escape
+}
+
+func (buf *telnetBuf) hitCR() {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+	buf.expectingCtrlM = true
+}
+
+func (buf *telnetBuf) notCtrlM() {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+	buf.expectingCtrlM = false
+}
+
 func (buf *telnetBuf) iacGet() int {
 	defer buf.mutex.RUnlock()
 	buf.mutex.RLock()

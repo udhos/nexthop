@@ -142,11 +142,12 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 	//log.Printf("iacNone: byte: %d 0x%x", b, b)
 
 	if b != 0 {
-		buf.expectingCtrlM = false
+		buf.notCtrlM()
 	}
 
-	if buf.escape != escNone {
-		if handleEscape(s, c, buf, b) {
+	esc := buf.escapeGet()
+	if esc != escNone {
+		if handleEscape(s, c, buf, b, esc) {
 			return
 		}
 	}
@@ -155,7 +156,7 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case b == cmdIAC:
 		// hit IAC mark?
 		log.Printf("iacNone: telnet IAC begin")
-		buf.iac = IAC_CMD
+		buf.iacSet(IAC_CMD)
 	case b == ctrlQuestion, b < 32:
 		controlChar(s, c, buf, b)
 	case b == '?':
@@ -165,35 +166,11 @@ func iacNone(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 		everyChar := c.SendEveryChar()
 		if everyChar {
-			s.CommandChannel <- Command{Client: c, Cmd: string(b), IsLine: false}
+			s.CommandChannel <- Command{Client: c, Cmd: string(b)}
 			return
 		}
 
-		if buf.lineSize >= len(buf.lineBuf) {
-			// line buffer overflow
-			return
-		}
-
-		// insert
-		for i := buf.lineSize; i > buf.linePos; i-- {
-			buf.lineBuf[i] = buf.lineBuf[i-1]
-		}
-
-		buf.lineBuf[buf.linePos] = b
-		buf.lineSize++
-		buf.linePos++
-
-		// redraw
-		for i := buf.linePos - 1; i < buf.lineSize; i++ {
-			drawByte(c, buf.lineBuf[i])
-		}
-
-		// reposition cursor
-		for i := buf.linePos; i < buf.lineSize; i++ {
-			cursorLeft(c)
-		}
-
-		log.Printf("iacNone: pos=%d size=%d line=[%v]", buf.linePos, buf.lineSize, string(buf.lineBuf[:buf.lineSize]))
+		buf.insert(c, b)
 	}
 }
 
@@ -203,11 +180,13 @@ func cursorLeft(c *Client) {
 
 func cursorRight(c *Client, buf *telnetBuf) {
 	drawCurrent(c, buf)
-	buf.linePos++
+	//buf.linePos++
+	buf.linePosInc()
 }
 
 func drawCurrent(c *Client, buf *telnetBuf) {
-	drawByte(c, buf.lineBuf[buf.linePos])
+	//drawByte(c, buf.lineBuf[buf.linePos])
+	drawByte(c, buf.getByteCurrent())
 }
 
 func drawByte(c *Client, b byte) {
@@ -229,7 +208,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 
 	switch b {
 	case '\r': // CR
-		buf.expectingCtrlM = true
+		buf.hitCR()
 	case '\n': // LF
 		newlineChar(s, c, buf, b)
 	case ctrlQuestion, keyBackspace:
@@ -295,53 +274,53 @@ func helpCommandChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true, HideFromHistory: true}
 }
 
-func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte) bool {
+func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 
-	switch buf.escape {
+	switch esc {
 	case escOne:
 		switch b {
 		case '[':
-			buf.escape = escTwo
+			buf.escapeSet(escTwo)
 		default:
 			log.Printf("handleEscape: unsupported char=%d for escape stage: %d", b, buf.escape)
-			buf.escape = escNone
+			buf.escapeSet(escNone)
 		}
 	case escTwo:
 		switch b {
 		case '1':
 			lineBegin(c, buf)
-			buf.escape = escThree
+			buf.escapeSet(escThree)
 		case '3':
 			lineDelChar(c, buf)
-			buf.escape = escThree
+			buf.escapeSet(escThree)
 		case '4':
 			lineEnd(c, buf)
-			buf.escape = escThree
+			buf.escapeSet(escThree)
 		case 'A':
 			histPrevious(c, buf)
-			buf.escape = escNone
+			buf.escapeSet(escNone)
 		case 'B':
 			histNext(c, buf)
-			buf.escape = escNone
+			buf.escapeSet(escNone)
 		case 'C':
 			lineNextChar(c, buf)
-			buf.escape = escNone
+			buf.escapeSet(escNone)
 		case 'D':
 			linePreviousChar(c, buf)
-			buf.escape = escNone
+			buf.escapeSet(escNone)
 		default:
-			log.Printf("handleEscape: unsupported char=%d for escape stage: %d", b, buf.escape)
-			buf.escape = escNone
+			log.Printf("handleEscape: unsupported char=%d for escape stage: %d", b, esc)
+			buf.escapeSet(escNone)
 		}
 	case escThree:
 		switch b {
 		case '~':
 		default:
-			log.Printf("handleEscape: unexpected char=%d for escape: %d", b, buf.escape)
+			log.Printf("handleEscape: unexpected char=%d for escape: %d", b, esc)
 		}
-		buf.escape = escNone
+		buf.escapeSet(escNone)
 	default:
-		log.Printf("handleEscape: bad escape status: %d", buf.escape)
+		log.Printf("handleEscape: bad escape status: %d", esc)
 		return false
 	}
 
