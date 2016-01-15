@@ -97,18 +97,7 @@ func TestConf(t *testing.T) {
 	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
 	c := &testClient{outputChannel: make(chan string)}
-
-	go func() {
-		t.Logf("TestConf: starting output channel goroutine")
-		for {
-			line, ok := <-c.outputChannel
-			if !ok {
-				break
-			}
-			t.Logf("TestConf: read bogus client output channel: [%s]", line)
-		}
-		t.Logf("TestConf: exiting output channel goroutine")
-	}()
+	close(c.outputChannel) // closed channel will break writers
 
 	if err := command.Dispatch(app, "", c, command.CONF, false); err != nil {
 		t.Errorf("empty command rejected: %v", err)
@@ -301,5 +290,4 @@ func TestConf(t *testing.T) {
 		t.Errorf("bad cmd silently accepted: [%s]", cmd)
 	}
 
-	close(c.outputChannel)
 }

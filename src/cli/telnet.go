@@ -57,45 +57,9 @@ const (
 	IAC_SUB_IAC = iota
 )
 
-type bufByteArray [100]byte // affects max input line length
-
-type telnetBuf struct {
-	escape         int
-	iac            int
-	lineBuf        bufByteArray
-	lineSize       int
-	linePos        int
-	subBuf         [5]byte
-	subSize        int
-	expectingCtrlM bool
-}
-
-func newTelnetBuf() *telnetBuf {
-	return &telnetBuf{
-		escape:         escNone,
-		iac:            IAC_NONE,
-		lineBuf:        bufByteArray{},
-		lineSize:       0,
-		linePos:        0,
-		subBuf:         [5]byte{},
-		subSize:        0,
-		expectingCtrlM: false,
-	}
-}
-
 func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 
-	//log.Printf("telnetHandleByte: byte: %d 0x%x", b, b)
-
-	// Exclusive write access required because
-	// cli.Client is shared between main goroutine
-	// and InputLoop (current goroutine).
-	/*
-		defer c.mutex.Unlock()
-		c.mutex.Lock()
-	*/
-
-	switch buf.iac {
+	switch buf.iacGet() {
 	case IAC_NONE:
 		iacNone(s, c, buf, b)
 	case IAC_CMD:
@@ -103,15 +67,15 @@ func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 	case IAC_OPT:
 		log.Printf("telnetHandleByte: telnet OPT end")
 		log.Printf("telnetHandleByte: telnet IAC end")
-		buf.iac = IAC_NONE
+		buf.iacSet(IAC_NONE)
 	case IAC_SUB_IAC:
 		iacSubIac(c, buf, b)
 	case IAC_SUB:
 		if b == cmdIAC {
-			buf.iac = IAC_SUB_IAC
+			buf.iacSet(IAC_SUB_IAC)
 			return false
 		}
-		buf.subSize = pushSub(buf.subBuf[:], buf.subSize, b)
+		buf.pushSub(b)
 	default:
 		log.Printf("telnetHandleByte: unexpected state iac=%d", buf.iac)
 		return true // stop
@@ -122,8 +86,8 @@ func telnetHandleByte(s *Server, c *Client, buf *telnetBuf, b byte) bool {
 
 func iacSubIac(c *Client, buf *telnetBuf, b byte) {
 	if b != cmdSE {
-		buf.subSize = pushSub(buf.subBuf[:], buf.subSize, b)
-		buf.iac = IAC_SUB
+		buf.pushSub(b)
+		buf.iacSet(IAC_SUB)
 		return
 	}
 
@@ -131,21 +95,25 @@ func iacSubIac(c *Client, buf *telnetBuf, b byte) {
 
 	log.Printf("iacSubIac: telnet SUB end")
 	log.Printf("iacSubIac: telnet IAC end")
-	buf.iac = IAC_NONE
+	buf.iacSet(IAC_NONE)
 
-	if buf.subSize < 1 {
+	subSize := buf.subSizeGet()
+
+	if subSize < 1 {
 		log.Printf("iacSubIac: no subnegotiation char received")
 		return
 	}
 
-	if buf.subBuf[0] == optNaws {
-		if buf.subSize != 5 {
-			log.Printf("iacSubIac: invalid telnet NAWS size=%d", buf.subSize)
+	subBuf := buf.subBufCopy()
+
+	if subBuf[0] == optNaws {
+		if subSize != 5 {
+			log.Printf("iacSubIac: invalid telnet NAWS size=%d", subSize)
 			return
 		}
 
-		width := int(buf.subBuf[1])<<8 + int(buf.subBuf[2])
-		height := int(buf.subBuf[3])<<8 + int(buf.subBuf[4])
+		width := int(subBuf[1])<<8 + int(subBuf[2])
+		height := int(subBuf[3])<<8 + int(subBuf[4])
 
 		log.Printf("iacSubIac: window size: width=%d height=%d", width, height)
 
@@ -153,48 +121,19 @@ func iacSubIac(c *Client, buf *telnetBuf, b byte) {
 	}
 }
 
-func pushSub(buf []byte, size int, b byte) int {
-	max := len(buf)
-
-	//log.Printf("pushSub: size=%d cap=%d char=%d", size, max, b)
-
-	if max < 1 {
-		log.Printf("pushSub: bad subnegotiation buffer: max=%d", max)
-		return size
-	}
-
-	if size == 0 {
-		buf[0] = b
-		return 1
-	}
-
-	switch buf[0] {
-	case optNaws:
-		// we only care about window size
-		if size >= max {
-			log.Printf("pushSub: subnegotiation buffer overflow: max=%d char=%d", max, b)
-			return size
-		}
-		buf[size] = b
-		return size + 1
-	}
-
-	return size
-}
-
 func iacCmd(buf *telnetBuf, b byte) {
 
 	switch b {
 	case cmdSB:
 		log.Printf("iacCmd: telnet SUB begin")
-		buf.subSize = 0
-		buf.iac = IAC_SUB
+		buf.subBufReset()
+		buf.iacSet(IAC_SUB)
 	case cmdWill, cmdWont, cmdDo, cmdDont:
 		log.Printf("iacCmd: telnet OPT begin")
-		buf.iac = IAC_OPT
+		buf.iacSet(IAC_OPT)
 	default:
 		log.Printf("iacCmd: telnet IAC end")
-		buf.iac = IAC_NONE
+		buf.iacSet(IAC_NONE)
 	}
 }
 
