@@ -178,15 +178,6 @@ func cursorLeft(c *Client) {
 	drawByte(c, byte(keyBackspace))
 }
 
-func cursorRight(c *Client, buf *telnetBuf) {
-	drawCurrent(c, buf)
-	buf.linePosInc()
-}
-
-func drawCurrent(c *Client, buf *telnetBuf) {
-	drawByte(c, buf.getByteCurrent())
-}
-
 func drawByte(c *Client, b byte) {
 	c.echoSend(string(b))
 }
@@ -216,7 +207,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlA:
 		lineBegin(c, buf)
 	case ctrlE:
-		lineEnd(c, buf)
+		buf.lineEnd(c)
 	case keyEscape:
 		buf.escape = escOne
 	case ctrlP:
@@ -290,7 +281,7 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 			buf.lineDelChar(c)
 			buf.escapeSet(escThree)
 		case '4':
-			lineEnd(c, buf)
+			buf.lineEnd(c)
 			buf.escapeSet(escThree)
 		case 'A':
 			histPrevious(c, buf)
@@ -323,18 +314,6 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 	return true
 }
 
-func lineBegin(c *Client, buf *telnetBuf) {
-	for ; buf.linePos > 0; buf.linePos-- {
-		cursorLeft(c)
-	}
-}
-
-func lineEnd(c *Client, buf *telnetBuf) {
-	for buf.linePos < buf.lineSize {
-		cursorRight(c, buf)
-	}
-}
-
 func histPrevious(c *Client, buf *telnetBuf) {
 	histMove(c, buf, c.HistoryPrevious())
 }
@@ -358,7 +337,7 @@ func histMove(c *Client, buf *telnetBuf, hist string) {
 }
 
 func clearLine(c *Client, buf *telnetBuf) {
-	lineEnd(c, buf)
+	goToLineEnd(c, buf)
 	for buf.linePos > 0 {
 		backspaceChar(c, buf)
 	}
@@ -366,7 +345,7 @@ func clearLine(c *Client, buf *telnetBuf) {
 
 func drawLine(c *Client, buf *telnetBuf) {
 	for buf.linePos < buf.lineSize {
-		cursorRight(c, buf)
+		cRight(c, buf)
 	}
 }
 
@@ -384,5 +363,5 @@ func lineNextChar(c *Client, buf *telnetBuf) {
 		return
 	}
 
-	cursorRight(c, buf)
+	cRight(c, buf)
 }

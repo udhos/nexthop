@@ -33,6 +33,37 @@ func newTelnetBuf() *telnetBuf {
 	}
 }
 
+func lineBegin(c *Client, buf *telnetBuf) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	for ; buf.linePos > 0; buf.linePos-- {
+		cursorLeft(c)
+	}
+}
+
+func (buf *telnetBuf) lineEnd(c *Client) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	goToLineEnd(c, buf) // unsafe
+}
+
+func goToLineEnd(c *Client, buf *telnetBuf) {
+	for buf.linePos < buf.lineSize {
+		cRight(c, buf)
+	}
+}
+
+func cRight(c *Client, buf *telnetBuf) {
+	drawCurrent(c, buf) // unsafe
+	buf.linePos++       // unsafe
+}
+
+func drawCurrent(c *Client, buf *telnetBuf) {
+	drawByte(c, buf.lineBuf[buf.linePos]) // unsafe
+}
+
 func (buf *telnetBuf) lineBackspace(c *Client) {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
@@ -48,16 +79,17 @@ func backspaceChar(c *Client, buf *telnetBuf) {
 	cursorLeft(c)
 	buf.linePos--
 
-	delChar(c, buf)
+	delChar(c, buf) // unsafe
 }
 
 func (buf *telnetBuf) lineDelChar(c *Client) {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
 
-	delChar(c, buf)
+	delChar(c, buf) // unsafe
 }
 
+// delChar is unsafe
 func delChar(c *Client, buf *telnetBuf) {
 	if buf.lineSize < 1 || buf.linePos >= buf.lineSize {
 		return
@@ -125,17 +157,21 @@ func (buf *telnetBuf) lineExtract() string {
 	return s
 }
 
+/*
 func (buf *telnetBuf) linePosInc() {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
 	buf.linePos++
 }
+*/
 
+/*
 func (buf *telnetBuf) getByteCurrent() byte {
 	defer buf.mutex.RUnlock()
 	buf.mutex.RLock()
 	return buf.lineBuf[buf.linePos]
 }
+*/
 
 func (buf *telnetBuf) insert(c *Client, b byte) {
 	defer buf.mutex.Unlock()
