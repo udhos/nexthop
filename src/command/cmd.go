@@ -558,13 +558,13 @@ func helpKey(ctx ConfContext, rawLine string, c CmdClient, status int) bool {
 	// listChildren=true  -> search for children
 	// listChildren=false -> search for siblings
 
-	c.Newline()
-
 	switch b {
 	case '?': // question mark key
+		c.Newline()
 		helpKeyQuestion(ctx, line, c, status, listChildren)
 		return true
 	case byte(9): // tab key
+		c.Newline()
 		helpKeyTab(ctx, line, c, status, listChildren)
 		return true
 	}
