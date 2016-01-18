@@ -210,7 +210,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case '\n': // LF
 		newlineChar(s, c, buf, b)
 	case ctrlQuestion, keyBackspace:
-		lineBackspace(c, buf)
+		buf.lineBackspace(c)
 	case keyTab:
 		helpCommandChar(s, c, buf, b)
 	case ctrlA:
@@ -233,7 +233,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 			msg(s, c, "use 'quit' to exit remote terminal")
 			return
 		}
-		lineDelChar(c, buf)
+		buf.lineDelChar(c)
 	case ctrlK:
 		buf.lineKillToEnd(c)
 	case 0:
@@ -287,7 +287,7 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 			lineBegin(c, buf)
 			buf.escapeSet(escThree)
 		case '3':
-			lineDelChar(c, buf)
+			buf.lineDelChar(c)
 			buf.escapeSet(escThree)
 		case '4':
 			lineEnd(c, buf)
@@ -323,17 +323,6 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 	return true
 }
 
-func lineBackspace(c *Client, buf *telnetBuf) {
-	if buf.linePos < 1 {
-		return
-	}
-
-	cursorLeft(c)
-	buf.linePos--
-
-	lineDelChar(c, buf)
-}
-
 func lineBegin(c *Client, buf *telnetBuf) {
 	for ; buf.linePos > 0; buf.linePos-- {
 		cursorLeft(c)
@@ -343,26 +332,6 @@ func lineBegin(c *Client, buf *telnetBuf) {
 func lineEnd(c *Client, buf *telnetBuf) {
 	for buf.linePos < buf.lineSize {
 		cursorRight(c, buf)
-	}
-}
-
-func lineDelChar(c *Client, buf *telnetBuf) {
-	if buf.lineSize < 1 || buf.linePos >= buf.lineSize {
-		return
-	}
-
-	buf.lineSize--
-
-	// redraw
-	for i := buf.linePos; i < buf.lineSize; i++ {
-		buf.lineBuf[i] = buf.lineBuf[i+1] // shift
-		drawByte(c, buf.lineBuf[i])
-	}
-	drawByte(c, ' ') // erase last char
-
-	// reposition cursor
-	for i := buf.linePos; i < buf.lineSize+1; i++ {
-		cursorLeft(c)
 	}
 }
 
@@ -391,7 +360,7 @@ func histMove(c *Client, buf *telnetBuf, hist string) {
 func clearLine(c *Client, buf *telnetBuf) {
 	lineEnd(c, buf)
 	for buf.linePos > 0 {
-		lineBackspace(c, buf)
+		backspaceChar(c, buf)
 	}
 }
 

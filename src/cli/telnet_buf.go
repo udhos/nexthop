@@ -33,6 +33,51 @@ func newTelnetBuf() *telnetBuf {
 	}
 }
 
+func (buf *telnetBuf) lineBackspace(c *Client) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	backspaceChar(c, buf)
+}
+
+func backspaceChar(c *Client, buf *telnetBuf) {
+	if buf.linePos < 1 {
+		return
+	}
+
+	cursorLeft(c)
+	buf.linePos--
+
+	delChar(c, buf)
+}
+
+func (buf *telnetBuf) lineDelChar(c *Client) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	delChar(c, buf)
+}
+
+func delChar(c *Client, buf *telnetBuf) {
+	if buf.lineSize < 1 || buf.linePos >= buf.lineSize {
+		return
+	}
+
+	buf.lineSize--
+
+	// redraw
+	for i := buf.linePos; i < buf.lineSize; i++ {
+		buf.lineBuf[i] = buf.lineBuf[i+1] // shift
+		drawByte(c, buf.lineBuf[i])
+	}
+	drawByte(c, ' ') // erase last char
+
+	// reposition cursor
+	for i := buf.linePos; i < buf.lineSize+1; i++ {
+		cursorLeft(c)
+	}
+}
+
 func (buf *telnetBuf) lineKillToEnd(c *Client) {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
