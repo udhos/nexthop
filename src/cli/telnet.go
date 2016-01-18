@@ -235,7 +235,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 		}
 		lineDelChar(c, buf)
 	case ctrlK:
-		lineKillToEnd(c, buf)
+		buf.lineKillToEnd(c)
 	case 0:
 		if buf.isExpectingCtrlM() {
 			// controlM
@@ -247,28 +247,26 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 }
 
 func newlineChar(s *Server, c *Client, buf *telnetBuf, b byte) {
-	//log.Printf("newlineChar()")
 
-	sendEveryChar := c.SendEveryChar()
-	if sendEveryChar {
+	if c.SendEveryChar() {
 		s.CommandChannel <- Command{Client: c}
 		return
 	}
 
-	cmdLine := string(buf.lineBuf[:buf.lineSize]) // string is safe for sharing (immutable)
+	cmdLine := buf.lineExtract() // copy line and reset line buffer
 	log.Printf("controlChar: size=%d cmdLine=[%v]", buf.lineSize, cmdLine)
+
+	// string is safe for sharing (immutable)
 	s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true}
 
-	// reset reading buffer position
-	buf.lineSize = 0
-	buf.linePos = 0
 	c.HistoryReset()
 
 	c.SendlnNow("") // echo newline back to client
 }
 
 func helpCommandChar(s *Server, c *Client, buf *telnetBuf, b byte) {
-	cmdLine := string(buf.lineBuf[:buf.lineSize]) + string(b) // string is safe for sharing (immutable)
+	cmdLine := buf.lineCopy() + string(b) // string is safe for sharing (immutable)
+
 	s.CommandChannel <- Command{Client: c, Cmd: cmdLine, IsLine: true, HideFromHistory: true}
 }
 
@@ -323,22 +321,6 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 	}
 
 	return true
-}
-
-func lineKillToEnd(c *Client, buf *telnetBuf) {
-	killCount := buf.lineSize - buf.linePos
-
-	// erase chars
-	for i := 0; i < killCount; i++ {
-		drawByte(c, ' ')
-	}
-
-	// return cursor
-	for i := 0; i < killCount; i++ {
-		cursorLeft(c)
-	}
-
-	buf.lineSize = buf.linePos // drop chars from buffer
 }
 
 func lineBackspace(c *Client, buf *telnetBuf) {

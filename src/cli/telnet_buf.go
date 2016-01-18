@@ -33,10 +33,51 @@ func newTelnetBuf() *telnetBuf {
 	}
 }
 
+func (buf *telnetBuf) lineKillToEnd(c *Client) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	killCount := buf.lineSize - buf.linePos
+
+	// erase chars
+	for i := 0; i < killCount; i++ {
+		drawByte(c, ' ')
+	}
+
+	// return cursor
+	for i := 0; i < killCount; i++ {
+		cursorLeft(c)
+	}
+
+	buf.lineSize = buf.linePos // drop chars from buffer
+}
+
 func (buf *telnetBuf) getLineSize() int {
 	defer buf.mutex.RUnlock()
 	buf.mutex.RLock()
 	return buf.lineSize
+}
+
+func (buf *telnetBuf) lineCopy() string {
+	defer buf.mutex.RUnlock()
+	buf.mutex.RLock()
+	return string(buf.lineBuf[:buf.lineSize])
+}
+
+func (buf *telnetBuf) lineExtract() string {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	// string is safe for sharing (immutable)
+	// but lineBuf and lineSize aren't safe
+
+	s := string(buf.lineBuf[:buf.lineSize])
+
+	// reset reading buffer position
+	buf.lineSize = 0
+	buf.linePos = 0
+
+	return s
 }
 
 func (buf *telnetBuf) linePosInc() {
