@@ -33,6 +33,12 @@ func newTelnetBuf() *telnetBuf {
 	}
 }
 
+func (buf *telnetBuf) getLineSize() int {
+	defer buf.mutex.RUnlock()
+	buf.mutex.RLock()
+	return buf.lineSize
+}
+
 func (buf *telnetBuf) linePosInc() {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
@@ -86,6 +92,12 @@ func (buf *telnetBuf) escapeGet() int {
 	defer buf.mutex.RUnlock()
 	buf.mutex.RLock()
 	return buf.escape
+}
+
+func (buf *telnetBuf) isExpectingCtrlM() bool {
+	defer buf.mutex.RUnlock()
+	buf.mutex.RLock()
+	return buf.expectingCtrlM
 }
 
 func (buf *telnetBuf) hitCR() {

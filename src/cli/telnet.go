@@ -180,12 +180,10 @@ func cursorLeft(c *Client) {
 
 func cursorRight(c *Client, buf *telnetBuf) {
 	drawCurrent(c, buf)
-	//buf.linePos++
 	buf.linePosInc()
 }
 
 func drawCurrent(c *Client, buf *telnetBuf) {
-	//drawByte(c, buf.lineBuf[buf.linePos])
 	drawByte(c, buf.getByteCurrent())
 }
 
@@ -230,7 +228,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlF:
 		lineNextChar(c, buf)
 	case ctrlD:
-		if buf.lineSize < 1 {
+		if buf.getLineSize() < 1 {
 			// EOF
 			msg(s, c, "use 'quit' to exit remote terminal")
 			return
@@ -239,7 +237,7 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlK:
 		lineKillToEnd(c, buf)
 	case 0:
-		if buf.expectingCtrlM {
+		if buf.isExpectingCtrlM() {
 			// controlM
 			newlineChar(s, c, buf, b)
 		}
