@@ -606,6 +606,12 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 	children := helpOptions(ctx, line, c, status, listChildren)
 
 	if len(children) != 1 {
+
+		// FIXME:
+		// try replace pattern {IFNAME} with possible label eth0
+		// findCommonPrefix
+		// do autoComplete with commonPrefix
+
 		// behave like question mark key
 		showOptions(c, children)
 		return
@@ -614,6 +620,17 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 	// auto-complete
 
 	autoComplete := LastToken(children[0].Path)
+
+	// FIXME:
+	// try replace pattern {IFNAME} with possible label eth0
+
+	if IsUserPatternKeyword(autoComplete) {
+		// do not autocomplete with pattern
+
+		// behave like question mark key
+		showOptions(c, children)
+		return
+	}
 
 	c.Sendln(fmt.Sprintf("helpKeyTab: auto-complete='%s' FIXME WRITEME", autoComplete))
 
