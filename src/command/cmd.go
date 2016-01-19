@@ -682,3 +682,34 @@ func helpOptions(ctx ConfContext, line string, c CmdClient, status int, listChil
 
 	return visible
 }
+
+func DescInstall(root *CmdNode, path, desc string) {
+	checkPattern := false
+	node, err := CmdFind(root, path, CONF, checkPattern)
+	if err != nil {
+		log.Printf("DescInstall: not found [%s]: %v", path, err)
+		return
+	}
+	if node.Desc != "" {
+		log.Printf("DescInstall: description not empty [%s]: description=[%s]", path, node.Desc)
+		return
+	}
+	node.Desc = desc
+}
+
+func MissingDescription(root *CmdNode) {
+	for _, c := range root.Children {
+		missDesc(c)
+	}
+}
+
+func missDesc(node *CmdNode) {
+
+	if node.Desc == "" {
+		log.Printf("MissingDescription: [%s]", node.Path)
+	}
+
+	for _, c := range node.Children {
+		MissingDescription(c)
+	}
+}

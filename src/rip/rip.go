@@ -124,8 +124,12 @@ func installCommands(root *command.CmdNode) {
 	cmdNone := command.CMD_NONE
 	cmdConf := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
+	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
+
+	command.DescInstall(root, "hostname", "Assign hostname")
+
+	command.MissingDescription(root)
 }
 
 func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

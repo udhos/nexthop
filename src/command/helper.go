@@ -18,7 +18,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
 	CmdInstall(root, cmdNone, "exit", EXEC, cmdExit, nil, "Exit current location")
 	CmdInstall(root, cmdNone, "list", EXEC, cmdList, nil, "List command tree")
-	CmdInstall(root, cmdNone, "no {ANY}", CONF, HelperNo, nil, "Remove a configuration item")
+	CmdInstall(root, cmdNone, "no {ANY}", CONF, HelperNo, nil, "Remove this configuration item")
 	CmdInstall(root, cmdNone, "quit", EXEC, cmdQuit, nil, "Quit session")
 	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, nil, "Reload")
 	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, nil, "Reset candidate configuration from active configuration")
@@ -31,6 +31,9 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
 	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
+
+	DescInstall(root, "no", "Remove a configuration item")
+	DescInstall(root, "show", "Show configuration item")
 }
 
 func ApplyBogus(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient) error {

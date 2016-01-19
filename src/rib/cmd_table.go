@@ -16,11 +16,11 @@ func installRibCommands(root *command.CmdNode) {
 	cmdNone := command.CMD_NONE
 	cmdConf := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, command.ApplyBogus, "Set interface description")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, command.ApplyBogus, "Interface description")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IFADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, applyIfaceVrf, "Assign VRF to interface")
+	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, applyIfaceVrf, "Interface VRF")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, command.ApplyBogus, "Enable IP routing")
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, nil, "Show interfaces")
@@ -32,6 +32,20 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdConf, "vrf {VRFNAME} ipv4 import route-target {RT}", command.CONF, cmdVrfImportRT, command.ApplyBogus, "Route-target for import")
 	command.CmdInstall(root, cmdConf, "vrf {VRFNAME} ipv4 export route-target {RT}", command.CONF, cmdVrfExportRT, command.ApplyBogus, "Route-target for export")
+
+	command.DescInstall(root, "hostname", "Assign hostname")
+	command.DescInstall(root, "interface", "Configure interface parameter")
+	command.DescInstall(root, "interface {IFNAME} description", "Configure interface description")
+	command.DescInstall(root, "interface {IFNAME} ipv4", "Configure interface IPv4 parameter")
+	command.DescInstall(root, "interface {IFNAME} ipv6", "Configure interface IPv6 parameter")
+	command.DescInstall(root, "interface {IFNAME} vrf", "Assign VRF to interface")
+	command.DescInstall(root, "ip", "Configure IP parameter")
+	command.DescInstall(root, "vrf", "Configure VRF parameter")
+	command.DescInstall(root, "vrf {VRFNAME} ipv4", "Configure VRF IPv4 parameter")
+	command.DescInstall(root, "vrf {VRFNAME} ipv4 import route-target", "Import route target")
+	command.DescInstall(root, "vrf {VRFNAME} ipv4 export route-target", "Export route target")
+
+	command.MissingDescription(root)
 }
 
 func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
