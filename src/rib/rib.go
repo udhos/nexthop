@@ -51,19 +51,6 @@ func (r RibApp) MaxConfigFiles() int {
 	return r.maxConfigFiles
 }
 
-/*
-func (r RibApp) Hostname() string {
-	root := r.ConfRootCandidate()
-	log.Printf("rib RibApp.Hostname(): FIXME: query ACTIVE config")
-	node, err := root.Get("hostname")
-	if err != nil {
-		return "hostname?"
-	}
-
-	return node.Value[0]
-}
-*/
-
 func main() {
 
 	daemonName := "rib"

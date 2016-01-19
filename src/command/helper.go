@@ -494,3 +494,9 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 
 	return nil // ok
 }
+
+func HelperShowVersion(daemonName string, c CmdClient) {
+	c.Sendln(fmt.Sprintf("%s daemon", daemonName))
+	c.Sendln(NexthopVersion)
+	c.Send(NexthopCopyright)
+}

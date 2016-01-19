@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"fwd"
 	"log"
 	"time"
@@ -134,7 +133,6 @@ func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c 
 }
 
 func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	c.Sendln(command.NexthopVersion)
 	rip := ctx.(*Rip)
-	c.Sendln(fmt.Sprintf("daemon: %v", rip.daemonName))
+	command.HelperShowVersion(rip.daemonName, c)
 }

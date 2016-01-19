@@ -199,9 +199,8 @@ func cmdShowIPRoute(ctx command.ConfContext, node *command.CmdNode, line string,
 }
 
 func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	c.Sendln(command.NexthopVersion)
 	ribApp := ctx.(*RibApp)
-	c.Sendln(fmt.Sprintf("daemon: %v", ribApp.daemonName))
+	command.HelperShowVersion(ribApp.daemonName, c)
 }
 
 func cmdVrfImportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
