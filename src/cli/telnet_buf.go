@@ -33,6 +33,70 @@ func newTelnetBuf() *telnetBuf {
 	}
 }
 
+func linePreviousChar(c *Client, buf *telnetBuf) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	if buf.linePos < 1 {
+		return
+	}
+
+	buf.linePos--
+	cursorLeft(c)
+}
+
+func lineNextChar(c *Client, buf *telnetBuf) {
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	if buf.linePos >= buf.lineSize {
+		return
+	}
+
+	cRight(c, buf) // unsafe
+}
+
+func histPrevious(c *Client, buf *telnetBuf) {
+	histMove(c, buf, c.HistoryPrevious())
+}
+
+func histNext(c *Client, buf *telnetBuf) {
+	histMove(c, buf, c.HistoryNext())
+}
+
+func histMove(c *Client, buf *telnetBuf, hist string) {
+	if hist == "" {
+		return
+	}
+
+	defer buf.mutex.Unlock()
+	buf.mutex.Lock()
+
+	clearLine(c, buf)
+
+	for i, b := range hist {
+		buf.lineBuf[i] = byte(b)
+	}
+	buf.lineSize = len(hist)
+
+	drawLine(c, buf)
+}
+
+// clearLine is unsafe
+func clearLine(c *Client, buf *telnetBuf) {
+	goToLineEnd(c, buf)
+	for buf.linePos > 0 {
+		backspaceChar(c, buf)
+	}
+}
+
+// drawLine is unsafe
+func drawLine(c *Client, buf *telnetBuf) {
+	for buf.linePos < buf.lineSize {
+		cRight(c, buf)
+	}
+}
+
 func lineBegin(c *Client, buf *telnetBuf) {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
@@ -49,12 +113,14 @@ func (buf *telnetBuf) lineEnd(c *Client) {
 	goToLineEnd(c, buf) // unsafe
 }
 
+// goToLineEnd is unsafe
 func goToLineEnd(c *Client, buf *telnetBuf) {
 	for buf.linePos < buf.lineSize {
 		cRight(c, buf)
 	}
 }
 
+// cRight is unsafe
 func cRight(c *Client, buf *telnetBuf) {
 	drawCurrent(c, buf) // unsafe
 	buf.linePos++       // unsafe
@@ -71,6 +137,7 @@ func (buf *telnetBuf) lineBackspace(c *Client) {
 	backspaceChar(c, buf)
 }
 
+// backspaceChar is unsafe
 func backspaceChar(c *Client, buf *telnetBuf) {
 	if buf.linePos < 1 {
 		return
@@ -156,22 +223,6 @@ func (buf *telnetBuf) lineExtract() string {
 
 	return s
 }
-
-/*
-func (buf *telnetBuf) linePosInc() {
-	defer buf.mutex.Unlock()
-	buf.mutex.Lock()
-	buf.linePos++
-}
-*/
-
-/*
-func (buf *telnetBuf) getByteCurrent() byte {
-	defer buf.mutex.RUnlock()
-	buf.mutex.RLock()
-	return buf.lineBuf[buf.linePos]
-}
-*/
 
 func (buf *telnetBuf) insert(c *Client, b byte) {
 	defer buf.mutex.Unlock()
@@ -267,9 +318,10 @@ func (buf *telnetBuf) subSizeGet() int {
 func (buf *telnetBuf) pushSub(b byte) {
 	defer buf.mutex.Unlock()
 	buf.mutex.Lock()
-	buf.subSize = pushSub(buf.subBuf[:], buf.subSize, b)
+	buf.subSize = pushSub(buf.subBuf[:], buf.subSize, b) // unsafe
 }
 
+// pushSub is unsafe
 func pushSub(buf []byte, size int, b byte) int {
 	max := len(buf)
 

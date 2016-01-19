@@ -15,8 +15,9 @@ const (
 )
 
 const (
+	keyBell      = ctrlG // 7
 	keyBackspace = ctrlH // 8
-	keyTab       = 9
+	keyTab       = ctrlI // 9
 	keyEscape    = 27
 )
 
@@ -34,8 +35,11 @@ const (
 	ctrlD        = 'D' - '@'
 	ctrlE        = 'E' - '@'
 	ctrlF        = 'F' - '@'
-	ctrlH        = 'H' - '@'
+	ctrlG        = 'G' - '@' // 7=bell
+	ctrlH        = 'H' - '@' // 8=backspace
+	ctrlI        = 'I' - '@' // 9=tab
 	ctrlK        = 'K' - '@'
+	ctrlL        = 'L' - '@'
 	ctrlN        = 'N' - '@'
 	ctrlP        = 'P' - '@'
 	ctrlZ        = 'Z' - '@'
@@ -182,7 +186,7 @@ func drawByte(c *Client, b byte) {
 	c.echoSend(string(b))
 }
 
-func msg(s *Server, c *Client, str string) {
+func msgln(s *Server, c *Client, str string) {
 	c.Sendln(str)
 
 	// make main goroutine to send the message queue and command prompt
@@ -221,12 +225,15 @@ func controlChar(s *Server, c *Client, buf *telnetBuf, b byte) {
 	case ctrlD:
 		if buf.getLineSize() < 1 {
 			// EOF
-			msg(s, c, "use 'quit' to exit remote terminal")
+			msgln(s, c, "use 'quit' to exit remote terminal")
 			return
 		}
 		buf.lineDelChar(c)
 	case ctrlK:
 		buf.lineKillToEnd(c)
+	case ctrlL:
+		telnetClearScreen := string([]byte{keyEscape, '[', '2', 'J'})
+		msgln(s, c, telnetClearScreen)
 	case 0:
 		if buf.isExpectingCtrlM() {
 			// controlM
@@ -312,56 +319,4 @@ func handleEscape(s *Server, c *Client, buf *telnetBuf, b byte, esc int) bool {
 	}
 
 	return true
-}
-
-func histPrevious(c *Client, buf *telnetBuf) {
-	histMove(c, buf, c.HistoryPrevious())
-}
-
-func histNext(c *Client, buf *telnetBuf) {
-	histMove(c, buf, c.HistoryNext())
-}
-
-func histMove(c *Client, buf *telnetBuf, hist string) {
-	if hist == "" {
-		return
-	}
-	clearLine(c, buf)
-
-	for i, b := range hist {
-		buf.lineBuf[i] = byte(b)
-	}
-	buf.lineSize = len(hist)
-
-	drawLine(c, buf)
-}
-
-func clearLine(c *Client, buf *telnetBuf) {
-	goToLineEnd(c, buf)
-	for buf.linePos > 0 {
-		backspaceChar(c, buf)
-	}
-}
-
-func drawLine(c *Client, buf *telnetBuf) {
-	for buf.linePos < buf.lineSize {
-		cRight(c, buf)
-	}
-}
-
-func linePreviousChar(c *Client, buf *telnetBuf) {
-	if buf.linePos < 1 {
-		return
-	}
-
-	buf.linePos--
-	cursorLeft(c)
-}
-
-func lineNextChar(c *Client, buf *telnetBuf) {
-	if buf.linePos >= buf.lineSize {
-		return
-	}
-
-	cRight(c, buf)
 }
