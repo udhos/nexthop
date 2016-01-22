@@ -233,7 +233,7 @@ func cmdRollback(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func cmdShowCommitList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	dirname, matches, err := listConfig(ctx.ConfigPathPrefix())
+	dirname, matches, err := ListConfig(ctx.ConfigPathPrefix())
 	if err != nil {
 		c.Sendln(fmt.Sprintf("cound't retrieve list of configuration files: %v", err))
 		return

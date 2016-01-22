@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fwd"
 	"log"
+	"strconv"
 	"time"
 
 	"cli"
@@ -65,7 +66,23 @@ func main() {
 		}
 		return ifaces, vrfs
 	}
-	command.LoadKeywordTable(listInterfaces)
+	listCommitId := func() []string {
+		_, matches, err := command.ListConfig(rip.ConfigPathPrefix())
+		if err != nil {
+			log.Printf("%s main: error listing commit id's: %v", rip.daemonName, err)
+		}
+		var idList []string
+		for _, m := range matches {
+			id, err1 := command.ExtractCommitIdFromFilename(m)
+			if err1 != nil {
+				log.Printf("%s main: error extracting commit id's: %v", rip.daemonName, err1)
+				continue
+			}
+			idList = append(idList, strconv.Itoa(id))
+		}
+		return idList
+	}
+	command.LoadKeywordTable(listInterfaces, listCommitId)
 
 	installCommands(rip.CmdRoot())
 

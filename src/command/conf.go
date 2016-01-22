@@ -21,12 +21,12 @@ func (s sortByCommitId) Swap(i, j int) {
 }
 func (s sortByCommitId) Less(i, j int) bool {
 	s1 := s[i]
-	id1, err1 := extractCommitIdFromFilename(s1)
+	id1, err1 := ExtractCommitIdFromFilename(s1)
 	if err1 != nil {
 		log.Printf("sortByCommitId.Less: error parsing config file path: '%s': %v", s1, err1)
 	}
 	s2 := s[j]
-	id2, err2 := extractCommitIdFromFilename(s2)
+	id2, err2 := ExtractCommitIdFromFilename(s2)
 	if err2 != nil {
 		log.Printf("sortByCommitId.Less: error parsing config file path: '%s': %v", s2, err2)
 	}
@@ -37,7 +37,7 @@ func getConfigPath(configPathPrefix, id string) string {
 	return fmt.Sprintf("%s%s", configPathPrefix, id)
 }
 
-func extractCommitIdFromFilename(filename string) (int, error) {
+func ExtractCommitIdFromFilename(filename string) (int, error) {
 	lastDot := strings.LastIndexByte(filename, '.')
 	commitId := filename[lastDot+1:]
 	id, err := strconv.Atoi(commitId)
@@ -51,7 +51,7 @@ func extractCommitIdFromFilename(filename string) (int, error) {
 func FindLastConfig(configPathPrefix string) (string, error) {
 	log.Printf("FindLastConfig: configuration path prefix: %s", configPathPrefix)
 
-	dirname, matches, err := listConfig(configPathPrefix)
+	dirname, matches, err := ListConfig(configPathPrefix)
 	if err != nil {
 		return "", err
 	}
@@ -69,7 +69,7 @@ func FindLastConfig(configPathPrefix string) (string, error) {
 	return lastConfig, nil
 }
 
-func listConfig(configPathPrefix string) (string, []string, error) {
+func ListConfig(configPathPrefix string) (string, []string, error) {
 	//log.Printf("FindLastConfig: configuration path prefix: %s", configPathPrefix)
 
 	dirname := filepath.Dir(configPathPrefix)
@@ -111,7 +111,7 @@ func SaveNewConfig(configPathPrefix string, root *ConfNode, maxFiles int) (strin
 		log.Printf("SaveNewConfig: error reading config: [%s]: %v", configPathPrefix, err1)
 	}
 
-	id, err2 := extractCommitIdFromFilename(lastConfig)
+	id, err2 := ExtractCommitIdFromFilename(lastConfig)
 	if err2 != nil {
 		log.Printf("SaveNewConfig: error parsing config path: [%s]: %v", lastConfig, err2)
 	}
@@ -156,7 +156,7 @@ func eraseOldFiles(configPathPrefix string, root *ConfNode, maxFiles int) {
 		return
 	}
 
-	dirname, matches, err := listConfig(configPathPrefix)
+	dirname, matches, err := ListConfig(configPathPrefix)
 	if err != nil {
 		log.Printf("eraseOldFiles: %v", err)
 		return

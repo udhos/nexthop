@@ -79,7 +79,10 @@ func TestConf(t *testing.T) {
 		}
 		return ifaces, vrfs
 	}
-	command.LoadKeywordTable(listInterfaces)
+	listCommitId := func() []string {
+		return []string{"BOGUS:TestConf:listCommitId"}
+	}
+	command.LoadKeywordTable(listInterfaces, listCommitId)
 
 	root := app.cmdRoot
 	cmdNone := command.CMD_NONE

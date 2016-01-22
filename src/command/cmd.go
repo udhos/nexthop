@@ -608,9 +608,9 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 	if len(children) != 1 {
 
 		// FIXME:
-		// try replace pattern {IFNAME} with possible label eth0
-		// findCommonPrefix
-		// do autoComplete with commonPrefix
+		// 1. try replace pattern {IFNAME} with possible label eth0
+		// 2. findCommonPrefix
+		// 3. do autoComplete with commonPrefix
 
 		// behave like question mark key
 		showOptions(c, children)
@@ -639,10 +639,26 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 
 func showOptions(c CmdClient, children []*CmdNode) {
 	for _, child := range children {
-		if child.Desc == "" {
-			c.Sendln(fmt.Sprintf("%s", LastToken(child.Path)))
-		} else {
-			c.Sendln(fmt.Sprintf("%s - %s", LastToken(child.Path), child.Desc))
+
+		label := LastToken(child.Path)
+
+		options := []string{label} // assume it's not a {}-keywrod
+
+		if IsUserPatternKeyword(label) {
+			// but it's {}-keyword
+			k := findKeyword(label)
+			if k != nil && k.options != nil {
+				// found function for listing completion options
+				options = k.options()
+			}
+		}
+
+		for _, opt := range options {
+			if child.Desc == "" {
+				c.Sendln(fmt.Sprintf("%s", opt))
+			} else {
+				c.Sendln(fmt.Sprintf("%s - %s", opt, child.Desc))
+			}
 		}
 	}
 }
@@ -727,6 +743,6 @@ func missDesc(node *CmdNode) {
 	}
 
 	for _, c := range node.Children {
-		MissingDescription(c)
+		missDesc(c)
 	}
 }

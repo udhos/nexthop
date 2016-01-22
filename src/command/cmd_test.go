@@ -34,7 +34,10 @@ func TestCmdInstall(t *testing.T) {
 		}
 		return ifaces, vrfs
 	}
-	LoadKeywordTable(listInterfaces)
+	listCommitId := func() []string {
+		return []string{"BOGUS:TestCmdInstall:listCommitId"}
+	}
+	LoadKeywordTable(listInterfaces, listCommitId)
 
 	cmdNone := CMD_NONE
 	cmdConf := CMD_CONF

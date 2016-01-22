@@ -9,18 +9,13 @@ import (
 )
 
 type interfaceListFunc func() ([]string, []string) // ifname, ifvrf
-
-/*
-type interfaceScanner interface {
-	interfaceList interfaceListFunc
-}
-*/
-
 type matchFunc func(label string) error
+type optionsFunc func() []string
 
 type keyword struct {
-	label string
-	match matchFunc
+	label   string
+	match   matchFunc
+	options optionsFunc
 }
 
 type keywordTable struct {
@@ -38,14 +33,19 @@ func IsUserPatternKeyword(str string) bool {
 	return str[0] == '{' && str[size-1] == '}'
 }
 
-func LoadKeywordTable(ifScannerFunc interfaceListFunc) {
+func LoadKeywordTable(ifScannerFunc interfaceListFunc, commitScannerFunc optionsFunc) {
 	keyword_table.ifScanFunc = ifScannerFunc
 
-	keywordAdd("{ANY}", matchAny)
-	keywordAdd("{IFNAME}", matchIfName)
-	keywordAdd("{IFADDR}", matchIfAddr)
-	keywordAdd("{IFADDR6}", matchIfAddr6)
-	keywordAdd("{COMMITID}", matchCommitId)
+	listIf := func() []string {
+		ifnames, _ := ifScannerFunc()
+		return ifnames
+	}
+
+	keywordAdd("{ANY}", matchAny, nil)
+	keywordAdd("{IFNAME}", matchIfName, listIf)
+	keywordAdd("{IFADDR}", matchIfAddr, nil)
+	keywordAdd("{IFADDR6}", matchIfAddr6, nil)
+	keywordAdd("{COMMITID}", matchCommitId, commitScannerFunc)
 }
 
 func MatchKeyword(word, label string) error {
@@ -84,13 +84,13 @@ func findKeyword(word string) *keyword {
 	return &kw
 }
 
-func keywordAdd(word string, m matchFunc) {
+func keywordAdd(word string, m matchFunc, o optionsFunc) {
 	requireIfScanner()
 	requirePattern(word)
 	if _, found := keyword_table.table[word]; found {
 		log.Fatalf("keywordAdd: duplicate keyword=%s", word)
 	}
-	kw := keyword{label: word, match: m}
+	kw := keyword{label: word, match: m, options: o}
 	keyword_table.table[word] = kw
 	log.Printf("keywordAdd: new keyword registered: '%s'", word)
 }
