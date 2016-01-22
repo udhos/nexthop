@@ -28,3 +28,35 @@ func IndexByte(s string, sep byte, n int) int {
 
 	return -1
 }
+
+func longestCommonPrefix(set []string) string {
+
+	if set == nil {
+		return ""
+	}
+
+	if len(set) < 1 {
+		return ""
+	}
+
+	first := set[0]
+
+	// scan first string
+	for i, c := range first {
+
+		// scan other strings
+		for j := 1; j < len(set); j++ {
+			s := set[j]
+
+			if i >= len(s) {
+				return first[:i]
+			}
+
+			if byte(c) != s[i] {
+				return first[:i]
+			}
+		}
+	}
+
+	return first
+}

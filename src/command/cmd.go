@@ -635,6 +635,8 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 		// 1. findCommonPrefix
 		// 2. do partial autoComplete with commonPrefix
 
+		// longestCommonPrefix()
+
 		// behave like question mark key
 		showOptions(c, options, help)
 		return

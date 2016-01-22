@@ -8,6 +8,22 @@ import (
 	"fwd"
 )
 
+func TestLongestPrefix(t *testing.T) {
+	wantPrefix(t, []string{}, "")
+	wantPrefix(t, []string{""}, "")
+	wantPrefix(t, []string{"", ""}, "")
+	wantPrefix(t, []string{"a", "b", ""}, "")
+	wantPrefix(t, []string{"a", "b", "b"}, "")
+	wantPrefix(t, []string{"a", "ab", "ab"}, "a")
+}
+
+func wantPrefix(t *testing.T, list []string, want string) {
+	prefix := longestCommonPrefix(list)
+	if prefix != want {
+		t.Errorf("bad prefix: list=[%v] result=[%s] expected=[%s]", list, prefix, want)
+	}
+}
+
 func TestLastToken(t *testing.T) {
 	wantLastToken(t, "", "")
 	wantLastToken(t, "   ", "")
