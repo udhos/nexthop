@@ -10,27 +10,28 @@ import (
 func InstallCommonHelpers(root *CmdNode) {
 
 	cmdNone := CMD_NONE
-	//cmdConf := CMD_CONF
+	//cmdHelp := CMD_HELP
+	cmdHelp := cmdNone
 
-	CmdInstall(root, cmdNone, "commit", CONF, cmdCommit, nil, "Apply current candidate configuration")
-	CmdInstall(root, cmdNone, "commit force", CONF, cmdCommitForce, nil, "Force saving candidate configuration even if unchanged")
+	CmdInstall(root, cmdHelp, "commit", CONF, cmdCommit, nil, "Apply current candidate configuration")
+	CmdInstall(root, cmdHelp, "commit force", CONF, cmdCommitForce, nil, "Force saving candidate configuration even if unchanged")
 	CmdInstall(root, cmdNone, "configure", ENAB, cmdConfig, nil, "Enter configuration mode")
 	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
-	CmdInstall(root, cmdNone, "exit", EXEC, cmdExit, nil, "Exit current location")
-	CmdInstall(root, cmdNone, "list", EXEC, cmdList, nil, "List command tree")
-	CmdInstall(root, cmdNone, "no {ANY}", CONF, HelperNo, nil, "Remove this configuration item")
-	CmdInstall(root, cmdNone, "quit", EXEC, cmdQuit, nil, "Quit session")
+	CmdInstall(root, cmdHelp, "exit", EXEC, cmdExit, nil, "Exit current location")
+	CmdInstall(root, cmdHelp, "list", EXEC, cmdList, nil, "List command tree")
+	CmdInstall(root, cmdHelp, "no {ANY}", CONF, HelperNo, nil, "Remove this configuration item")
+	CmdInstall(root, cmdHelp, "quit", EXEC, cmdQuit, nil, "Quit session")
 	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, nil, "Reload")
-	CmdInstall(root, cmdNone, "rollback", CONF, cmdRollback, nil, "Reset candidate configuration from active configuration")
-	CmdInstall(root, cmdNone, "rollback {COMMITID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
-	CmdInstall(root, cmdNone, "show configuration", EXEC, cmdShowConf, nil, "Show candidate configuration")
-	CmdInstall(root, cmdNone, "show configuration compare", EXEC, cmdShowCompare, nil, "Show differences between active and candidate configurations")
-	CmdInstall(root, cmdNone, "show configuration rollback", EXEC, cmdShowCommitList, nil, "Show list of saved configurations")
-	CmdInstall(root, cmdNone, "show configuration rollback {COMMITID}", EXEC, cmdShowCommit, nil, "Show saved configuration")
-	CmdInstall(root, cmdNone, "show configuration tree", EXEC, cmdShowConf, nil, "Show candidate configuration tree")
-	CmdInstall(root, cmdNone, "show history", EXEC, cmdShowHistory, nil, "Show command history")
-	CmdInstall(root, cmdNone, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
-	CmdInstall(root, cmdNone, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
+	CmdInstall(root, cmdHelp, "rollback", CONF, cmdRollback, nil, "Reset candidate configuration from active configuration")
+	CmdInstall(root, cmdHelp, "rollback {COMMITID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
+	CmdInstall(root, cmdHelp, "show configuration", EXEC, cmdShowConf, nil, "Show candidate configuration")
+	CmdInstall(root, cmdHelp, "show configuration compare", EXEC, cmdShowCompare, nil, "Show differences between active and candidate configurations")
+	CmdInstall(root, cmdHelp, "show configuration rollback", EXEC, cmdShowCommitList, nil, "Show list of saved configurations")
+	CmdInstall(root, cmdHelp, "show configuration rollback {COMMITID}", EXEC, cmdShowCommit, nil, "Show saved configuration")
+	CmdInstall(root, cmdHelp, "show configuration tree", EXEC, cmdShowConf, nil, "Show candidate configuration tree")
+	CmdInstall(root, cmdHelp, "show history", EXEC, cmdShowHistory, nil, "Show command history")
+	CmdInstall(root, cmdHelp, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
+	CmdInstall(root, cmdHelp, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
 
 	DescInstall(root, "no", "Remove a configuration item")
 	DescInstall(root, "show", "Show configuration item")
@@ -251,6 +252,8 @@ func cmdShowCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 	id := LastToken(line)
 
+	c.Sendln(fmt.Sprintf("configuration file for commit id '%s':", id))
+
 	path := getConfigPath(ctx.ConfigPathPrefix(), id)
 
 	lineCount := 0
@@ -260,8 +263,6 @@ func cmdShowCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 		lineCount++
 		return nil // no error
 	}
-
-	c.Sendln(fmt.Sprintf("configuration file for commit id '%s':", id))
 
 	abortOnError := false
 	err := scanConfigFile(consume, path, abortOnError)

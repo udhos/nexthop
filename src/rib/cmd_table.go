@@ -15,14 +15,16 @@ func installRibCommands(root *command.CmdNode) {
 
 	cmdNone := command.CMD_NONE
 	cmdConf := command.CMD_CONF
+	//cmdConH := command.CMD_CONF | command.CMD_HELP
+	cmdConH := cmdConf
 
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, command.ApplyBogus, "Interface description")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv4 address {IFADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
-	command.CmdInstall(root, cmdConf, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, applyIfaceVrf, "Interface VRF")
-	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdIPRouting, command.ApplyBogus, "Enable IP routing")
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
+	command.CmdInstall(root, cmdConH, "interface {IFNAME} description {ANY}", command.CONF, cmdDescr, command.ApplyBogus, "Interface description")
+	command.CmdInstall(root, cmdConH, "interface {IFNAME} ipv4 address {IFADDR}", command.CONF, cmdIfaceAddr, applyIfaceAddr, "Assign IPv4 address to interface")
+	command.CmdInstall(root, cmdConH, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdIfaceAddrIPv6, command.ApplyBogus, "Assign IPv6 address to interface")
+	command.CmdInstall(root, cmdConH, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
+	command.CmdInstall(root, cmdConH, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, applyIfaceVrf, "Interface VRF")
+	command.CmdInstall(root, cmdConH, "ip routing", command.CONF, cmdIPRouting, command.ApplyBogus, "Enable IP routing")
+	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, nil, "Show interfaces")
 	command.CmdInstall(root, cmdNone, "show", command.EXEC, cmdShowInt, nil, "Ugh") // duplicated command
 	command.CmdInstall(root, cmdNone, "show ip address", command.EXEC, cmdShowIPAddr, nil, "Show addresses")

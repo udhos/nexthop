@@ -66,8 +66,9 @@ type CmdFunc func(ctx ConfContext, node *CmdNode, line string, c CmdClient)
 type CommitFunc func(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient) error
 
 const (
-	CMD_NONE = uint64(0)
-	CMD_CONF = uint64(1 << 0)
+	CMD_NONE = uint64(0 << 0)
+	CMD_CONF = uint64(1 << 0) // command is a config tree navigation "path"
+	//CMD_HELP = uint64(2 << 0) // show help/completion for command within config mode
 )
 
 type CmdNode struct {
@@ -79,6 +80,12 @@ type CmdNode struct {
 	Children []*CmdNode
 	Options  uint64
 }
+
+/*
+func (n *CmdNode) HelpUnderConfig() bool {
+	return n.Options&CMD_HELP != 0
+}
+*/
 
 func (n *CmdNode) IsConfig() bool {
 	return ConfigNodeFlag(n.Options)
@@ -303,6 +310,7 @@ func LastToken(path string) string {
 }
 
 func StripLastToken(path string) (string, string) {
+	path = strings.TrimRight(path, " ")
 	last := strings.LastIndexByte(path, ' ')
 	if last < 0 {
 		return "", path
@@ -465,7 +473,7 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 	return checkLevel(parent, "CmdNode", path, level) // found
 }
 
-func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*CmdNode, bool, error) {
+func matchChildren(children []*CmdNode, prefix string, checkPattern bool) ([]*CmdNode, bool, error) {
 
 	if len(children) == 1 && LastToken(children[0].Path) == CMD_WILDCARD_ANY {
 		// {ANY} is special construct for consuming anything
@@ -478,14 +486,14 @@ func matchChildren(children []*CmdNode, label string, checkPattern bool) ([]*Cmd
 		last := LastToken(n.Path)
 		if IsUserPatternKeyword(last) {
 			if checkPattern {
-				if err := MatchKeyword(last, label); err != nil {
+				if err := MatchKeyword(last, prefix); err != nil {
 					return nil, false, err
 				}
 			}
 			c = append(c, n)
 			continue
 		}
-		if strings.HasPrefix(last, label) {
+		if strings.HasPrefix(last, prefix) {
 			c = append(c, n)
 			continue
 		}
@@ -596,48 +604,62 @@ func helpKey(ctx ConfContext, rawLine string, c CmdClient, status int) bool {
 
 func helpKeyQuestion(ctx ConfContext, line string, c CmdClient, status int, listChildren bool) {
 
+	//log.Printf("helpKeyQuestion: listChildren=%v (true=children false=siblings)", listChildren)
+
 	children := helpOptions(ctx, line, c, status, listChildren)
 
-	showOptions(c, children)
+	siblingsPrefix := LastToken(line)
+
+	options, help := expandOptions(children, listChildren, siblingsPrefix)
+
+	showOptions(c, options, help)
 }
 
 func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChildren bool) {
 
+	//log.Printf("helpKeyTab: listChildren=%v (true=children false=siblings)", listChildren)
+
 	children := helpOptions(ctx, line, c, status, listChildren)
 
-	if len(children) != 1 {
+	siblingsPrefix := LastToken(line)
+
+	options, help := expandOptions(children, listChildren, siblingsPrefix)
+
+	//log.Printf("helpKeyTab: options=%v", options)
+
+	if len(options) != 1 {
+
+		// auto-complete not possible - there is completion ambiguity
 
 		// FIXME:
-		// 1. try replace pattern {IFNAME} with possible label eth0
-		// 2. findCommonPrefix
-		// 3. do autoComplete with commonPrefix
+		// 1. findCommonPrefix
+		// 2. do partial autoComplete with commonPrefix
 
 		// behave like question mark key
-		showOptions(c, children)
+		showOptions(c, options, help)
 		return
 	}
 
-	// auto-complete
+	// full auto-complete possible
 
-	autoComplete := LastToken(children[0].Path)
-
-	// FIXME:
-	// try replace pattern {IFNAME} with possible label eth0
+	autoComplete := LastToken(options[0])
 
 	if IsUserPatternKeyword(autoComplete) {
 		// do not autocomplete with pattern
 
 		// behave like question mark key
-		showOptions(c, children)
+		showOptions(c, options, help)
 		return
 	}
 
-	c.Sendln(fmt.Sprintf("helpKeyTab: auto-complete='%s' FIXME WRITEME", autoComplete))
+	//c.Sendln(fmt.Sprintf("helpKeyTab: auto-complete='%s' FIXME WRITEME", autoComplete))
 
-	c.LineBufferComplete(autoComplete, listChildren)
+	c.LineBufferComplete(autoComplete+" ", listChildren)
 }
 
-func showOptions(c CmdClient, children []*CmdNode) {
+func expandOptions(children []*CmdNode, listChildren bool, siblingsPrefix string) ([]string, []string) {
+	var expanded, help []string
+
 	for _, child := range children {
 
 		label := LastToken(child.Path)
@@ -654,11 +676,31 @@ func showOptions(c CmdClient, children []*CmdNode) {
 		}
 
 		for _, opt := range options {
-			if child.Desc == "" {
-				c.Sendln(fmt.Sprintf("%s", opt))
-			} else {
-				c.Sendln(fmt.Sprintf("%s - %s", opt, child.Desc))
+
+			if !listChildren {
+				// we are looking for siblings
+				if !strings.HasPrefix(opt, siblingsPrefix) {
+					// this sibling does not match the required prefix
+					continue
+				}
 			}
+
+			expanded = append(expanded, opt)
+			help = append(help, child.Desc)
+		}
+	}
+
+	return expanded, help
+}
+
+func showOptions(c CmdClient, options, help []string) {
+
+	for i, opt := range options {
+		desc := help[i]
+		if desc == "" {
+			c.Sendln(fmt.Sprintf("%s", opt))
+		} else {
+			c.Sendln(fmt.Sprintf("%s - %s", opt, desc))
 		}
 	}
 }
@@ -685,6 +727,8 @@ func helpOptions(ctx ConfContext, line string, c CmdClient, status int, listChil
 
 		parentPath, prefix := StripLastToken(line)
 
+		//log.Printf("helpOptions: siblings path=[%s] parent=[%s] prefix=[%s]", line, parentPath, prefix)
+
 		parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status)
 		if err1 != nil {
 			c.Sendln(fmt.Sprintf("helpOptions: not found [%s]: %v", parentPath, err1))
@@ -704,13 +748,18 @@ func helpOptions(ctx ConfContext, line string, c CmdClient, status int, listChil
 	var visible []*CmdNode
 
 	for _, child := range children {
-		if status == CONF && !child.IsConfig() {
-			continue // Hide non-config commands in config mode
-		}
 		if status < child.MinLevel {
-			continue // Hide prohibited commands
+			continue // Hide prohibited command
 		}
+		/*
+			// FIXME???
+			if status == CONF && !child.HelpUnderConfig() {
+				continue // Hide command in config mode
+			}
+		*/
 		visible = append(visible, child)
+
+		//log.Printf("helpOptions: child[%d]=[%s]", i, LastToken(child.Path))
 	}
 
 	return visible

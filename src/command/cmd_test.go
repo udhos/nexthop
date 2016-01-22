@@ -8,6 +8,22 @@ import (
 	"fwd"
 )
 
+func TestLastToken(t *testing.T) {
+	wantLastToken(t, "", "")
+	wantLastToken(t, "   ", "")
+	wantLastToken(t, "x", "x")
+	wantLastToken(t, "  x  ", "x")
+	wantLastToken(t, "y x  ", "x")
+	wantLastToken(t, "   y    x  ", "x")
+}
+
+func wantLastToken(t *testing.T, path, want string) {
+	last := LastToken(path)
+	if last != want {
+		t.Errorf("bad last token: path=[%s] result=[%s] expected=[%s]", path, last, want)
+	}
+}
+
 func TestCommitSort(t *testing.T) {
 
 	list := []string{".1", ".10", ".5", ".0", ".15"}

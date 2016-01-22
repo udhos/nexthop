@@ -139,9 +139,10 @@ func installCommands(root *command.CmdNode) {
 	command.InstallCommonHelpers(root)
 
 	cmdNone := command.CMD_NONE
-	cmdConf := command.CMD_CONF
+	//cmdConH := command.CMD_CONF | command.CMD_HELP
+	cmdConH := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 
 	command.DescInstall(root, "hostname", "Assign hostname")
