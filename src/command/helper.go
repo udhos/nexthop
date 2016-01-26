@@ -408,7 +408,8 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 
 	status := c.Status()
 
-	node, _, err := CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status)
+	const checkPattern = true
+	node, _, err := CmdFindRelative(ctx.CmdRoot(), arg, c.ConfigPath(), status, checkPattern)
 	if err != nil {
 		return fmt.Errorf("cmdNo: not found [%s]: %v", arg, err)
 	}

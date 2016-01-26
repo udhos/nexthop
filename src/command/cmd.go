@@ -409,7 +409,7 @@ func findChild(node *CmdNode, label string) *CmdNode {
 	return nil
 }
 
-func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNode, string, error) {
+func CmdFindRelative(root *CmdNode, line, configPath string, status int, checkPattern bool) (*CmdNode, string, error) {
 
 	prependConfigPath := true // assume it's a config cmd
 	n, e := CmdFind(root, line, status, true)
@@ -429,7 +429,7 @@ func CmdFindRelative(root *CmdNode, line, configPath string, status int) (*CmdNo
 		lookupPath = line
 	}
 
-	node, err := CmdFind(root, lookupPath, status, true)
+	node, err := CmdFind(root, lookupPath, status, checkPattern)
 	if err != nil {
 		return nil, lookupPath, fmt.Errorf("CmdFindRelative: command not found: %s", err)
 	}
@@ -554,7 +554,8 @@ func Dispatch(ctx ConfContext, rawLine string, c CmdClient, status int, history 
 		return nil // ignore comments
 	}
 
-	node, lookupPath, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
+	const checkPattern = true
+	node, lookupPath, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status, checkPattern)
 	if err != nil {
 		e := fmt.Errorf("dispatchCommand: not found [%s]: %v", line, err)
 		return e
@@ -629,13 +630,12 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 
 	if len(options) != 1 {
 
-		// auto-complete not possible - there is completion ambiguity
+		// full auto-complete not possible - there is completion ambiguity
 
-		// FIXME:
-		// 1. findCommonPrefix
-		// 2. do partial autoComplete with commonPrefix
-
-		// longestCommonPrefix()
+		if prefix := longestCommonPrefix(options); prefix != "" {
+			// partial auto-complete
+			c.LineBufferComplete(prefix, listChildren)
+		}
 
 		// behave like question mark key
 		showOptions(c, options, help)
@@ -711,11 +711,13 @@ func helpOptions(ctx ConfContext, line string, c CmdClient, status int, listChil
 
 	var children []*CmdNode
 
+	const checkPattern = false
+
 	if listChildren {
 
 		// List children
 
-		node, _, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status)
+		node, _, err := CmdFindRelative(ctx.CmdRoot(), line, c.ConfigPath(), status, checkPattern)
 		if err != nil {
 			c.Sendln(fmt.Sprintf("helpOptions: not found [%s]: %v", line, err))
 			return nil
@@ -731,13 +733,12 @@ func helpOptions(ctx ConfContext, line string, c CmdClient, status int, listChil
 
 		//log.Printf("helpOptions: siblings path=[%s] parent=[%s] prefix=[%s]", line, parentPath, prefix)
 
-		parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status)
+		parent, _, err1 := CmdFindRelative(ctx.CmdRoot(), parentPath, c.ConfigPath(), status, checkPattern)
 		if err1 != nil {
 			c.Sendln(fmt.Sprintf("helpOptions: not found [%s]: %v", parentPath, err1))
 			return nil
 		}
 
-		checkPattern := true
 		var err2 error
 		children, _, err2 = matchChildren(parent.Children, prefix, checkPattern)
 		if err2 != nil {
