@@ -21,15 +21,6 @@ const (
 	S_NONE   = 2
 )
 
-type Route struct {
-	Net           net.IP
-	PrefixLen     int
-	NextHop       net.IP
-	InterfaceAddr net.IP
-	Metric        int
-	Status        int
-}
-
 func (r1 Route) Equal(r2 Route) bool {
 	return r1.PrefixLen == r2.PrefixLen &&
 		r1.Metric == r2.Metric &&

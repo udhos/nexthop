@@ -3,17 +3,16 @@ package iface
 import (
 	"log"
 	"net"
-	"os"
+	//"os"
 	//"strings"
-	"fmt"
-	"syscall"
-	"unsafe"
-
-	"rib-old/util"
+	//"fmt"
+	//"syscall"
+	//"unsafe"
+	//"rib-old/util"
 )
 
 type adapterInfo struct {
-	head *syscall.IpAdapterInfo
+	//head *syscall.IpAdapterInfo
 }
 
 // From: https://code.google.com/p/go/source/browse/src/pkg/net/interface_windows.go
@@ -29,6 +28,7 @@ func bytePtrToString(p *uint8) string {
 */
 
 // From: https://code.google.com/p/go/source/browse/src/pkg/net/interface_windows.go
+/*
 func getAdapterList() (*syscall.IpAdapterInfo, error) {
 	b := make([]byte, 1000)
 	l := uint32(len(b))
@@ -47,6 +47,7 @@ func getAdapterList() (*syscall.IpAdapterInfo, error) {
 	}
 	return a, nil
 }
+*/
 
 func toString(p []byte) string {
 	for i, b := range p {
@@ -65,6 +66,7 @@ func parseIP(p [16]byte) net.IP {
 }
 
 // getMask: get net.IPNet from net.IPAddr
+/*
 func getMask(info *adapterInfo, index int, addr net.IPAddr) (net.IPNet, error) {
 
 	ipNet := net.IPNet{}
@@ -121,6 +123,7 @@ func getMask(info *adapterInfo, index int, addr net.IPAddr) (net.IPNet, error) {
 
 	return ipNet, fmt.Errorf("getMask: not found: [%v]", addr)
 }
+*/
 
 /*
 	GetInterfaceAddrs() is work-around for:
@@ -136,7 +139,7 @@ func GetInterfaceAddrs(i net.Interface) ([]net.Addr, error) {
 
 	result := []net.Addr{}
 
-	info := adapterInfo{}
+	//info := adapterInfo{}
 
 	for _, a := range addrs {
 		switch ad := a.(type) {
@@ -145,14 +148,16 @@ func GetInterfaceAddrs(i net.Interface) ([]net.Addr, error) {
 			result = append(result, a)
 		case *net.IPAddr:
 			// windows: missing netmask
-			//log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
-			ipNet, err := getMask(&info, i.Index, *ad)
-			if err != nil {
-				log.Printf("GetInterfaceAddrs: net.IPAddr: %v: error: %v", ad, err)
-				result = append(result, a)
-				continue
-			}
-			result = append(result, &ipNet)
+			log.Printf("GetInterfaceAddrs: net.IPAddr: %v: does not provide netmask", ad)
+			/*
+				ipNet, err := getMask(&info, i.Index, *ad)
+				if err != nil {
+					log.Printf("GetInterfaceAddrs: net.IPAddr: %v: error: %v", ad, err)
+					result = append(result, a)
+					continue
+				}
+				result = append(result, &ipNet)
+			*/
 		default:
 			// does this happen?
 			log.Printf("GetInterfaceAddrs: unknown type: %v: does not provide netmask", ad)
