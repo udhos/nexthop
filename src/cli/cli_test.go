@@ -256,14 +256,14 @@ func TestConf(t *testing.T) {
 	}
 
 	f := func() {
-		command.Dispatch(app, "interface eth5 ipv4 address 1", c, command.CONF, false)
+		command.Dispatch(app, "interface eth5 ipv4 address 1.1.1.1/24", c, command.CONF, false)
 	}
 	noCmd, err := command.CmdFind(root, "no X", command.CONF, true)
 	if err != nil {
 		t.Errorf("could not find 'no' command: %v", err)
 	}
 	f()
-	cmd := "no interface eth5 ipv4 address 1.1.1.1/1"
+	cmd := "no interface eth5 ipv4 address 1.1.1.1/24"
 	if err := command.CmdNo(app, noCmd, cmd, c); err != nil {
 		t.Errorf("cmd failed: [%s] error=[%v]", cmd, err)
 	}
