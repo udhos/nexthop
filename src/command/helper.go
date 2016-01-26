@@ -462,6 +462,8 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 
 		parentPath, childLabel := StripLastToken(expanded)
 
+		//log.Printf("CmdNo: default: expanded=[%s] parent=[%s] child=[%s]", expanded, parentPath, childLabel)
+
 		parentConf, e = ctx.ConfRootCandidate().Get(parentPath)
 		if e != nil {
 			return fmt.Errorf("cmdNo: config parent node not found [%s]: %v", parentPath, e)
@@ -470,7 +472,10 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 		childIndex = parentConf.FindChild(childLabel)
 
 		_, cmdLast := StripLastToken(node.Path)
-		if IsUserPatternKeyword(cmdLast) {
+		if IsUserPatternKeyword(cmdLast) && len(node.Children) == 0 {
+
+			// {}-pattern and no children: try to remove value
+
 			if e2 := parentConf.ValueDelete(childLabel); e2 != nil {
 				return fmt.Errorf("cmdNo: could not delete value: %v", e2)
 			}
@@ -492,8 +497,8 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 		}
 	}
 
-	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
-	c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
+	//c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
+	//c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
 
 	ctx.ConfRootCandidate().Prune(parentConf, parentConf.Children[childIndex], c)
 
