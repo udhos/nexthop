@@ -2,7 +2,7 @@
 #
 # lin-build
 
-DEVEL=/tmp/devel
+DEVEL=$HOME/devel
 NEXTHOP=$DEVEL/nexthop
 GOPATH=$NEXTHOP
 

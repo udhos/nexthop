@@ -1,6 +1,6 @@
 #! /bin/bash
 
-export DEVEL=/tmp/devel
+export DEVEL=$HOME/devel
 export NEXTHOP=$DEVEL/nexthop
 export GOPATH=$NEXTHOP
 
