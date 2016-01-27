@@ -17,3 +17,4 @@ go_get () {
 
 #go_get code.google.com/p/go.net/ipv4
 #go_get golang.org/x/net/ipv4
+go_get github.com/udhos/netlink
