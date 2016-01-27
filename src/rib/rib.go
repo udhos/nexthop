@@ -95,8 +95,9 @@ func main() {
 
 	installRibCommands(ribConf.CmdRoot())
 
-	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rib.conf.", "configuration path prefix")
+	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rib.conf.", "configuration path prefix")
 	flag.IntVar(&ribConf.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
+	flag.Parse()
 
 	loadConf(ribConf)
 

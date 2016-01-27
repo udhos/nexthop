@@ -86,8 +86,9 @@ func main() {
 
 	installCommands(rip.CmdRoot())
 
-	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", "/tmp/devel/nexthop/etc/rip.conf.", "configuration path prefix")
+	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rip.conf.", "configuration path prefix")
 	flag.IntVar(&rip.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
+	flag.Parse()
 
 	loadConf(rip)
 
