@@ -65,8 +65,15 @@ func main() {
 		confRootCandidate: &command.ConfNode{},
 		confRootActive:    &command.ConfNode{},
 		daemonName:        daemonName,
-		hardware:          fwd.NewDataplaneBogus(),
 	}
+
+	var dataplaneName string
+	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rib.conf.", "configuration path prefix")
+	flag.IntVar(&ribConf.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
+	flag.StringVar(&dataplaneName, "dataplane", "native", "select forwarding engine")
+	flag.Parse()
+
+	ribConf.hardware = fwd.NewDataplane(dataplaneName)
 
 	listInterfaces := func() ([]string, []string) {
 		ifaces, vrfs, err := ribConf.hardware.Interfaces()
@@ -94,10 +101,6 @@ func main() {
 	command.LoadKeywordTable(listInterfaces, listCommitId)
 
 	installRibCommands(ribConf.CmdRoot())
-
-	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rib.conf.", "configuration path prefix")
-	flag.IntVar(&ribConf.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
-	flag.Parse()
 
 	loadConf(ribConf)
 

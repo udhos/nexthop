@@ -59,6 +59,14 @@ func main() {
 		hardware:          fwd.NewDataplaneBogus(),
 	}
 
+	var dataplaneName string
+	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rip.conf.", "configuration path prefix")
+	flag.IntVar(&rip.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
+	flag.StringVar(&dataplaneName, "dataplane", "native", "select forwarding engine")
+	flag.Parse()
+
+	rip.hardware = fwd.NewDataplane(dataplaneName)
+
 	listInterfaces := func() ([]string, []string) {
 		ifaces, vrfs, err := rip.hardware.Interfaces()
 		if err != nil {
@@ -85,10 +93,6 @@ func main() {
 	command.LoadKeywordTable(listInterfaces, listCommitId)
 
 	installCommands(rip.CmdRoot())
-
-	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rip.conf.", "configuration path prefix")
-	flag.IntVar(&rip.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
-	flag.Parse()
 
 	loadConf(rip)
 
