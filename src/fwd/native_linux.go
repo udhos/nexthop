@@ -3,6 +3,7 @@ package fwd
 import (
 	"fmt"
 	"log"
+	"syscall"
 
 	"github.com/udhos/netlink"
 )
@@ -31,7 +32,24 @@ func NewDataplaneNative() *linuxDataplane {
 		for {
 			select {
 			case linkUpdate := <-linkUpdateCh:
-				log.Printf("linux dataplane: link update: %s", linkUpdate.Link.Attrs().Name)
+				t := "uknown"
+				switch linkUpdate.Header.Type {
+				case syscall.RTM_NEWLINK:
+					t = "new_link"
+				case syscall.RTM_DELLINK:
+					t = "delete_link"
+				}
+
+				isUp := linkUpdate.Flags&syscall.IFF_UP != 0
+				isRunning := linkUpdate.Flags&syscall.IFF_RUNNING != 0
+
+				// RTM_DELLINK: interface permanently removed from system
+				// RTM_NEWLINK: interface added or changed
+				//              IFF_UP: interface administratively enabled
+				//              IFF_RUNNING: interface operational (cable attached)
+
+				log.Printf("linux dataplane: link update: type=%s link=[%s] up=%v running=%v",
+					t, linkUpdate.Link.Attrs().Name, isUp, isRunning)
 			case addrUpdate := <-addrUpdateCh:
 				linkName := index2name(addrUpdate.LinkIndex)
 				log.Printf("linux dataplane: addr update: new=%v link=[%s] index=%d addr=[%s]",
