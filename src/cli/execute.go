@@ -76,7 +76,7 @@ func executeLine(ctx command.ConfContext, line string, history bool, c *Client) 
 	switch status {
 	case command.MOTD:
 		c.Sendln("")
-		c.Sendln("rib server ready")
+		c.Sendln("vty server ready")
 		c.Sendln("")
 		if isAnyUserDefined(ctx.ConfRootActive()) {
 			c.StatusSet(command.USER) // request user/password auth
