@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"fwd"
 	"log"
 	"strconv"
@@ -149,8 +150,12 @@ func installCommands(root *command.CmdNode) {
 
 	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
+	command.CmdInstall(root, cmdConH, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
+	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 
 	command.DescInstall(root, "hostname", "Assign hostname")
+	command.DescInstall(root, "router", "Configure routing")
+	command.DescInstall(root, "router rip network", "Insert network into RIP protocol")
 
 	command.MissingDescription(root)
 }
@@ -162,4 +167,46 @@ func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c 
 func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	rip := ctx.(*Rip)
 	command.HelperShowVersion(rip.daemonName, c)
+}
+
+func cmdRip(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	confCand := ctx.ConfRootCandidate()
+	_, err, _ := confCand.Set(node.Path, line)
+	if err != nil {
+		c.Sendln(fmt.Sprintf("cmdRip: error: %v", err))
+		return
+	}
+}
+
+func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	linePath, netAddr := command.StripLastToken(line)
+
+	path, _ := command.StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, linePath)
+	if err != nil {
+		c.Sendln(fmt.Sprintf("cmdRipNetwork: error: %v", err))
+		return
+	}
+
+	confNode.ValueAdd(netAddr)
+}
+
+func applyRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+	return enableRip(ctx, node, action, c)
+}
+
+func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+	return enableRip(ctx, node, action, c)
+}
+
+func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+	if action.Enable {
+		// enable RIP
+		return nil
+	}
+
+	// disable RIP
+	return nil
 }

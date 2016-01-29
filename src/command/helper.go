@@ -327,7 +327,7 @@ func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	confCand := ctx.ConfRootCandidate()
 	confNode, err, _ := confCand.Set(path, linePath)
 	if err != nil {
-		log.Printf("iface addr: error: %v", err)
+		c.Sendln(fmt.Sprintf("iface addr: error: %v", err))
 		return
 	}
 

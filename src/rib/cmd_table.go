@@ -200,7 +200,7 @@ func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c
 	confCand := ctx.ConfRootCandidate()
 	_, err, _ := confCand.Set(node.Path, line)
 	if err != nil {
-		log.Printf("ip routing: error: %v", err)
+		log.Printf("cmdIPRouting: error: %v", err)
 		return
 	}
 }
