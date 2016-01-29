@@ -41,6 +41,16 @@ type Client struct {
 	historyPos   int
 
 	telnetLine *telnetBuf
+
+	username string
+}
+
+func (c *Client) UsernameSet(username string) {
+	c.username = username
+}
+
+func (c *Client) Username() string {
+	return c.username
 }
 
 func (c *Client) HistoryAdd(cmd string) {

@@ -44,6 +44,30 @@ func getHostname(root *command.ConfNode) string {
 	return node.Value[0]
 }
 
+func isAnyUserDefined(root *command.ConfNode) bool {
+	node, err := root.Get("username")
+	if err != nil {
+		return false
+	}
+
+	return len(node.Children) > 0
+}
+
+func checkPassword(root *command.ConfNode, username, password string) bool {
+	path := fmt.Sprintf("username %s password", username)
+
+	node, err := root.Get(path)
+	if err != nil {
+		return false
+	}
+
+	if len(node.Value) != 1 {
+		return false
+	}
+
+	return password == node.Value[0]
+}
+
 func executeLine(ctx command.ConfContext, line string, history bool, c *Client) {
 	log.Printf("executeLine: [%v]", line)
 
@@ -54,13 +78,22 @@ func executeLine(ctx command.ConfContext, line string, history bool, c *Client) 
 		c.Sendln("")
 		c.Sendln("rib server ready")
 		c.Sendln("")
-		c.StatusSet(command.USER)
+		if isAnyUserDefined(ctx.ConfRootActive()) {
+			c.StatusSet(command.USER) // request user/password auth
+		} else {
+			c.StatusSet(command.EXEC) // login without user/password auth
+		}
 	case command.USER:
 		c.EchoDisable()
 		c.StatusSet(command.PASS)
+		c.UsernameSet(line)
 	case command.PASS:
 		c.EchoEnable()
-		c.StatusSet(command.EXEC)
+		if checkPassword(ctx.ConfRootActive(), c.Username(), line) {
+			c.StatusSet(command.EXEC) // login allowed
+		} else {
+			c.StatusSet(command.USER) // request user again
+		}
 	case command.EXEC, command.ENAB, command.CONF:
 		if err := command.Dispatch(ctx, line, c, status, history); err != nil {
 			c.Sendln(fmt.Sprintf("executeLine: error: %v", err))

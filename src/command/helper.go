@@ -10,6 +10,7 @@ import (
 func InstallCommonHelpers(root *CmdNode) {
 
 	cmdNone := CMD_NONE
+	cmdConf := CMD_CONF
 	//cmdHelp := CMD_HELP
 	cmdHelp := cmdNone
 
@@ -19,6 +20,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
 	CmdInstall(root, cmdHelp, "exit", EXEC, cmdExit, nil, "Exit current location")
 	CmdInstall(root, cmdHelp, "list", EXEC, cmdList, nil, "List command tree")
+	CmdInstall(root, cmdHelp, "list description", EXEC, cmdList, nil, "List command tree showing descriptions")
 	CmdInstall(root, cmdHelp, "no {ANY}", CONF, HelperNo, nil, "Remove this configuration item")
 	CmdInstall(root, cmdHelp, "quit", EXEC, cmdQuit, nil, "Quit session")
 	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, nil, "Reload")
@@ -32,9 +34,13 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdHelp, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdHelp, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
 	CmdInstall(root, cmdHelp, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
+	CmdInstall(root, cmdConf, "username {USERNAME} password {PASSWORD}", EXEC, cmdUsername, ApplyBogus, "User clear-text password")
 
 	DescInstall(root, "no", "Remove a configuration item")
 	DescInstall(root, "show", "Show configuration item")
+	DescInstall(root, "username", "Configure user parameter")
+	DescInstall(root, "username {USERNAME}", "Configure username")
+	DescInstall(root, "username {USERNAME} password", "Set user password")
 }
 
 func ApplyBogus(ctx ConfContext, node *CmdNode, action CommitAction, c CmdClient) error {
@@ -375,20 +381,25 @@ func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func cmdList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	list(ctx.CmdRoot(), 0, c)
+	showDesc := len(strings.Fields(line)) > 1
+	for _, n := range ctx.CmdRoot().Children {
+		list(n, 0, c, showDesc)
+	}
 }
 
-func list(node *CmdNode, depth int, c CmdClient) {
+func list(node *CmdNode, depth int, c CmdClient, showDesc bool) {
 	handler := "----"
 	if node.Handler != nil {
 		handler = "LEAF"
 	}
-	ident := strings.Repeat(" ", 4*depth)
-	output := fmt.Sprintf("%s %d %s[%s] desc=[%s]", handler, node.MinLevel, ident, node.Path, node.Desc)
-	//log.Printf(output)
-	c.Sendln(output)
+	ident := strings.Repeat(" ", 2*depth)
+	c.Send(fmt.Sprintf("%s %d %s%s", handler, node.MinLevel, ident, node.Path))
+	if showDesc {
+		c.Send(fmt.Sprintf(" [%s]", node.Desc))
+	}
+	c.Newline()
 	for _, n := range node.Children {
-		list(n, depth+1, c)
+		list(n, depth+1, c, showDesc)
 	}
 }
 
@@ -509,4 +520,19 @@ func HelperShowVersion(daemonName string, c CmdClient) {
 	c.Sendln(fmt.Sprintf("%s daemon", daemonName))
 	c.Sendln(NexthopVersion)
 	c.Send(NexthopCopyright)
+}
+
+func cmdUsername(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	userLine, pass := StripLastToken(line)
+
+	path, _ := StripLastToken(node.Path)
+
+	confCand := ctx.ConfRootCandidate()
+	confNode, err, _ := confCand.Set(path, userLine)
+	if err != nil {
+		c.Sendln(fmt.Sprintf("unable to set user password: error: %v", err))
+		return
+	}
+
+	confNode.ValueSet(pass)
 }
