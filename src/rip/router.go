@@ -15,7 +15,6 @@ type udpInfo struct {
 }
 
 func NewRipRouter() *RipRouter {
-	r := &RipRouter{done: make(chan int)}
 
 	proto := "udp"
 	hostPort := ":520"
@@ -37,6 +36,8 @@ func NewRipRouter() *RipRouter {
 	input := make(chan udpInfo)
 
 	go udpReader(conn, input)
+
+	r := &RipRouter{done: make(chan int)}
 
 	go func() {
 		log.Printf("rip router goroutine started")
