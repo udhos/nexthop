@@ -22,6 +22,16 @@ type Rip struct {
 	maxConfigFiles   int
 
 	hardware fwd.Dataplane
+
+	router *RipRouter
+}
+
+type RipRouter struct {
+	done chan int // request end of rip router
+}
+
+func NewRipRouter() *RipRouter {
+	return &RipRouter{done: make(chan int)}
 }
 
 func (r Rip) CmdRoot() *command.CmdNode {
@@ -202,11 +212,29 @@ func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.
 }
 
 func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+	rip := ctx.(*Rip)
+
+	log.Printf("enableRip: path=[%s]", node.Path)
+
 	if action.Enable {
 		// enable RIP
+
+		if rip.router == nil {
+			rip.router = NewRipRouter()
+		}
+
 		return nil
 	}
 
 	// disable RIP
+
+	if rip.router == nil {
+		return nil // rip not running
+	}
+
+	close(rip.router.done) // request end of rip
+
+	rip.router = nil
+
 	return nil
 }

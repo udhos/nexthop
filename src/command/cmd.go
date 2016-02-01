@@ -345,15 +345,21 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 	}
 
 	labelList := strings.Fields(path)
+
+	// report undefined pattern keywords
+	for _, label := range labelList {
+		if IsUserPatternKeyword(label) && findKeyword(label) == nil {
+			// warning only
+			log.Printf("cmdAdd: command [%s] using unknown keyword '%s'", path, label)
+		}
+	}
+
 	size := len(labelList)
 	parent := root
 	for i, label := range labelList {
 		currPath := strings.Join(labelList[:i+1], " ")
 
-		if IsUserPatternKeyword(label) && findKeyword(label) == nil {
-			// warning only
-			log.Printf("cmdAdd: command [%s] using unknown keyword '%s'", path, label)
-		}
+		//log.Printf("cmdAdd: [%s] [%s]", path, label)
 
 		child := findChild(parent, label)
 		if child != nil {
