@@ -6,6 +6,7 @@ import (
 	"fwd"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"cli"
@@ -24,14 +25,6 @@ type Rip struct {
 	hardware fwd.Dataplane
 
 	router *RipRouter
-}
-
-type RipRouter struct {
-	done chan int // request end of rip router
-}
-
-func NewRipRouter() *RipRouter {
-	return &RipRouter{done: make(chan int)}
 }
 
 func (r Rip) CmdRoot() *command.CmdNode {
@@ -223,6 +216,13 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 			rip.router = NewRipRouter()
 		}
 
+		if strings.HasPrefix(node.Path, "rip router network") {
+			// add network into rip
+			f := strings.Fields(node.Path)
+			rip.router.NetAdd(f[3])
+			return nil
+		}
+
 		return nil
 	}
 
@@ -230,6 +230,13 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 
 	if rip.router == nil {
 		return nil // rip not running
+	}
+
+	if strings.HasPrefix(node.Path, "rip router network") {
+		// remove network from rip
+		f := strings.Fields(node.Path)
+		rip.router.NetDel(f[3])
+		return nil
 	}
 
 	close(rip.router.done) // request end of rip
