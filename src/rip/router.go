@@ -77,7 +77,12 @@ func udpReader(conn *net.UDPConn, input chan<- udpInfo) {
 			log.Printf("udpReader: error: %v", err)
 			break
 		}
-		input <- udpInfo{info: buf[:n], addr: *from}
+
+		// make a copy because we will overwrite buf
+		b := make([]byte, n)
+		copy(b, buf)
+
+		input <- udpInfo{info: b, addr: *from}
 	}
 }
 
