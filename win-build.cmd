@@ -11,6 +11,6 @@ gofmt -s -w %NEXTHOP%\src
 @rem build server
 go install -race rib-old rib rip
 
-go test -race command cli
+go test -race command cli addr
 
 @rem eof

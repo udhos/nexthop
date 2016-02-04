@@ -20,7 +20,7 @@ func TestIntersect(t *testing.T) {
 }
 
 func test(t *testing.T, n1, n2 *net.IPNet, expected bool) {
-	result := netIntersect(n1, n2)
+	result := NetIntersect(n1, n2)
 	if result != expected {
 		t.Errorf("intersect(%v,%v)=%v expected=%v", n1, n2, result, expected)
 	}
