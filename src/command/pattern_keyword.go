@@ -6,6 +6,8 @@ import (
 	"net"
 	"strconv"
 	"unicode"
+
+	"addr"
 )
 
 type interfaceListFunc func() ([]string, []string) // ifname, ifvrf
@@ -46,6 +48,7 @@ func LoadKeywordTable(ifScannerFunc interfaceListFunc, commitScannerFunc options
 	keywordAdd("{IFADDR}", matchIfAddr, nil)
 	keywordAdd("{IFADDR6}", matchIfAddr6, nil)
 	keywordAdd("{COMMITID}", matchCommitId, commitScannerFunc)
+	keywordAdd("{NETWORK}", matchNetwork, nil)
 }
 
 func MatchKeyword(word, label string) error {
@@ -158,6 +161,17 @@ func matchCommitId(id string) error {
 	}
 	if _, err := strconv.Atoi(id); err != nil {
 		return fmt.Errorf("could not parse commit id '%s': %v", id, err)
+	}
+	return nil // accept
+}
+
+func matchNetwork(s string) error {
+	_, n, err := net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("matchNetwork: parse error addr=[%s]: %v", s, err)
+	}
+	if err1 := addr.CheckMask(n); err1 != nil {
+		return fmt.Errorf("matchNetwork: bad mask: addr=[%s]: %v", s, err1)
 	}
 	return nil // accept
 }

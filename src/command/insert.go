@@ -71,8 +71,9 @@ func pushConfChild(node, child *ConfNode) {
 }
 
 func (n *ConfNode) deleteChildByIndex(i int) {
-	// delete preserving order
-	n.Children = append(n.Children[:i], n.Children[i+1:]...)
+	// delete preserving order: a, a[len(a)-1] = append(a[:i], a[i+1:]...), nil
+	last := len(n.Children) - 1
+	n.Children, n.Children[last] = append(n.Children[:i], n.Children[i+1:]...), nil
 }
 
 func (n *ConfNode) ValueAdd(value string) error {
@@ -117,8 +118,9 @@ func (n *ConfNode) ValueDelete(value string) error {
 		return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
 	}
 
-	// delete preserving order
-	n.Value = append(n.Value[:i], n.Value[i+1:]...)
+	// delete preserving order: a, a[len(a)-1] = append(a[:i], a[i+1:]...), nil
+	last := len(n.Value) - 1
+	n.Value, n.Value[last] = append(n.Value[:i], n.Value[i+1:]...), ""
 
 	return nil
 }

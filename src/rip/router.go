@@ -1,12 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
+
+	"addr"
 )
 
 type RipRouter struct {
-	done chan int // close this channel to request end of rip router
+	done chan int     // close this channel to request end of rip router
+	nets []*net.IPNet // locally generated networks
 }
 
 type udpInfo struct {
@@ -86,8 +90,45 @@ func udpReader(conn *net.UDPConn, input chan<- udpInfo) {
 	}
 }
 
-func (r *RipRouter) NetAdd(net string) {
+func (r *RipRouter) NetAdd(s string) error {
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("RipRouter.NetAdd: parse error: addr=[%s]: %v", s, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("RipRouter.NetAdd: bad mask: addr=[%s]: %v", s, err1)
+	}
+	for _, a := range r.nets {
+		if addr.NetEqual(ipnet, a) {
+			// found
+			return nil
+		}
+	}
+	// not found
+	r.nets = append(r.nets, ipnet) // add
+	return nil
 }
 
-func (r *RipRouter) NetDel(net string) {
+func (r *RipRouter) NetDel(s string) error {
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("RipRouter.NetAdd: parse error: addr=[%s]: %v", s, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("RipRouter.NetDel: bad mask: addr=[%s]: %v", s, err1)
+	}
+	for i, a := range r.nets {
+		if addr.NetEqual(ipnet, a) {
+			// found
+
+			last := len(r.nets) - 1
+			r.nets[i] = r.nets[last] // overwrite position with last pointer
+			r.nets[last] = nil       // free last pointer for garbage collection
+			r.nets = r.nets[:last]   // shrink
+
+			return nil
+		}
+	}
+	// not found
+	return nil
 }

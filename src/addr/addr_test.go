@@ -1,4 +1,4 @@
-package fwd
+package addr
 
 import (
 	"net"
@@ -20,7 +20,7 @@ func TestIntersect(t *testing.T) {
 }
 
 func test(t *testing.T, n1, n2 *net.IPNet, expected bool) {
-	result := intersect(n1, n2)
+	result := netIntersect(n1, n2)
 	if result != expected {
 		t.Errorf("intersect(%v,%v)=%v expected=%v", n1, n2, result, expected)
 	}

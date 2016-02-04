@@ -3,7 +3,6 @@ package fwd
 import (
 	"fmt"
 	"log"
-	"net"
 )
 
 type Dataplane interface {
@@ -36,8 +35,4 @@ func NewDataplane(dataplaneName string) Dataplane {
 	}
 
 	return engine
-}
-
-func intersect(n1, n2 *net.IPNet) bool {
-	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
 }

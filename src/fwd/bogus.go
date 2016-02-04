@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"addr"
 )
 
 func NewDataplaneBogus() *bogusDataplane {
@@ -68,10 +70,10 @@ func (d *bogusDataplane) InterfaceAddressAdd(ifname, addr string) error {
 	return nil
 }
 
-func checkAddressConflict(d *bogusDataplane, vrfname, addr string) error {
-	_, n1, err1 := net.ParseCIDR(addr)
+func checkAddressConflict(d *bogusDataplane, vrfname, s string) error {
+	_, n1, err1 := net.ParseCIDR(s)
 	if err1 != nil {
-		return fmt.Errorf("cidr parse '%s': error %v", addr, err1)
+		return fmt.Errorf("cidr parse '%s': error %v", s, err1)
 	}
 
 	for _, j := range d.interfaceTable {
@@ -83,8 +85,8 @@ func checkAddressConflict(d *bogusDataplane, vrfname, addr string) error {
 					return fmt.Errorf("cidr parse '%s': error %v", a, err2)
 				}
 
-				if intersect(n1, n2) {
-					return fmt.Errorf("'%s' conflicts with '%s' from interface '%s'", addr, a, j.name)
+				if addr.NetIntersect(n1, n2) {
+					return fmt.Errorf("'%s' conflicts with '%s' from interface '%s'", s, a, j.name)
 				}
 			}
 		}
