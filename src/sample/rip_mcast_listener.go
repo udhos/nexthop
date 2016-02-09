@@ -69,12 +69,29 @@ func join(iface *net.Interface, addr net.IP) error {
 		return fmt.Errorf("join: join error: %v", err)
 	}
 
+	if err := pc.SetMulticastInterface(iface); err != nil {
+		log.Printf("join: %s SetMulticastInterface(%s) error: %v", a, iface.Name, err)
+	}
+
+	{
+		ifi, err := pc.MulticastInterface()
+		if err != nil {
+			log.Printf("join: %s %s multicastInterface error: %v", iface.Name, a, err)
+		} else {
+			if ifi == nil {
+				log.Printf("join: %s %s multicastInterface=nil", iface.Name, a)
+			} else {
+				log.Printf("join: %s %s multicastInterface=%s", iface.Name, a, ifi.Name)
+			}
+		}
+	}
+
 	// request control messages
 	/*
-	if err := pc.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
-		// warning only
-		log.Printf("join: control message flags error: %v", err)
-	}
+		if err := pc.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
+			// warning only
+			log.Printf("join: control message flags error: %v", err)
+		}
 	*/
 
 	go udpReader(pc, iface.Name, addr.String())
