@@ -207,7 +207,7 @@ func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.
 func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
 	rip := ctx.(*Rip)
 
-	log.Printf("enableRip: path=[%s]", node.Path)
+	log.Printf("enableRip: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
 
 	if action.Enable {
 		// enable RIP
@@ -219,8 +219,7 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 		if strings.HasPrefix(node.Path, "rip router network") {
 			// add network into rip
 			f := strings.Fields(node.Path)
-			rip.router.NetAdd(f[3])
-			return nil
+			return rip.router.NetAdd(f[3])
 		}
 
 		return nil
@@ -235,8 +234,7 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 	if strings.HasPrefix(node.Path, "rip router network") {
 		// remove network from rip
 		f := strings.Fields(node.Path)
-		rip.router.NetDel(f[3])
-		return nil
+		return rip.router.NetDel(f[3])
 	}
 
 	close(rip.router.done) // request end of rip
