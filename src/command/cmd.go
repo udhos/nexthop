@@ -43,6 +43,8 @@ const (
 
 const CMD_WILDCARD_ANY = "{ANY}"
 
+const DefaultMaxConfigFiles = 1000
+
 type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)

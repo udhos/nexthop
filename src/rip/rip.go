@@ -65,7 +65,7 @@ func main() {
 
 	var dataplaneName string
 	flag.StringVar(&rip.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rip.conf.", "configuration path prefix")
-	flag.IntVar(&rip.maxConfigFiles, "maxConfigFiles", 10, "limit number of configuration files (negative value means unlimited)")
+	flag.IntVar(&rip.maxConfigFiles, "maxConfigFiles", command.DefaultMaxConfigFiles, "limit number of configuration files (negative value means unlimited)")
 	flag.StringVar(&dataplaneName, "dataplane", "native", "select forwarding engine")
 	flag.Parse()
 
