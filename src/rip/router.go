@@ -15,14 +15,27 @@ type RipRouter struct {
 	input chan udpInfo
 	nets  []*net.IPNet // locally generated networks
 	ports []*port      // rip interfaces
-	group net.IP       // rip multicast address
+	group net.IP       // 224.0.0.9
+	proto string       // udp
+
+	udpAddr string // "224.0.0.9:520" // 224.0.0.9 is a trick, see below:
 }
+
+/*
+It is possible for multiple UDP listeners that listen on the same UDP port
+to join the same multicast group. The net package will provide a socket
+that listens to a wildcard address with reusable UDP port when an
+appropriate multicast address prefix is passed to the net.ListenPacket or
+net.ListenUDP.
+
+https://godoc.org/golang.org/x/net/ipv4
+*/
+const UDP_ADDR = "224.0.0.9:520"
 
 // rip interface
 type port struct {
-	name string
-	ifi  *net.Interface
-	conn *ipv4.PacketConn
+	iface *net.Interface
+	conn  *ipv4.PacketConn
 }
 
 type udpInfo struct {
@@ -60,7 +73,7 @@ func NewRipRouter() *RipRouter {
 
 	input := make(chan udpInfo)
 
-	r := &RipRouter{done: make(chan int), group: net.IPv4(224, 0, 0, 9)}
+	r := &RipRouter{done: make(chan int), group: net.IPv4(224, 0, 0, 9), udpAddr: UDP_ADDR, proto: "udp"}
 
 	addInterfaces(r, input)
 
@@ -169,97 +182,81 @@ func addInterfaces(r *RipRouter, input chan<- udpInfo) {
 }
 
 func (r *RipRouter) InterfaceAdd(s string) error {
-	//log.Printf("RipRouter.InterfaceAdd: %s", s)
 
 	for _, p := range r.ports {
-		if s == p.name {
+		if s == p.iface.Name {
 			return fmt.Errorf("RipRouter.InterfaceAdd: interface '%s' exists", s)
 		}
 	}
 
-	iface, err1 := net.InterfaceByName(s)
+	ifi, err1 := net.InterfaceByName(s)
 	if err1 != nil {
 		return err1
 	}
 
-	addrList, err2 := iface.Addrs()
-	if err2 != nil {
-		return err2
-	}
+	/*
+		addrList, err2 := ifi.Addrs()
+		if err2 != nil {
+			return err2
+		}
 
-	for _, a := range addrList {
-		addr, _, err3 := net.ParseCIDR(a.String())
-		if err3 != nil {
-			log.Printf("RipRouter.InterfaceAdd: parse CIDR error for '%s' on '%s': %v", addr, s, err3)
-			continue
+		for _, a := range addrList {
+			addr, _, err3 := net.ParseCIDR(a.String())
+			if err3 != nil {
+				log.Printf("RipRouter.InterfaceAdd: parse CIDR error for '%s' on '%s': %v", addr, s, err3)
+				continue
+			}
+			if err := r.Join(ifi, addr); err != nil {
+				log.Printf("RipRouter.InterfaceAdd: join error for '%s' on '%s': %v", addr, s, err)
+			}
 		}
-		if addr.IsMulticast() {
-			// bind only to unicast addresses
-			continue
-		}
-		if err := r.Join(iface, addr); err != nil {
-			log.Printf("RipRouter.InterfaceAdd: join error for '%s' on '%s': %v", addr, s, err)
-		}
-	}
+	*/
 
-	return nil
+	return r.Join(ifi)
 }
 
-func (r *RipRouter) Join(iface *net.Interface, addr net.IP) error {
-	proto := "udp"
-	var a string
-	if addr.To4() == nil {
-		// IPv6
-		a = fmt.Sprintf("[%s]", addr.String())
-	} else {
-		// IPv4
-		a = addr.String()
-	}
+func (r *RipRouter) Join(ifi *net.Interface) error {
 
-	hostPort := fmt.Sprintf("%s:520", a) // rip multicast port
-
-	//log.Printf("Join: %s %s %s", iface.Name, proto, hostPort)
-
-	// open socket (connection)
-	conn, err2 := net.ListenPacket(proto, hostPort)
-	if err2 != nil {
-		return fmt.Errorf("RipRouter.InterfaceAdd: net.ListenPacket: %s/%s error: %v", proto, hostPort, err2)
+	// open/bind socket
+	conn, err1 := net.ListenPacket(r.proto, r.udpAddr)
+	if err1 != nil {
+		return fmt.Errorf("RipRouter.Join: %s/%s error: %v", r.proto, r.udpAddr, err1)
 	}
 
 	// join multicast address
 	pc := ipv4.NewPacketConn(conn)
-	if err := pc.JoinGroup(iface, &net.UDPAddr{IP: r.group}); err != nil {
+	if err := pc.JoinGroup(ifi, &net.UDPAddr{IP: r.group}); err != nil {
 		conn.Close()
-		return fmt.Errorf("RipRouter.InterfaceAdd: join error: %v", err)
+		return fmt.Errorf("RipRouter.Join: join error: %v", err)
 	}
 
 	// request control messages
 	if err := pc.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
 		// warning only
-		log.Printf("RipRouter.InterfaceAdd: control message flags error: %v", err)
+		log.Printf("RipRouter.Join: control message flags error: %v", err)
 	}
 
-	newPort := &port{name: iface.Name, ifi: iface, conn: pc}
+	newPort := &port{iface: ifi, conn: pc}
 
 	r.ports = append(r.ports, newPort)
 
-	go udpReader(pc, r.input, iface.Name, addr.String())
+	go udpReader(pc, r.input, ifi.Name)
 
 	return nil
 }
 
-func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname, ifaddr string) {
+func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 
-	log.Printf("udpReader: reading from '%s' on '%s'", ifaddr, ifname)
+	log.Printf("udpReader: reading from '%s'", ifname)
 
 	defer c.Close()
 
 	buf := make([]byte, 10000)
 
 	for {
-		n, cm, _, err := c.ReadFrom(buf)
-		if err != nil {
-			log.Printf("udpReader: ReadFrom: error %v", err)
+		n, cm, _, err1 := c.ReadFrom(buf)
+		if err1 != nil {
+			log.Printf("udpReader: ReadFrom: error %v", err1)
 			break
 		}
 
@@ -267,9 +264,22 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname, ifaddr string) 
 		b := make([]byte, n)
 		copy(b, buf)
 
-		log.Printf("udpReader: recv %d bytes from %s to %s on %s", n, cm.Src, cm.Dst, ifname)
+		var name string
 
-		input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: ifname}
+		ifi, err2 := net.InterfaceByIndex(cm.IfIndex)
+		if err2 != nil {
+			log.Printf("udpReader: unable to solve ifIndex=%d: error: %v", cm.IfIndex, err2)
+		}
+
+		if ifi == nil {
+			name = "ifname?"
+		} else {
+			name = ifi.Name
+		}
+
+		log.Printf("udpReader: recv %d bytes from %s to %s on %s", n, cm.Src, cm.Dst, name)
+
+		input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
 	}
 
 	log.Printf("udpReader: exiting '%s'", ifname)
@@ -279,10 +289,10 @@ func (r *RipRouter) InterfaceDel(s string) error {
 	log.Printf("RipRouter.InterfaceDel: %s", s)
 
 	for _, p := range r.ports {
-		if s == p.name {
+		if s == p.iface.Name {
 			// found interface
 
-			if err := p.conn.LeaveGroup(p.ifi, &net.UDPAddr{IP: r.group}); err != nil {
+			if err := p.conn.LeaveGroup(p.iface, &net.UDPAddr{IP: r.group}); err != nil {
 				// warning only
 				log.Printf("RipRouter.InterfaceDel: leave group error: %v", err)
 			}
