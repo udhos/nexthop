@@ -33,9 +33,9 @@ func multicastRead(ifname, proto, addrPort string) error {
 	}
 
 	// open/bind socket
-	conn, err3 := net.ListenPacket(proto, addrPort)
-	if err3 != nil {
-		return fmt.Errorf("join: %s/%s listen error: %v", proto, addrPort, err3)
+	conn, err2 := net.ListenPacket(proto, addrPort)
+	if err2 != nil {
+		return fmt.Errorf("join: %s/%s listen error: %v", proto, addrPort, err2)
 	}
 
 	// join multicast address
@@ -51,9 +51,9 @@ func multicastRead(ifname, proto, addrPort string) error {
 	}
 
 	{
-		ifi, err := p.MulticastInterface()
-		if err != nil {
-			log.Printf("join: %s %s multicastInterface error: %v", iface.Name, addrPort, err)
+		ifi, err3 := p.MulticastInterface()
+		if err3 != nil {
+			log.Printf("join: %s %s multicastInterface error: %v", iface.Name, addrPort, err3)
 		} else {
 			if ifi == nil {
 				log.Printf("join: %s %s multicastInterface=nil", iface.Name, addrPort)
@@ -76,21 +76,31 @@ func multicastRead(ifname, proto, addrPort string) error {
 
 func udpReader(c *ipv4.PacketConn, ifname, hostPort string) {
 
-	log.Printf("udpReader: reading multicast from '%s' (hostPort: '%s')", ifname, hostPort)
+	log.Printf("udpReader: reading multicast")
 
 	defer c.Close()
 
 	buf := make([]byte, 10000)
 
 	for {
-		n, cm, _, err := c.ReadFrom(buf)
-		if err != nil {
-			log.Printf("udpReader: ReadFrom: error %v", err)
+		n, cm, _, err1 := c.ReadFrom(buf)
+		if err1 != nil {
+			log.Printf("udpReader: ReadFrom: error %v", err1)
 			break
 		}
 
-		log.Printf("udpReader: recv %d bytes from %s to %s on %s", n, cm.Src, cm.Dst, ifname)
+		ifi, err2 := net.InterfaceByIndex(cm.IfIndex)
+		if err2 != nil {
+			log.Printf("udpReader: could not solve ifindex=%d: %v", cm.IfIndex, err2)
+		}
+
+		ifname := "ifname?"
+		if ifi != nil {
+			ifname = ifi.Name
+		}
+
+		log.Printf("udpReader: recv %d bytes from %s to %s on %s (ifindex=%d)", n, cm.Src, cm.Dst, ifname, cm.IfIndex)
 	}
 
-	log.Printf("udpReader: exiting '%s'", ifname)
+	log.Printf("udpReader: exiting")
 }
