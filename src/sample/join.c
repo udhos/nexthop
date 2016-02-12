@@ -41,7 +41,7 @@ static int join_group(int fd, int ifindex, struct in_addr group_addr)
   return setsockopt(fd, SOL_IP, MCAST_JOIN_GROUP, &req, sizeof(req));
 }
 
-static int iface_solve_index(const char *ifname)
+static int name_to_index(const char *ifname)
 {
   struct if_nameindex *ini;
   int ifindex = -1;
@@ -70,6 +70,47 @@ static int iface_solve_index(const char *ifname)
   if_freenameindex(ini);
 
   return ifindex;
+}
+
+static int index_to_name(int ifindex, char *buf, int buf_size)
+{
+  struct if_nameindex *ini;
+  int i;
+  int result = -1; // error
+
+  if (!buf || buf_size < 2) {
+    return -2; // ugh
+  }
+
+  ini = if_nameindex();
+  if (!ini) {
+    int err = errno;
+    fprintf(stderr,
+	    "%s: ifindex=%d: failure solving index: errno=%d: %s\n",
+	    prog_name, ifindex, err, strerror(err));
+    errno = err;
+    return -3;
+  }
+
+  for (i = 0; ini[i].if_index; ++i) {
+    if (ini[i].if_index == ifindex) {
+      const char *ifname = ini[i].if_name;
+      int len = strlen(ifname);
+      if (len >= buf_size) {
+	len = buf_size - 1;
+	result = -4; // error
+      } else {
+	result = 0; // ok
+      }
+      memcpy(buf, ifname, len);
+      buf[len] = '\0';
+      break;
+    }
+  }
+
+  if_freenameindex(ini);
+
+  return result;
 }
 
 int recvfromto(int fd, uint8_t *buf, size_t len,
@@ -156,6 +197,7 @@ static void read_loop(int fd) {
 
   char str_from[100];
   char str_to[100];
+  char ifname[100];
 
   for (;;) {
     rd = recvfromto(fd, buf, sizeof buf,
@@ -171,9 +213,11 @@ static void read_loop(int fd) {
 
     inet_ntop(AF_INET, &from.sin_addr, str_from, sizeof str_from);
     inet_ntop(AF_INET, &to.sin_addr, str_to, sizeof str_to);
+    index_to_name(ifindex, ifname, sizeof ifname);
     
-    printf("%s: read %d bytes from %s:%d to %s:%d on ifindex=%d\n",
-	   prog_name, rd, str_from, ntohs(from.sin_port), str_to, ntohs(to.sin_port), ifindex);
+    printf("%s: read %d bytes from %s:%d to %s:%d on %s ifindex=%d\n",
+	   prog_name, rd, str_from, ntohs(from.sin_port), str_to, ntohs(to.sin_port),
+	   ifname, ifindex);
   }
   
 }
@@ -187,7 +231,7 @@ static void join(const char *ifname, const char* group, const char *addr, const 
   struct in_addr bind_addr;
   struct sockaddr_in sock_addr;
   
-  ifindex = iface_solve_index(ifname);
+  ifindex = name_to_index(ifname);
   if (ifindex < 0) {
     fprintf(stderr, "%s: could not find interface: %s\n",
 	    prog_name, ifname);
@@ -220,15 +264,22 @@ static void join(const char *ifname, const char* group, const char *addr, const 
 
   {
     int enable = 1; /* boolean */
-
-    result = setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, (void *) &enable, sizeof enable);
-    if (result < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *) &enable, sizeof enable)) {
       fprintf(stderr,
 	      "%s: could not set SO_REUSEADDR: errno=%d: %s\n",
 	      prog_name, errno, strerror(errno));
     }
   }
 
+  {
+    /* will request IP_PKTINFO info while reading the socket */
+    int opt = 1;
+    if (setsockopt(fd, SOL_IP, IP_PKTINFO, &opt, sizeof opt)) {
+      fprintf(stderr, "%s: could not set IP_PKTINFO: errno=%d: %s\n",
+	      prog_name, errno, strerror(errno));
+    }
+  }
+  
   sock_addr.sin_family = AF_INET;
   sock_addr.sin_addr   = bind_addr;
   sock_addr.sin_port   = htons(port);
