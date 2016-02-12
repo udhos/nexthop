@@ -19,25 +19,16 @@ const char *prog_name = "join";
 
 static int join_group(int fd, int ifindex, struct in_addr group_addr)
 {
-  struct group_source_req req;
-  struct sockaddr_in *group_sa = (struct sockaddr_in *) &req.gsr_group;
-  //struct sockaddr_in *source_sa = (struct sockaddr_in *) &req.gsr_source;
+  struct group_req req;
+  struct sockaddr_in *group_sa = (struct sockaddr_in *) &req.gr_group;
 
   memset(group_sa, 0, sizeof(*group_sa));
   group_sa->sin_family = AF_INET;
   group_sa->sin_addr = group_addr;
   group_sa->sin_port = htons(0);
+  
+  req.gr_interface = ifindex;
 
-  /*
-  memset(source_sa, 0, sizeof(*source_sa));
-  source_sa->sin_family = AF_INET;
-  source_sa->sin_addr = source_addr;
-  source_sa->sin_port = htons(0);
-  */
-
-  req.gsr_interface = ifindex;
-
-  //return setsockopt(fd, SOL_IP, MCAST_JOIN_SOURCE_GROUP, &req, sizeof(req));
   return setsockopt(fd, SOL_IP, MCAST_JOIN_GROUP, &req, sizeof(req));
 }
 
