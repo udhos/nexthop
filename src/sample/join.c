@@ -284,7 +284,6 @@ static void join(const char *ifname, const char *mcast, const char* group, const
 	      prog_name, errno, strerror(errno));
   }
 
-  
   if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname))) {
       fprintf(stderr, "%s: could set SO_BINDTODEVICE: errno=%d: %s\n",
 	      prog_name, errno, strerror(errno));

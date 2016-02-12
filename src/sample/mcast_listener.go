@@ -17,7 +17,7 @@ func main() {
 
 	if len(os.Args) != 5 {
 		fmt.Printf("usage:   %s interface protocol group     address:port\n", prog)
-		fmt.Printf("example: %s eth2      udp      224.0.0.9 1.0.0.2:2000\n", prog)
+		fmt.Printf("example: %s eth2      udp      224.0.0.9 0.0.0.0:2000\n", prog)
 		return
 	}
 
@@ -51,7 +51,7 @@ func mcastRead(ifname, proto, group, addrPort string) {
 		log.Fatal(err2)
 	}
 
-	c, err3 := mcastOpen(a, p)
+	c, err3 := mcastOpen(a, p, ifname)
 	if err3 != nil {
 		log.Fatal(err3)
 	}
@@ -81,16 +81,21 @@ func splitHostPort(hostPort string) (string, string) {
 	return host, s[1]
 }
 
-func mcastOpen(addr net.IP, port int) (*ipv4.PacketConn, error) {
+func mcastOpen(bindAddr net.IP, port int, ifname string) (*ipv4.PacketConn, error) {
 	s, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP)
 	if err != nil {
 		log.Fatal(err)
 	}
-	syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+	if err := syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		log.Fatal(err)
+	}
 	//syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_REUSEPORT, 1)
+	if err := syscall.SetsockoptString(s, syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, ifname); err != nil {
+		log.Fatal(err)
+	}
 
 	lsa := syscall.SockaddrInet4{Port: port}
-	copy(lsa.Addr[:], addr.To4())
+	copy(lsa.Addr[:], bindAddr.To4())
 
 	if err := syscall.Bind(s, &lsa); err != nil {
 		syscall.Close(s)
