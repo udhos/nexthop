@@ -222,13 +222,14 @@ static void read_loop(int fd) {
   
 }
 
-static void join(const char *ifname, const char* group, const char *addr, const char *port_str) {
+static void join(const char *ifname, const char *mcast, const char* group, const char *addr, const char *port_str) {
   int ifindex;
+  struct in_addr iface_addr;
   struct in_addr group_addr;
+  struct in_addr bind_addr;
   int port;
   int result;
   int fd;
-  struct in_addr bind_addr;
   struct sockaddr_in sock_addr;
   
   ifindex = name_to_index(ifname);
@@ -238,17 +239,24 @@ static void join(const char *ifname, const char* group, const char *addr, const 
     exit(1);
   }
 
-  result = inet_pton(AF_INET, addr, &bind_addr);
+  result = inet_pton(AF_INET, mcast, &iface_addr);
   if (result <= 0) {
-    fprintf(stderr, "%s: bad bind address: %s\n",
-	    prog_name, addr);
+    fprintf(stderr, "%s: bad interface address: %s\n",
+	    prog_name, mcast);
     exit(1);
   }
-
+  
   result = inet_pton(AF_INET, group, &group_addr);
   if (result <= 0) {
     fprintf(stderr, "%s: bad group address: %s\n",
 	    prog_name, group);
+    exit(1);
+  }
+  
+  result = inet_pton(AF_INET, addr, &bind_addr);
+  if (result <= 0) {
+    fprintf(stderr, "%s: bad bind address: %s\n",
+	    prog_name, addr);
     exit(1);
   }
 
@@ -279,6 +287,11 @@ static void join(const char *ifname, const char* group, const char *addr, const 
 	      prog_name, errno, strerror(errno));
     }
   }
+
+  if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (void *) &iface_addr, sizeof iface_addr)) {
+      fprintf(stderr, "%s: could not multicast interface: errno=%d: %s\n",
+	      prog_name, errno, strerror(errno));
+  }
   
   sock_addr.sin_family = AF_INET;
   sock_addr.sin_addr   = bind_addr;
@@ -308,24 +321,26 @@ static void join(const char *ifname, const char* group, const char *addr, const 
 int main(int argc, const char *argv[]) {
 
   const char *ifname;
+  const char *mcast;
   const char *group;
   const char *addr;
   const char *port;
   
-  if (argc != 5) {
+  if (argc != 6) {
     fprintf(stderr,
-            "usage:   %s interface group     addr    port\n"
-	    "example: %s eth2      224.0.0.9 0.0.0.0 2000\n",
+            "usage:   %s interface multicast group     bind_addr port\n"
+	    "example: %s eth2      1.0.0.2   224.0.0.9 0.0.0.0   2000\n",
 	    prog_name, prog_name);
     exit(1);
   }
 
   ifname = argv[1];
-  group = argv[2];
-  addr = argv[3];
-  port = argv[4];
+  mcast = argv[2];
+  group = argv[3];
+  addr = argv[4];
+  port = argv[5];
 
-  join(ifname, group, addr, port);
+  join(ifname, mcast, group, addr, port);
   
   exit(0);
 }
