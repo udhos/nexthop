@@ -16,29 +16,34 @@ func main() {
 	prog := "mcast_listener"
 
 	if len(os.Args) != 5 {
-		fmt.Printf("usage:   %s interface protocol group     address:port\n", prog)
-		fmt.Printf("example: %s eth2      udp      224.0.0.9 0.0.0.0:2000\n", prog)
+		fmt.Printf("usage:   %s interface group     laddress:lport raddress:rport\n", prog)
+		fmt.Printf("example: %s eth2      224.0.0.9 0.0.0.0:2000   1.0.0.1:3000\n", prog)
 		return
 	}
 
 	ifname := os.Args[1]
-	proto := os.Args[2]
-	group := os.Args[3]
-	addrPort := os.Args[4]
+	group := os.Args[2]
+	locAddrPort := os.Args[3]
+	remAddrPort := os.Args[4]
 
-	mcastRead(ifname, proto, group, addrPort)
+	mcast(ifname, group, locAddrPort, remAddrPort)
 }
 
-func mcastRead(ifname, proto, group, addrPort string) {
-	addr, port := splitHostPort(addrPort)
-	p, err1 := strconv.Atoi(port)
+func mcast(ifname, group, locAddrPort, remAddrPort string) {
+	locAddr, locPort := splitHostPort(locAddrPort)
+	p, err1 := strconv.Atoi(locPort)
 	if err1 != nil {
 		log.Fatal(err1)
 	}
 
-	a := net.ParseIP(addr)
-	if a == nil {
-		log.Fatal(fmt.Errorf("bad address: '%s'", addr))
+	remAddr, err2 := net.ResolveUDPAddr("udp", remAddrPort)
+	if err2 != nil {
+		log.Fatal(err2)
+	}
+
+	la := net.ParseIP(locAddr)
+	if la == nil {
+		log.Fatal(fmt.Errorf("bad address: '%s'", locAddr))
 	}
 
 	g := net.ParseIP(group)
@@ -46,12 +51,12 @@ func mcastRead(ifname, proto, group, addrPort string) {
 		log.Fatal(fmt.Errorf("bad group: '%s'", group))
 	}
 
-	ifi, err2 := net.InterfaceByName(ifname)
-	if err2 != nil {
+	ifi, err3 := net.InterfaceByName(ifname)
+	if err3 != nil {
 		log.Fatal(err2)
 	}
 
-	c, err3 := mcastOpen(a, p, ifname)
+	c, u, err3 := mcastOpen(la, p, ifname)
 	if err3 != nil {
 		log.Fatal(err3)
 	}
@@ -63,6 +68,15 @@ func mcastRead(ifname, proto, group, addrPort string) {
 	if err := c.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
 		log.Fatal(err)
 	}
+
+	log.Printf("writing one udp unicast packet to: %v", remAddr)
+
+	n, err4 := u.WriteToUDP([]byte{0}, remAddr)
+	if err4 != nil {
+		log.Fatal(err4)
+	}
+
+	log.Printf("wrote one udp unicast packet (%d bytes) to %v", n, remAddr)
 
 	readLoop(c)
 
@@ -81,7 +95,7 @@ func splitHostPort(hostPort string) (string, string) {
 	return host, s[1]
 }
 
-func mcastOpen(bindAddr net.IP, port int, ifname string) (*ipv4.PacketConn, error) {
+func mcastOpen(bindAddr net.IP, port int, ifname string) (*ipv4.PacketConn, *net.UDPConn, error) {
 	s, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP)
 	if err != nil {
 		log.Fatal(err)
@@ -107,9 +121,10 @@ func mcastOpen(bindAddr net.IP, port int, ifname string) (*ipv4.PacketConn, erro
 	if err != nil {
 		log.Fatal(err)
 	}
+	u := c.(*net.UDPConn)
 	p := ipv4.NewPacketConn(c)
 
-	return p, nil
+	return p, u, nil
 }
 
 func readLoop(c *ipv4.PacketConn) {
