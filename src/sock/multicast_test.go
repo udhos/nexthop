@@ -14,7 +14,9 @@ func TestJoin(t *testing.T) {
 		return
 	}
 
-	if err := Join(mcastSock, net.IPv4(224, 0, 0, 9), ifname); err != nil {
+	group := net.IPv4(224, 0, 0, 9)
+
+	if err := Join(mcastSock, group, ifname); err != nil {
 		t.Errorf("Unable to join multicast group: %v", err1)
 		Close(mcastSock)
 		return
@@ -31,6 +33,19 @@ func TestJoin(t *testing.T) {
 
 	if n != len(data) {
 		t.Errorf("Partial send: %d of %d", n, len(data))
+		Close(mcastSock)
+		return
+	}
+
+	ifi, err3 := net.InterfaceByName(ifname)
+	if err3 != nil {
+		t.Errorf("Unable to get interface: %v", err3)
+		Close(mcastSock)
+		return
+	}
+
+	if err := Leave(mcastSock, group, ifi); err != nil {
+		t.Errorf("Unable to leave multicast group: %v", err1)
 		Close(mcastSock)
 		return
 	}

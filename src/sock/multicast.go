@@ -9,12 +9,12 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-type multicastSock struct {
+type MulticastSock struct {
 	P *ipv4.PacketConn
 	U *net.UDPConn
 }
 
-func MulticastListener(port int, ifname string) (*multicastSock, error) {
+func MulticastListener(port int, ifname string) (*MulticastSock, error) {
 	s, err1 := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP)
 	if err1 != nil {
 		return nil, fmt.Errorf("MulticastListener: could not create socket(port=%d,ifname=%s): %v", port, ifname, err1)
@@ -46,10 +46,14 @@ func MulticastListener(port int, ifname string) (*multicastSock, error) {
 	u := c.(*net.UDPConn)
 	p := ipv4.NewPacketConn(c)
 
-	return &multicastSock{P: p, U: u}, nil
+	if err := p.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
+		return nil, fmt.Errorf("MulticastListener: could not set control message flags: %v", err)
+	}
+
+	return &MulticastSock{P: p, U: u}, nil
 }
 
-func Join(sock *multicastSock, group net.IP, ifname string) error {
+func Join(sock *MulticastSock, group net.IP, ifname string) error {
 	ifi, err1 := net.InterfaceByName(ifname)
 	if err1 != nil {
 		return fmt.Errorf("Join: could get find interface %s: %v", ifname, err1)
@@ -62,7 +66,15 @@ func Join(sock *multicastSock, group net.IP, ifname string) error {
 	return nil
 }
 
-func Close(sock *multicastSock) {
+func Leave(sock *MulticastSock, group net.IP, ifi *net.Interface) error {
+	if err := sock.P.LeaveGroup(ifi, &net.UDPAddr{IP: group}); err != nil {
+		return fmt.Errorf("Leave: could get leave group %v on interface %s: %v", group, ifi.Name, err)
+	}
+
+	return nil
+}
+
+func Close(sock *MulticastSock) {
 	sock.P.Close()
 	sock.U.Close()
 	sock.P = nil

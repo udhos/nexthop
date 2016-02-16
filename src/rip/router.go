@@ -8,6 +8,7 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"addr"
+	"sock"
 )
 
 type RipRouter struct {
@@ -15,27 +16,20 @@ type RipRouter struct {
 	input chan udpInfo
 	nets  []*net.IPNet // locally generated networks
 	ports []*port      // rip interfaces
-	group net.IP       // 224.0.0.9
-	proto string       // udp
 
-	udpAddr string // "224.0.0.9:520" // 224.0.0.9 is a trick, see below:
+	group net.IP // 224.0.0.9
+	/*
+		proto string       // udp
+		udpAddr string // "224.0.0.9:520" // 224.0.0.9 is a trick, see below:
+	*/
 }
 
-/*
-It is possible for multiple UDP listeners that listen on the same UDP port
-to join the same multicast group. The net package will provide a socket
-that listens to a wildcard address with reusable UDP port when an
-appropriate multicast address prefix is passed to the net.ListenPacket or
-net.ListenUDP.
-
-https://godoc.org/golang.org/x/net/ipv4
-*/
-const UDP_ADDR = "224.0.0.9:520"
+const RIP_PORT = 520
 
 // rip interface
 type port struct {
 	iface *net.Interface
-	conn  *ipv4.PacketConn
+	msock *sock.MulticastSock
 }
 
 type udpInfo struct {
@@ -73,7 +67,9 @@ func NewRipRouter() *RipRouter {
 
 	input := make(chan udpInfo)
 
-	r := &RipRouter{done: make(chan int), group: net.IPv4(224, 0, 0, 9), udpAddr: UDP_ADDR, proto: "udp"}
+	RIP_GROUP := net.IPv4(224, 0, 0, 9)
+
+	r := &RipRouter{done: make(chan int), group: RIP_GROUP}
 
 	addInterfaces(r, input)
 
@@ -217,30 +213,21 @@ func (r *RipRouter) InterfaceAdd(s string) error {
 
 func (r *RipRouter) Join(ifi *net.Interface) error {
 
-	// open/bind socket
-	conn, err1 := net.ListenPacket(r.proto, r.udpAddr)
+	m, err1 := sock.MulticastListener(RIP_PORT, ifi.Name)
 	if err1 != nil {
-		return fmt.Errorf("RipRouter.Join: %s/%s error: %v", r.proto, r.udpAddr, err1)
+		return fmt.Errorf("RipRouter.Join: open: %v", err1)
 	}
 
-	// join multicast address
-	pc := ipv4.NewPacketConn(conn)
-	if err := pc.JoinGroup(ifi, &net.UDPAddr{IP: r.group}); err != nil {
-		conn.Close()
-		return fmt.Errorf("RipRouter.Join: join error: %v", err)
+	if err := sock.Join(m, r.group, ifi.Name); err != nil {
+		sock.Close(m)
+		return fmt.Errorf("RipRouter.Join: join: %v", err)
 	}
 
-	// request control messages
-	if err := pc.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
-		// warning only
-		log.Printf("RipRouter.Join: control message flags error: %v", err)
-	}
-
-	newPort := &port{iface: ifi, conn: pc}
+	newPort := &port{iface: ifi, msock: m}
 
 	r.ports = append(r.ports, newPort)
 
-	go udpReader(pc, r.input, ifi.Name)
+	go udpReader(m.P, r.input, ifi.Name)
 
 	return nil
 }
@@ -266,9 +253,17 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 
 		var name string
 
-		ifi, err2 := net.InterfaceByIndex(cm.IfIndex)
-		if err2 != nil {
-			log.Printf("udpReader: unable to solve ifIndex=%d: error: %v", cm.IfIndex, err2)
+		var ifi *net.Interface
+		var err2 error
+		var src, dst net.IP
+
+		if cm != nil {
+			src = cm.Src
+			dst = cm.Dst
+			ifi, err2 = net.InterfaceByIndex(cm.IfIndex)
+			if err2 != nil {
+				log.Printf("udpReader: unable to solve ifIndex=%d: error: %v", cm.IfIndex, err2)
+			}
 		}
 
 		if ifi == nil {
@@ -277,9 +272,9 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 			name = ifi.Name
 		}
 
-		log.Printf("udpReader: recv %d bytes from %s to %s on %s", n, cm.Src, cm.Dst, name)
+		log.Printf("udpReader: recv %d bytes from %s to %s on %s", n, src, dst, name)
 
-		input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
+		//input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
 	}
 
 	log.Printf("udpReader: exiting '%s'", ifname)
@@ -292,12 +287,13 @@ func (r *RipRouter) InterfaceDel(s string) error {
 		if s == p.iface.Name {
 			// found interface
 
-			if err := p.conn.LeaveGroup(p.iface, &net.UDPAddr{IP: r.group}); err != nil {
+			//if err := p.conn.LeaveGroup(p.iface, &net.UDPAddr{IP: r.group}); err != nil {
+			if err := sock.Leave(p.msock, r.group, p.iface); err != nil {
 				// warning only
 				log.Printf("RipRouter.InterfaceDel: leave group error: %v", err)
 			}
 
-			p.conn.Close() // should kill reader goroutine
+			sock.Close(p.msock) // should kill reader goroutine
 
 			return nil
 		}
