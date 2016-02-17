@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 
 	"golang.org/x/net/ipv4"
 
@@ -241,15 +242,21 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 	buf := make([]byte, 10000)
 
 	for {
-		n, cm, _, err1 := c.ReadFrom(buf)
+		n, cm, srcAddr, err1 := c.ReadFrom(buf)
 		if err1 != nil {
 			log.Printf("udpReader: ReadFrom: error %v", err1)
 			break
 		}
 
-		// make a copy because we will overwrite buf
-		b := make([]byte, n)
-		copy(b, buf)
+		var srcPort string
+
+		switch srcAddr.(type) {
+		case *net.UDPAddr:
+			u := srcAddr.(*net.UDPAddr)
+			srcPort = strconv.Itoa(u.Port)
+		default:
+			srcPort = "srcPort?"
+		}
 
 		var name string
 
@@ -272,9 +279,14 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 			name = ifi.Name
 		}
 
-		log.Printf("udpReader: recv %d bytes from %s to %s on %s", n, src, dst, name)
+		log.Printf("udpReader: recv %d bytes from %s:%s to %s on %s", n, src, srcPort, dst, name)
 
-		//input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
+		/*
+			// make a copy because we will overwrite buf
+			b := make([]byte, n)
+			copy(b, buf)
+			input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
+		*/
 	}
 
 	log.Printf("udpReader: exiting '%s'", ifname)
