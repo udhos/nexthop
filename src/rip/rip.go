@@ -104,10 +104,13 @@ func main() {
 
 	go cli.ListenTelnet(":2002", cliServer)
 
+	tick := time.Duration(10)
+	ticker := time.NewTicker(time.Second * tick)
+
 	for {
 		select {
-		case <-time.After(time.Second * 5):
-			log.Printf("%s main: tick", rip.daemonName)
+		case <-ticker.C:
+			log.Printf("%s main: %ds tick", rip.daemonName, tick)
 		case comm := <-cliServer.CommandChannel:
 			log.Printf("%s main: command: isLine=%v len=%d [%s]", rip.daemonName, comm.IsLine, len(comm.Cmd), comm.Cmd)
 			cli.Execute(rip, comm.Cmd, comm.IsLine, !comm.HideFromHistory, comm.Client)
@@ -207,18 +210,24 @@ func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.
 func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
 	rip := ctx.(*Rip)
 
-	log.Printf("enableRip: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
+	isNetCmd := strings.HasPrefix(node.Path, "router rip network")
+
+	cand, _ := ctx.ConfRootCandidate().Get("router rip")
+	//act, _ := ctx.ConfRootActive().Get("router rip")
+
+	//log.Printf("enableRip: cmd=[%s] conf=[%s] cand=[%v] act=[%v]", node.Path, action.Cmd, cand, act)
 
 	if action.Enable {
 		// enable RIP
 
 		if rip.router == nil {
 			rip.router = NewRipRouter()
+			//log.Printf("enableRip: cmd=[%s] conf=[%s] rip enabled", node.Path, action.Cmd)
 		}
 
-		if strings.HasPrefix(node.Path, "rip router network") {
+		if isNetCmd {
 			// add network into rip
-			f := strings.Fields(node.Path)
+			f := strings.Fields(action.Cmd)
 			return rip.router.NetAdd(f[3])
 		}
 
@@ -231,13 +240,26 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 		return nil // rip not running
 	}
 
-	if strings.HasPrefix(node.Path, "rip router network") {
+	if isNetCmd {
 		// remove network from rip
-		f := strings.Fields(node.Path)
-		return rip.router.NetDel(f[3])
+		f := strings.Fields(action.Cmd)
+		if err := rip.router.NetDel(f[3]); err != nil {
+			return err
+		}
+
+		// router rip removed?
+		if cand != nil {
+			return nil // router rip still in place
+		}
+
+		// router rip removed, fully disable rip
 	}
 
-	close(rip.router.done) // request end of rip
+	// fully disable RIP
+
+	rip.router.done <- 1 // request end of rip goroutine
+
+	//log.Printf("enableRip: cmd=[%s] conf=[%s] rip disabled", node.Path, action.Cmd)
 
 	rip.router = nil
 

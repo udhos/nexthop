@@ -436,11 +436,14 @@ func InputLoop(s *Server, c *Client, notifyAppInputClosed bool) {
 	readTimer := time.NewTimer(timeout)
 	resetReadTimeout(readTimer, timeout)
 
+	tick := time.Duration(10)
+	ticker := time.NewTicker(time.Second * tick)
+
 LOOP:
 	for {
 		select {
-		case <-time.After(time.Second * 5):
-			log.Printf("cli.InputLoop: tick")
+		case <-ticker.C:
+			log.Printf("cli.InputLoop: %ds tick", tick)
 		case <-readTimer.C:
 			// read timeout
 			log.Printf("InputLoop: read timeout, closing socket")
@@ -513,11 +516,14 @@ func OutputLoop(c *Client) {
 
 	log.Printf("cli.OutputLoop: starting")
 
+	tick := time.Duration(10)
+	ticker := time.NewTicker(time.Second * tick)
+
 LOOP:
 	for {
 		select {
-		case <-time.After(time.Second * 5):
-			log.Printf("cli.OutputLoop: tick")
+		case <-ticker.C:
+			log.Printf("cli.OutputLoop: %ds tick", tick)
 		case msg := <-c.outputChannel:
 			if n, err := c.outputWriter.WriteString(msg); err != nil {
 				log.Printf("cli.OutputLoop: written=%d from=%d: %v", n, len(msg), err)

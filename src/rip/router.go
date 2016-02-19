@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strconv"
+	//"sync"
+	"time"
 
 	"golang.org/x/net/ipv4"
 
@@ -13,16 +14,13 @@ import (
 )
 
 type RipRouter struct {
-	done  chan int // close this channel to request end of rip router
-	input chan udpInfo
-	nets  []*net.IPNet // locally generated networks
-	ports []*port      // rip interfaces
-
-	group net.IP // 224.0.0.9
-	/*
-		proto string       // udp
-		udpAddr string // "224.0.0.9:520" // 224.0.0.9 is a trick, see below:
-	*/
+	done        chan int // close this channel to request end of rip router
+	input       chan udpInfo
+	nets        []*net.IPNet // locally generated networks
+	ports       []*port      // rip interfaces
+	group       net.IP       // 224.0.0.9
+	readerDone  chan int
+	readerCount int
 }
 
 const RIP_PORT = 520
@@ -35,7 +33,7 @@ type port struct {
 
 type udpInfo struct {
 	info    []byte
-	src     net.IP
+	src     net.UDPAddr
 	dst     net.IP
 	ifIndex int
 	ifName  string
@@ -43,85 +41,49 @@ type udpInfo struct {
 
 func NewRipRouter() *RipRouter {
 
-	/*
-		proto := "udp"
-		hostPort := ":520"
-
-		addr, err1 := net.ResolveUDPAddr(proto, hostPort)
-		if err1 != nil {
-			log.Printf("NewRipRouter: bad UDP addr=%s/%s: %v", proto, hostPort, err1)
-			return nil
-		}
-
-		log.Printf("NewRipRouter: reading from: %v", addr)
-
-		conn, err2 := net.ListenUDP(proto, addr)
-		if err2 != nil {
-			log.Printf("NewRipRouter: listen error addr=%s/%s: %v", proto, hostPort, err2)
-			return nil
-		}
-
-		input := make(chan udpInfo)
-
-		go udpReader(conn, input)
-	*/
-
-	input := make(chan udpInfo)
-
 	RIP_GROUP := net.IPv4(224, 0, 0, 9)
 
-	r := &RipRouter{done: make(chan int), group: RIP_GROUP}
+	r := &RipRouter{done: make(chan int), input: make(chan udpInfo), group: RIP_GROUP, readerDone: make(chan int)}
 
-	addInterfaces(r, input)
+	addInterfaces(r)
 
 	go func() {
-		log.Printf("rip router goroutine started")
+		log.Printf("rip router: goroutine started")
 
-		//defer conn.Close()
+		tick := time.Duration(10)
+		ticker := time.NewTicker(time.Second * tick)
 
 	LOOP:
 		for {
 			select {
+			case <-ticker.C:
+				log.Printf("rip router: %ds tick", tick)
 			case <-r.done:
 				// finish requested
-				break LOOP
-			case u, ok := <-input:
+				log.Printf("rip router: finish request received")
+				delInterfaces(r) // break udpReader goroutines
+			case <-r.readerDone:
+				// one udpReader goroutine finished
+				r.readerCount--
+				if r.readerCount < 1 {
+					// all udpReader goroutines finished
+					break LOOP
+				}
+			case u, ok := <-r.input:
 				if !ok {
 					log.Printf("rip router: udpReader channel closed")
 					break LOOP
 				}
-				log.Printf("rip router: recv %d bytes from %v to %v on %v", len(u.info), u.src, u.dst, u.ifIndex)
+				log.Printf("rip router: recv %d bytes from %v to %v on %s ifIndex=%d",
+					len(u.info), &u.src, u.dst, u.ifName, u.ifIndex)
 			}
 		}
 
-		log.Printf("rip router goroutine finished")
+		log.Printf("rip router: goroutine finished")
 	}()
 
 	return r
 }
-
-/*
-func udpReader(conn *net.UDPConn, input chan<- udpInfo) {
-	buf := make([]byte, 10000)
-
-	defer close(input)
-
-	for {
-		n, from, err := conn.ReadFromUDP(buf)
-		log.Printf("udpReader: %d bytes from %v: error: %v", n, from, err)
-		if err != nil {
-			log.Printf("udpReader: error: %v", err)
-			break
-		}
-
-		// make a copy because we will overwrite buf
-		b := make([]byte, n)
-		copy(b, buf)
-
-		input <- udpInfo{info: b, addr: *from}
-	}
-}
-*/
 
 func (r *RipRouter) NetAdd(s string) error {
 	_, ipnet, err := net.ParseCIDR(s)
@@ -166,7 +128,7 @@ func (r *RipRouter) NetDel(s string) error {
 	return nil
 }
 
-func addInterfaces(r *RipRouter, input chan<- udpInfo) {
+func addInterfaces(r *RipRouter) {
 	ifList, err1 := net.Interfaces()
 	if err1 != nil {
 		log.Printf("NewRipRouter: could not find local interfaces: %v", err1)
@@ -191,24 +153,6 @@ func (r *RipRouter) InterfaceAdd(s string) error {
 		return err1
 	}
 
-	/*
-		addrList, err2 := ifi.Addrs()
-		if err2 != nil {
-			return err2
-		}
-
-		for _, a := range addrList {
-			addr, _, err3 := net.ParseCIDR(a.String())
-			if err3 != nil {
-				log.Printf("RipRouter.InterfaceAdd: parse CIDR error for '%s' on '%s': %v", addr, s, err3)
-				continue
-			}
-			if err := r.Join(ifi, addr); err != nil {
-				log.Printf("RipRouter.InterfaceAdd: join error for '%s' on '%s': %v", addr, s, err)
-			}
-		}
-	*/
-
 	return r.Join(ifi)
 }
 
@@ -228,12 +172,22 @@ func (r *RipRouter) Join(ifi *net.Interface) error {
 
 	r.ports = append(r.ports, newPort)
 
-	go udpReader(m.P, r.input, ifi.Name)
+	go udpReader(m.P, r.input, ifi.Name, r.readerDone)
+
+	r.readerCount++
 
 	return nil
 }
 
-func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
+func delInterfaces(r *RipRouter) {
+	for i := range r.ports {
+		r.ifClose(i)
+	}
+	r.ports = nil // cleanup
+}
+
+//func udpReader(c *ipv4.PacketConn, done <-chan int, input chan<- udpInfo, ifname string) {
+func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string, readerDone chan<- int) {
 
 	log.Printf("udpReader: reading from '%s'", ifname)
 
@@ -241,32 +195,47 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 
 	buf := make([]byte, 10000)
 
+LOOP:
 	for {
+		/*
+			select {
+			case <-done:
+				break LOOP
+			default:
+			}
+
+			c.SetReadDeadline(time.Now().Add(1 * time.Second)) // set 1-sec timeout
+		*/
 		n, cm, srcAddr, err1 := c.ReadFrom(buf)
 		if err1 != nil {
+			/*
+				switch err1.(type) {
+				case net.Error:
+					if err1.(net.Error).Timeout() {
+						continue
+					}
+				default:
+					log.Printf("udpReader: possible uncaught timeout")
+				}
+			*/
+
 			log.Printf("udpReader: ReadFrom: error %v", err1)
-			break
+			break LOOP
 		}
 
-		var srcPort string
+		var udpSrc *net.UDPAddr
 
 		switch srcAddr.(type) {
 		case *net.UDPAddr:
-			u := srcAddr.(*net.UDPAddr)
-			srcPort = strconv.Itoa(u.Port)
-		default:
-			srcPort = "srcPort?"
+			udpSrc = srcAddr.(*net.UDPAddr)
 		}
 
 		var name string
 
 		var ifi *net.Interface
 		var err2 error
-		var src, dst net.IP
 
 		if cm != nil {
-			src = cm.Src
-			dst = cm.Dst
 			ifi, err2 = net.InterfaceByIndex(cm.IfIndex)
 			if err2 != nil {
 				log.Printf("udpReader: unable to solve ifIndex=%d: error: %v", cm.IfIndex, err2)
@@ -279,37 +248,51 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string) {
 			name = ifi.Name
 		}
 
-		log.Printf("udpReader: recv %d bytes from %s:%s to %s on %s", n, src, srcPort, dst, name)
+		//log.Printf("udpReader: recv %d bytes from %v to %s on %s ifIndex=%d", n, udpSrc, cm.Dst, name, cm.IfIndex)
 
-		/*
-			// make a copy because we will overwrite buf
-			b := make([]byte, n)
-			copy(b, buf)
-			input <- udpInfo{info: b, src: cm.Src, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
-		*/
+		// make a copy because we will overwrite buf
+		b := make([]byte, n)
+		copy(b, buf)
+
+		// deliver udp packet to main rip goroutine
+		input <- udpInfo{info: b, src: *udpSrc, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
 	}
 
+	log.Printf("udpReader: exiting '%s' -- trying", ifname)
+	readerDone <- 1 // tell rip router goroutine
 	log.Printf("udpReader: exiting '%s'", ifname)
 }
 
 func (r *RipRouter) InterfaceDel(s string) error {
 	log.Printf("RipRouter.InterfaceDel: %s", s)
 
-	for _, p := range r.ports {
+	for i, p := range r.ports {
 		if s == p.iface.Name {
 			// found interface
-
-			//if err := p.conn.LeaveGroup(p.iface, &net.UDPAddr{IP: r.group}); err != nil {
-			if err := sock.Leave(p.msock, r.group, p.iface); err != nil {
-				// warning only
-				log.Printf("RipRouter.InterfaceDel: leave group error: %v", err)
-			}
-
-			sock.Close(p.msock) // should kill reader goroutine
-
+			r.ifClose(i)
+			r.ifDel(i)
 			return nil
 		}
 	}
 
 	return fmt.Errorf("RipRouter.InterfaceDel: interface '%s' not found", s)
+}
+
+func (r *RipRouter) ifClose(i int) {
+	p := r.ports[i]
+
+	log.Printf("RipRouter.ifDel: %s", p.iface.Name)
+
+	if err := sock.Leave(p.msock, r.group, p.iface); err != nil {
+		// warning only
+		log.Printf("RipRouter.InterfaceDel: leave group error: %v", err)
+	}
+
+	sock.Close(p.msock) // break reader goroutine
+}
+
+func (r *RipRouter) ifDel(i int) {
+	size := len(r.ports)
+	r.ports[i] = r.ports[size-1]
+	r.ports = r.ports[:size-1]
 }

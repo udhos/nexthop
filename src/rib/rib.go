@@ -108,10 +108,13 @@ func main() {
 
 	go cli.ListenTelnet(":2001", cliServer)
 
+	tick := time.Duration(10)
+	ticker := time.NewTicker(time.Second * tick)
+
 	for {
 		select {
-		case <-time.After(time.Second * 5):
-			log.Printf("rib main: tick")
+		case <-ticker.C:
+			log.Printf("%s main: %ds tick", ribConf.daemonName, tick)
 		case comm := <-cliServer.CommandChannel:
 			log.Printf("rib main: command: isLine=%v len=%d [%s]", comm.IsLine, len(comm.Cmd), comm.Cmd)
 			cli.Execute(ribConf, comm.Cmd, comm.IsLine, !comm.HideFromHistory, comm.Client)
