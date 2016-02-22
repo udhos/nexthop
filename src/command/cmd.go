@@ -153,7 +153,7 @@ func (n *ConfNode) ValueSet(value string) {
 
 // remove node from tree.
 // any node which loses all children is purged as well.
-func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
+func (n *ConfNode) Prune(root *CmdNode, parent, child *ConfNode, out CmdClient) bool {
 
 	if n == parent {
 		// found parent node
@@ -169,14 +169,27 @@ func (n *ConfNode) Prune(parent, child *ConfNode, out CmdClient) bool {
 	// keep searching parent node...
 	for _, c := range n.Children {
 		// ...recursively
-		if deleteChild := c.Prune(parent, child, out); deleteChild {
+		if deleteChild := c.Prune(root, parent, child, out); deleteChild {
 
-			// child lost all children, then we kill it
+			// child lost all children, we should kill it
+
+			/*
+				cmdNode, err1 := CmdFind(root, child.Path, CONF, false)
+				out.Sendln(fmt.Sprintf("Prune: path=%s cmd=%v error=%v", child.Path, cmdNode, err1))
+				if cmdNode == nil || err1 != nil {
+					msg := fmt.Sprintf("command.Prune: could not find command for child=[%s]: error=%v", child.Path, err1)
+					log.Printf(msg)
+					out.Sendln(msg)
+					return false
+				}
+			*/
+
 			if err := n.deleteChild(c); err != nil {
 				msg := fmt.Sprintf("command.Prune: error: %v", err)
 				log.Printf(msg)
 				out.Sendln(msg)
 			}
+
 			deleteMe := len(n.Children) == 0 // lost all children, kill me
 
 			if size := len(n.Value); deleteMe && size > 0 {
@@ -227,7 +240,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 		// not found
 
 		for ; i < size-1; i++ {
-			// intermmediate label
+			// intermediate label
 			label = labels[i]
 			currPath := strings.Join(labels[:i+1], " ")
 			newNode := &ConfNode{Path: currPath}
@@ -452,13 +465,6 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 	parent := root
 	for _, label := range tokens {
 
-		/*
-			if len(parent.Children) == 1 && LastToken(parent.Children[0].Path) == CMD_WILDCARD_ANY {
-				// {ANY} is special construct for consuming anything
-				return checkLevel(parent.Children[0], "CmdNode", path, level) // found
-			}
-		*/
-
 		children, isAny, err := matchChildren(parent.Children, label, checkPattern)
 		if err != nil {
 			return nil, fmt.Errorf("CmdFind: bad command: [%s] under [%s]: %v", label, parent.Path, err)
@@ -478,7 +484,7 @@ func CmdFind(root *CmdNode, path string, level int, checkPattern bool) (*CmdNode
 		parent = children[0]
 	}
 
-	return checkLevel(parent, "CmdNode", path, level) // found
+	return checkLevel(parent, "CmdFind", path, level) // found
 }
 
 func matchChildren(children []*CmdNode, prefix string, checkPattern bool) ([]*CmdNode, bool, error) {
@@ -661,8 +667,6 @@ func helpKeyTab(ctx ConfContext, line string, c CmdClient, status int, listChild
 		showOptions(c, options, help)
 		return
 	}
-
-	//c.Sendln(fmt.Sprintf("helpKeyTab: auto-complete='%s' FIXME WRITEME", autoComplete))
 
 	c.LineBufferComplete(autoComplete+" ", listChildren)
 }

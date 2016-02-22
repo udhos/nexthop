@@ -511,7 +511,7 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 	//c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
 	//c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
 
-	ctx.ConfRootCandidate().Prune(parentConf, parentConf.Children[childIndex], c)
+	ctx.ConfRootCandidate().Prune(ctx.CmdRoot(), parentConf, parentConf.Children[childIndex], c)
 
 	return nil // ok
 }

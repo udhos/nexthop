@@ -190,11 +190,14 @@ func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, 
 	path, _ := command.StripLastToken(node.Path)
 
 	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		c.Sendln(fmt.Sprintf("cmdRipNetwork: error: %v", err))
+	confNode, err1, _ := confCand.Set(path, linePath)
+	if err1 != nil {
+		c.Sendln(fmt.Sprintf("cmdRipNetwork: error: %v", err1))
 		return
 	}
+
+	ripRouterNode, err2 := confCand.Get("router rip")
+	c.Sendln(fmt.Sprintf("rip router: node=%v error=%v", ripRouterNode, err2))
 
 	confNode.ValueAdd(netAddr)
 }

@@ -14,7 +14,7 @@ import (
 )
 
 type RipRouter struct {
-	done        chan int // close this channel to request end of rip router
+	done        chan int // write into this channel (do not close) to request end of rip router
 	input       chan udpInfo
 	nets        []*net.IPNet // locally generated networks
 	ports       []*port      // rip interfaces
@@ -186,7 +186,6 @@ func delInterfaces(r *RipRouter) {
 	r.ports = nil // cleanup
 }
 
-//func udpReader(c *ipv4.PacketConn, done <-chan int, input chan<- udpInfo, ifname string) {
 func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string, readerDone chan<- int) {
 
 	log.Printf("udpReader: reading from '%s'", ifname)
@@ -197,28 +196,8 @@ func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string, readerDo
 
 LOOP:
 	for {
-		/*
-			select {
-			case <-done:
-				break LOOP
-			default:
-			}
-
-			c.SetReadDeadline(time.Now().Add(1 * time.Second)) // set 1-sec timeout
-		*/
 		n, cm, srcAddr, err1 := c.ReadFrom(buf)
 		if err1 != nil {
-			/*
-				switch err1.(type) {
-				case net.Error:
-					if err1.(net.Error).Timeout() {
-						continue
-					}
-				default:
-					log.Printf("udpReader: possible uncaught timeout")
-				}
-			*/
-
 			log.Printf("udpReader: ReadFrom: error %v", err1)
 			break LOOP
 		}
