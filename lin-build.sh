@@ -12,6 +12,6 @@ gofmt -s -w $NEXTHOP/src
 
 go install rib-old rib rip
 
-go test command cli addr sock
+go test command cli addr sock rip
 
 # eof

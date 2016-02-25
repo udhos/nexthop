@@ -17,10 +17,6 @@ func ConfEqual(root1, root2 *ConfNode) bool {
 	return len(pathList1)+len(pathList2) == 0
 }
 
-// get diff from active conf to candidate conf
-// build command list to apply diff to active conf
-//  - include preparatory commands, like deleting addresses from interfaces affected by address change
-//  - if any command fails, revert previously applied commands
 func Commit(ctx ConfContext, c CmdClient, forceFailure bool) error {
 	confAct := ctx.ConfRootActive()
 	confCand := ctx.ConfRootCandidate()
