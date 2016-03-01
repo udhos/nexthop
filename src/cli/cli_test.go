@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"testing"
 
 	"command"
@@ -291,6 +292,148 @@ func TestConf(t *testing.T) {
 	cmd = "no"
 	if err := command.CmdNo(app, noCmd, cmd, c); err == nil {
 		t.Errorf("bad cmd silently accepted: [%s]", cmd)
+	}
+
+}
+
+func TestPrune(t *testing.T) {
+
+	app := &testApp{
+		cmdRoot:           &command.CmdNode{MinLevel: command.EXEC},
+		confRootCandidate: &command.ConfNode{},
+		confRootActive:    &command.ConfNode{},
+	}
+
+	hardware := fwd.NewDataplaneBogus()
+
+	listInterfaces := func() ([]string, []string) {
+		ifaces, vrfs, err := hardware.Interfaces()
+		if err != nil {
+			t.Errorf("hardware.Interfaces(): error: %v", err)
+		}
+		return ifaces, vrfs
+	}
+	listCommitId := func() []string {
+		return []string{"BOGUS:TestPrune:listCommitId"}
+	}
+	command.LoadKeywordTable(listInterfaces, listCommitId)
+
+	root := app.cmdRoot
+	cmdNone := command.CMD_NONE
+	cmdConf := command.CMD_CONF
+
+	/*
+		cmdBogus := func(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+		}
+	*/
+
+	cmdSimpleSet := func(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+		ctx.ConfRootCandidate().Set(node.Path, line)
+	}
+
+	path := "a b c d e f g h i j"
+	jPath := "b c d e f g h i j"
+	hPath := "b c d e f g h"
+	gPath := "b c d e f g"
+	fPath := "b c d e f"
+
+	command.CmdInstall(root, cmdConf, path, command.CONF, cmdSimpleSet, command.ApplyBogus, "Teste prune A")
+	command.CmdInstall(root, cmdConf, fPath, command.CONF, cmdSimpleSet, command.ApplyBogus, "Teste prune F")
+	command.CmdInstall(root, cmdConf, jPath, command.CONF, cmdSimpleSet, command.ApplyBogus, "Teste prune J")
+	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
+
+	c := &testClient{outputChannel: make(chan string)}
+	close(c.outputChannel) // closed channel will break writers
+
+	noCmd, err := command.CmdFind(root, "no X", command.CONF, true)
+	if noCmd == nil || err != nil {
+		t.Errorf("could not find 'no' command: %v", err)
+		return
+	}
+
+	command.Dispatch(app, path, c, command.CONF, false)
+
+	{
+		node, err := app.confRootCandidate.Get(path)
+		if node == nil || err != nil {
+			t.Errorf("missing config node=[%s] error: %v", path, err)
+			return
+		}
+		if node.Path != path {
+			t.Errorf("config node mismatch want=[%s] got=[%s]", path, node.Path)
+			return
+		}
+	}
+
+	noPath := fmt.Sprintf("no %s", path)
+	if err := command.CmdNo(app, noCmd, noPath, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", noPath, err)
+		return
+	}
+
+	{
+		node, err := app.confRootCandidate.Get(path)
+		if node != nil || err == nil {
+			t.Errorf("unexpected config node=[%s] error: %v", path, err)
+			return
+		}
+	}
+
+	{
+		p := "a"
+		node, err := app.confRootCandidate.Get(p)
+		if node != nil || err == nil {
+			t.Errorf("unexpected config node=[%s] error: %v", p, err)
+			return
+		}
+	}
+
+	command.Dispatch(app, jPath, c, command.CONF, false)
+
+	{
+		node, err := app.confRootCandidate.Get(jPath)
+		if node == nil || err != nil {
+			t.Errorf("missing config node=[%s] error: %v", jPath, err)
+			return
+		}
+		if node.Path != jPath {
+			t.Errorf("config node mismatch want=[%s] got=[%s]", jPath, node.Path)
+			return
+		}
+	}
+
+	noH := fmt.Sprintf("no %s", hPath)
+	if err := command.CmdNo(app, noCmd, noH, c); err != nil {
+		t.Errorf("cmd failed: [%s] error=[%v]", noH, err)
+		return
+	}
+
+	{
+		node, err := app.confRootCandidate.Get(hPath)
+		if node != nil || err == nil {
+			t.Errorf("unexpected config node=[%s] error: %v", hPath, err)
+			return
+		}
+	}
+
+	{
+		node, err := app.confRootCandidate.Get(gPath)
+		if node != nil || err == nil {
+			t.Errorf("unexpected config node=[%s] error: %v", gPath, err)
+			return
+		}
+	}
+
+	{
+		node, err := app.confRootCandidate.Get(fPath)
+		if node == nil || err != nil {
+			t.Errorf("missing config node=[%s] error: %v", fPath, err)
+			return
+		}
+		if node.Path != fPath {
+			t.Errorf("config node mismatch want=[%s] got=[%s]", fPath, node.Path)
+			return
+		}
 	}
 
 }

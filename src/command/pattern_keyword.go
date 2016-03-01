@@ -36,6 +36,9 @@ func IsUserPatternKeyword(str string) bool {
 }
 
 func LoadKeywordTable(ifScannerFunc interfaceListFunc, commitScannerFunc optionsFunc) {
+
+	keyword_table.table = map[string]keyword{} // discard previous map
+
 	keyword_table.ifScanFunc = ifScannerFunc
 
 	listIf := func() []string {
