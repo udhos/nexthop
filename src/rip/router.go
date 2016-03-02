@@ -87,11 +87,13 @@ type port struct {
 type udpInfo struct {
 	info    []byte
 	src     net.UDPAddr
-	dst     net.IP
+	dst     net.UDPAddr
 	ifIndex int
 	ifName  string
 }
 
+// NewRipRouter(): Spawn new rip router.
+// Write on RipRouter.done channel (do not close it) to request termination of rip router.
 func NewRipRouter() *RipRouter {
 
 	RIP_GROUP := net.IPv4(224, 0, 0, 9)
@@ -128,7 +130,7 @@ func NewRipRouter() *RipRouter {
 					break LOOP
 				}
 				log.Printf("rip router: recv %d bytes from %v to %v on %s ifIndex=%d",
-					len(u.info), &u.src, u.dst, u.ifName, u.ifIndex)
+					len(u.info), &u.src, &u.dst, u.ifName, u.ifIndex)
 			}
 		}
 
@@ -203,7 +205,9 @@ func (r *RipRouter) InterfaceAdd(s string) error {
 
 func (r *RipRouter) Join(ifi *net.Interface) error {
 
-	m, err1 := sock.MulticastListener(RIP_PORT, ifi.Name)
+	ripPort := RIP_PORT
+
+	m, err1 := sock.MulticastListener(ripPort, ifi.Name)
 	if err1 != nil {
 		return fmt.Errorf("RipRouter.Join: open: %v", err1)
 	}
@@ -217,7 +221,7 @@ func (r *RipRouter) Join(ifi *net.Interface) error {
 
 	r.ports = append(r.ports, newPort)
 
-	go udpReader(m.P, r.input, ifi.Name, r.readerDone)
+	go udpReader(m.P, r.input, ifi.Name, r.readerDone, ripPort)
 
 	r.readerCount++
 
@@ -231,7 +235,7 @@ func delInterfaces(r *RipRouter) {
 	r.ports = nil // cleanup
 }
 
-func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string, readerDone chan<- int) {
+func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string, readerDone chan<- int, listenPort int) {
 
 	log.Printf("udpReader: reading from '%s'", ifname)
 
@@ -272,14 +276,16 @@ LOOP:
 			name = ifi.Name
 		}
 
-		//log.Printf("udpReader: recv %d bytes from %v to %s on %s ifIndex=%d", n, udpSrc, cm.Dst, name, cm.IfIndex)
+		udpDst := net.UDPAddr{IP: cm.Dst, Port: listenPort}
+
+		//log.Printf("udpReader: recv %d bytes from %v to %v on %s ifIndex=%d", n, udpSrc, &udpDst, name, cm.IfIndex)
 
 		// make a copy because we will overwrite buf
 		b := make([]byte, n)
 		copy(b, buf)
 
 		// deliver udp packet to main rip goroutine
-		input <- udpInfo{info: b, src: *udpSrc, dst: cm.Dst, ifIndex: cm.IfIndex, ifName: name}
+		input <- udpInfo{info: b, src: *udpSrc, dst: udpDst, ifIndex: cm.IfIndex, ifName: name}
 	}
 
 	log.Printf("udpReader: exiting '%s' -- trying", ifname)
