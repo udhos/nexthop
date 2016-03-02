@@ -108,6 +108,14 @@ func ListConfig(configPathPrefix string, reverse bool) (string, []string, error)
 	return dirname, matches, nil
 }
 
+type configLineWriter struct {
+	writer *bufio.Writer
+}
+
+func (w *configLineWriter) WriteLine(s string) (int, error) {
+	return w.writer.WriteString(fmt.Sprintf("%s\n", s))
+}
+
 func SaveNewConfig(configPathPrefix string, root *ConfNode, maxFiles int) (string, error) {
 
 	lastConfig, err1 := FindLastConfig(configPathPrefix)
@@ -136,8 +144,9 @@ func SaveNewConfig(configPathPrefix string, root *ConfNode, maxFiles int) (strin
 	}
 
 	w := bufio.NewWriter(f)
+	cw := configLineWriter{w}
 
-	if err := writeConfig(root, w); err != nil {
+	if err := writeConfig(root, &cw); err != nil {
 		return "", fmt.Errorf("SaveNewConfig: error writing file: [%s]: %v", newFilepath, err)
 	}
 
@@ -183,16 +192,17 @@ func eraseOldFiles(configPathPrefix string, root *ConfNode, maxFiles int) {
 	}
 }
 
-type StringWriter interface {
-	WriteString(s string) (int, error)
+type LineWriter interface {
+	WriteLine(s string) (int, error)
 }
 
-func writeConfig(node *ConfNode, w StringWriter) error {
+func writeConfig(node *ConfNode, w LineWriter) error {
 
 	if len(node.Value) == 0 && len(node.Children) == 0 {
-		line := fmt.Sprintf("%s\n", node.Path)
+		//line := fmt.Sprintf("%s\n", node.Path)
+		line := node.Path
 		size := len(line)
-		count, err := w.WriteString(line)
+		count, err := w.WriteLine(line)
 		if count < size || err != nil {
 			return fmt.Errorf("writeConfig: error: write=%d < size=%d: %v", count, size, err)
 		}
@@ -201,9 +211,10 @@ func writeConfig(node *ConfNode, w StringWriter) error {
 
 	// show node values
 	for _, v := range node.Value {
-		line := fmt.Sprintf("%s %s\n", node.Path, v)
+		//line := fmt.Sprintf("%s %s\n", node.Path, v)
+		line := fmt.Sprintf("%s %s", node.Path, v)
 		size := len(line)
-		count, err := w.WriteString(line)
+		count, err := w.WriteLine(line)
 		if count < size || err != nil {
 			return fmt.Errorf("writeConfig: error: write=%d < size=%d: %v", count, size, err)
 		}

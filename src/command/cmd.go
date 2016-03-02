@@ -48,10 +48,10 @@ const DefaultMaxConfigFiles = 1000
 type CmdClient interface {
 	ConfigPath() string
 	ConfigPathSet(path string)
-	Send(msg string)
+	Send(msg string) int
 	SendNow(msg string)
 	Newline()
-	Sendln(msg string)
+	Sendln(msg string) int
 	SendlnNow(msg string)
 	InputQuit()
 	Output() chan<- string

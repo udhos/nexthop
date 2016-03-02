@@ -51,9 +51,9 @@ func (c testClient) StatusEnable()                                       {}
 func (c testClient) StatusExit()                                         {}
 func (c testClient) ConfigPathSet(path string)                           {}
 func (c testClient) Newline()                                            {}
-func (c testClient) Send(msg string)                                     {}
+func (c testClient) Send(msg string) int                                 { return len(msg) }
 func (c testClient) SendNow(msg string)                                  {}
-func (c testClient) Sendln(msg string)                                   {}
+func (c testClient) Sendln(msg string) int                               { return len(msg) }
 func (c testClient) SendlnNow(msg string)                                {}
 func (c testClient) InputQuit()                                          {}
 func (c testClient) HistoryAdd(cmd string)                               {}

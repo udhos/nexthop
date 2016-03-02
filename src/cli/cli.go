@@ -153,8 +153,8 @@ func (c *Client) SendNow(msg string) {
 	c.Flush()
 }
 
-func (c *Client) Sendln(msg string) {
-	c.Send(fmt.Sprintf("%s\r\n", msg))
+func (c *Client) Sendln(msg string) int {
+	return c.Send(fmt.Sprintf("%s\r\n", msg))
 }
 
 func (c *Client) Newline() {
@@ -164,7 +164,7 @@ func (c *Client) Newline() {
 // enqueue message for client
 // break messages into LF-terminated lines
 // append every line to outputQueue
-func (c *Client) Send(msg string) {
+func (c *Client) Send(msg string) int {
 	c.outputBuf += msg
 
 	for {
@@ -180,6 +180,8 @@ func (c *Client) Send(msg string) {
 		c.outputQueue = append(c.outputQueue, c.outputBuf[:i]) // push line into output queue
 		c.outputBuf = c.outputBuf[i:]                          // skip line
 	}
+
+	return len(msg)
 }
 
 // send lines from outputQueue, paging on terminal height

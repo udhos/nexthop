@@ -51,9 +51,9 @@ func (c ripTestClient) StatusEnable()                                       {}
 func (c ripTestClient) StatusExit()                                         {}
 func (c ripTestClient) ConfigPathSet(path string)                           {}
 func (c ripTestClient) Newline()                                            {}
-func (c ripTestClient) Send(msg string)                                     {}
+func (c ripTestClient) Send(msg string) int                                 { return len(msg) }
 func (c ripTestClient) SendNow(msg string)                                  {}
-func (c ripTestClient) Sendln(msg string)                                   {}
+func (c ripTestClient) Sendln(msg string) int                               { return len(msg) }
 func (c ripTestClient) SendlnNow(msg string)                                {}
 func (c ripTestClient) InputQuit()                                          {}
 func (c ripTestClient) HistoryAdd(cmd string)                               {}

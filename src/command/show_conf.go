@@ -5,16 +5,33 @@ import (
 	//"strings"
 )
 
+type lineSender interface {
+	Sendln(string) int
+}
+
+type configSender struct {
+	sender lineSender
+}
+
+func (s *configSender) WriteLine(line string) (int, error) {
+	return s.sender.Sendln(line), nil
+}
+
 func ShowConf(root *ConfNode, node *CmdNode, c CmdClient, treeMode bool) {
+
+	sender := &configSender{c}
+
 	for _, n := range root.Children {
 		if treeMode {
 			showConfTree(n, 0, c)
 		} else {
-			showConfLine(n, c)
+			//showConfLine(n, c)
+			writeConfig(n, sender)
 		}
 	}
 }
 
+/*
 func showConfLine(node *ConfNode, c CmdClient) {
 
 	if len(node.Value) == 0 && len(node.Children) == 0 {
@@ -30,6 +47,7 @@ func showConfLine(node *ConfNode, c CmdClient) {
 		showConfLine(n, c)
 	}
 }
+*/
 
 func showConfTree(node *ConfNode, depth int, c CmdClient) {
 
