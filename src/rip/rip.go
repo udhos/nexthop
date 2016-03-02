@@ -160,9 +160,14 @@ func installCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 
+	// Node description is used for pretty display in command help.
+	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
 	command.DescInstall(root, "hostname", "Assign hostname")
 	command.DescInstall(root, "router", "Configure routing")
 	command.DescInstall(root, "router rip network", "Insert network into RIP protocol")
+	command.DescInstall(root, "router rip vrf", "Insert network into RIP protocol for specific VRF")
+	command.DescInstall(root, "router rip vrf {VRFNAME}", "Insert network into RIP protocol for specific VRF")
+	command.DescInstall(root, "router rip vrf {VRFNAME} network", "Insert network into RIP protocol for specific VRF")
 
 	command.MissingDescription(root)
 }

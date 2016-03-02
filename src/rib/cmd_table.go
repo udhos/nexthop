@@ -35,6 +35,8 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConf, "vrf {VRFNAME} ipv4 import route-target {RT}", command.CONF, cmdVrfImportRT, command.ApplyBogus, "Route-target for import")
 	command.CmdInstall(root, cmdConf, "vrf {VRFNAME} ipv4 export route-target {RT}", command.CONF, cmdVrfExportRT, command.ApplyBogus, "Route-target for export")
 
+	// Node description is used for pretty display in command help.
+	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
 	command.DescInstall(root, "hostname", "Assign hostname")
 	command.DescInstall(root, "interface", "Configure interface")
 	command.DescInstall(root, "interface {IFNAME}", "Configure interface parameter")
