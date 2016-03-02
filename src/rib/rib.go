@@ -83,7 +83,7 @@ func main() {
 		return ifaces, vrfs
 	}
 	listCommitId := func() []string {
-		_, matches, err := command.ListConfig(ribConf.ConfigPathPrefix())
+		_, matches, err := command.ListConfig(ribConf.ConfigPathPrefix(), true)
 		if err != nil {
 			log.Printf("%s main: error listing commit id's: %v", ribConf.daemonName, err)
 		}

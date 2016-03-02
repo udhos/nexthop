@@ -51,7 +51,7 @@ func ExtractCommitIdFromFilename(filename string) (int, error) {
 func FindLastConfig(configPathPrefix string) (string, error) {
 	log.Printf("FindLastConfig: configuration path prefix: %s", configPathPrefix)
 
-	dirname, matches, err := ListConfig(configPathPrefix)
+	dirname, matches, err := ListConfig(configPathPrefix, false)
 	if err != nil {
 		return "", err
 	}
@@ -69,7 +69,7 @@ func FindLastConfig(configPathPrefix string) (string, error) {
 	return lastConfig, nil
 }
 
-func ListConfig(configPathPrefix string) (string, []string, error) {
+func ListConfig(configPathPrefix string, reverse bool) (string, []string, error) {
 	//log.Printf("FindLastConfig: configuration path prefix: %s", configPathPrefix)
 
 	dirname := filepath.Dir(configPathPrefix)
@@ -99,7 +99,11 @@ func ListConfig(configPathPrefix string) (string, []string, error) {
 		}
 	}
 
-	sort.Sort(sortByCommitId(matches))
+	if reverse {
+		sort.Sort(sort.Reverse(sortByCommitId(matches)))
+	} else {
+		sort.Sort(sortByCommitId(matches))
+	}
 
 	return dirname, matches, nil
 }
@@ -156,7 +160,7 @@ func eraseOldFiles(configPathPrefix string, root *ConfNode, maxFiles int) {
 		return
 	}
 
-	dirname, matches, err := ListConfig(configPathPrefix)
+	dirname, matches, err := ListConfig(configPathPrefix, false)
 	if err != nil {
 		log.Printf("eraseOldFiles: %v", err)
 		return

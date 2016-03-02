@@ -79,7 +79,7 @@ func main() {
 		return ifaces, vrfs
 	}
 	listCommitId := func() []string {
-		_, matches, err := command.ListConfig(rip.ConfigPathPrefix())
+		_, matches, err := command.ListConfig(rip.ConfigPathPrefix(), true)
 		if err != nil {
 			log.Printf("%s main: error listing commit id's: %v", rip.daemonName, err)
 		}
@@ -206,35 +206,23 @@ func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, 
 }
 
 func applyRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	return enableRip(ctx, node, action, c)
+	return enableRip(ctx, node, action, c, false)
 }
 
 func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	return enableRip(ctx, node, action, c)
+	return enableRip(ctx, node, action, c, true)
 }
 
-func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool) error {
 	rip := ctx.(*Rip)
 
-	var isNetCmd bool
-	{
-		p := strings.Fields(node.Path)
-		if size := len(p); size > 1 {
-			isNetCmd = p[size-2] == "network"
-		}
-	}
-
 	cand, _ := ctx.ConfRootCandidate().Get("router rip")
-	//act, _ := ctx.ConfRootActive().Get("router rip")
-
-	//log.Printf("enableRip: cmd=[%s] conf=[%s] cand=[%v] act=[%v]", node.Path, action.Cmd, cand, act)
 
 	if action.Enable {
 		// enable RIP
 
 		if rip.router == nil {
 			rip.router = NewRipRouter()
-			//log.Printf("enableRip: cmd=[%s] conf=[%s] rip enabled", node.Path, action.Cmd)
 		}
 
 		if isNetCmd {
@@ -285,9 +273,6 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 	// fully disable RIP
 
 	rip.router.done <- 1 // request end of rip goroutine
-
-	//log.Printf("enableRip: cmd=[%s] conf=[%s] rip disabled", node.Path, action.Cmd)
-
 	rip.router = nil
 
 	return nil
