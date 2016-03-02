@@ -174,7 +174,7 @@ func (n *ConfNode) Prune(root *CmdNode, parent, child *ConfNode, out CmdClient) 
 			// child lost all children, we should kill it
 
 			cmdNode, err1 := CmdFind(root, c.Path, CONF, false)
-			out.Sendln(fmt.Sprintf("Prune: path=%s cmd=%v error=%v", child.Path, cmdNode, err1))
+			//out.Sendln(fmt.Sprintf("Prune: path=%s cmd=%v error=%v", child.Path, cmdNode, err1))
 			if cmdNode == nil || err1 != nil {
 				msg := fmt.Sprintf("command.Prune: could not find command for child=[%s]: error=%v", c.Path, err1)
 				log.Printf(msg)

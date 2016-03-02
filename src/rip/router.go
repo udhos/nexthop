@@ -13,12 +13,65 @@ import (
 	"sock"
 )
 
+type ripVrf struct {
+	name string
+	nets []*net.IPNet // locally generated networks (configuration)
+}
+
+// Empty: VRF does not contain any data
+func (v *ripVrf) Empty() bool {
+	return len(v.nets) < 1
+}
+
+func (v *ripVrf) NetAdd(s string) error {
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetAdd: parse error: addr=[%s]: %v", s, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetAdd: bad mask: addr=[%s]: %v", s, err1)
+	}
+	for _, a := range v.nets {
+		if addr.NetEqual(ipnet, a) {
+			// found
+			return nil
+		}
+	}
+	// not found
+	v.nets = append(v.nets, ipnet) // add
+	return nil
+}
+
+func (v *ripVrf) NetDel(s string) error {
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetDel: parse error: addr=[%s]: %v", s, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetDel: bad mask: addr=[%s]: %v", s, err1)
+	}
+	for i, a := range v.nets {
+		if addr.NetEqual(ipnet, a) {
+			// found
+
+			last := len(v.nets) - 1
+			v.nets[i] = v.nets[last] // overwrite position with last pointer
+			v.nets[last] = nil       // free last pointer for garbage collection
+			v.nets = v.nets[:last]   // shrink
+
+			return nil
+		}
+	}
+	// not found
+	return nil
+}
+
 type RipRouter struct {
 	done        chan int // write into this channel (do not close) to request end of rip router
 	input       chan udpInfo
-	nets        []*net.IPNet // locally generated networks
-	ports       []*port      // rip interfaces
-	group       net.IP       // 224.0.0.9
+	vrfs        []*ripVrf
+	ports       []*port // rip interfaces
+	group       net.IP  // 224.0.0.9
 	readerDone  chan int
 	readerCount int
 }
@@ -85,47 +138,39 @@ func NewRipRouter() *RipRouter {
 	return r
 }
 
-func (r *RipRouter) NetAdd(s string) error {
-	_, ipnet, err := net.ParseCIDR(s)
-	if err != nil {
-		return fmt.Errorf("RipRouter.NetAdd: parse error: addr=[%s]: %v", s, err)
-	}
-	if err1 := addr.CheckMask(ipnet); err1 != nil {
-		return fmt.Errorf("RipRouter.NetAdd: bad mask: addr=[%s]: %v", s, err1)
-	}
-	for _, a := range r.nets {
-		if addr.NetEqual(ipnet, a) {
-			// found
-			return nil
+func (r *RipRouter) NetAdd(vrf, s string) error {
+	for _, v := range r.vrfs {
+		if v.name == vrf {
+			// vrf found
+			return v.NetAdd(s)
 		}
 	}
-	// not found
-	r.nets = append(r.nets, ipnet) // add
-	return nil
+	// vrf not found
+	v := &ripVrf{name: vrf}
+	r.vrfs = append(r.vrfs, v) // add vrf
+	return v.NetAdd(s)
 }
 
-func (r *RipRouter) NetDel(s string) error {
-	_, ipnet, err := net.ParseCIDR(s)
-	if err != nil {
-		return fmt.Errorf("RipRouter.NetAdd: parse error: addr=[%s]: %v", s, err)
-	}
-	if err1 := addr.CheckMask(ipnet); err1 != nil {
-		return fmt.Errorf("RipRouter.NetDel: bad mask: addr=[%s]: %v", s, err1)
-	}
-	for i, a := range r.nets {
-		if addr.NetEqual(ipnet, a) {
-			// found
+func (r *RipRouter) NetDel(vrf, s string) error {
+	for i, v := range r.vrfs {
+		if v.name == vrf {
+			// vrf found
 
-			last := len(r.nets) - 1
-			r.nets[i] = r.nets[last] // overwrite position with last pointer
-			r.nets[last] = nil       // free last pointer for garbage collection
-			r.nets = r.nets[:last]   // shrink
+			err := v.NetDel(s) // remove net from VRF
 
-			return nil
+			if v.Empty() {
+				// delete vrf
+				last := len(r.vrfs) - 1
+				r.vrfs[i] = r.vrfs[last] // overwrite position with last pointer
+				r.vrfs[last] = nil       // free last pointer for garbage collection
+				r.vrfs = r.vrfs[:last]   // shrink
+			}
+
+			return err
 		}
 	}
-	// not found
-	return nil
+	// vrf not found
+	return fmt.Errorf("RipRouter.NetDel: vrf not found: vrf=[%s] addr=[%s]", vrf, s)
 }
 
 func addInterfaces(r *RipRouter) {

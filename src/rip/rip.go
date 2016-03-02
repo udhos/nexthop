@@ -158,6 +158,7 @@ func installCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdConH, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 
 	command.DescInstall(root, "hostname", "Assign hostname")
 	command.DescInstall(root, "router", "Configure routing")
@@ -196,8 +197,10 @@ func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, 
 		return
 	}
 
-	ripRouterNode, err2 := confCand.Get("router rip")
-	c.Sendln(fmt.Sprintf("rip router: node=%v error=%v", ripRouterNode, err2))
+	/*
+		ripRouterNode, err2 := confCand.Get("router rip")
+		c.Sendln(fmt.Sprintf("rip router: node=%v error=%v", ripRouterNode, err2))
+	*/
 
 	confNode.ValueAdd(netAddr)
 }
@@ -213,7 +216,13 @@ func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.
 func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
 	rip := ctx.(*Rip)
 
-	isNetCmd := strings.HasPrefix(node.Path, "router rip network")
+	var isNetCmd bool
+	{
+		p := strings.Fields(node.Path)
+		if size := len(p); size > 1 {
+			isNetCmd = p[size-2] == "network"
+		}
+	}
 
 	cand, _ := ctx.ConfRootCandidate().Get("router rip")
 	//act, _ := ctx.ConfRootActive().Get("router rip")
@@ -231,7 +240,13 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 		if isNetCmd {
 			// add network into rip
 			f := strings.Fields(action.Cmd)
-			return rip.router.NetAdd(f[3])
+			if strings.HasPrefix("network", f[2]) {
+				return rip.router.NetAdd("", f[3])
+			}
+			if strings.HasPrefix("vrf", f[2]) {
+				return rip.router.NetAdd(f[3], f[5])
+			}
+			return fmt.Errorf("enableRip: bad network command: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
 		}
 
 		return nil
@@ -246,8 +261,17 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 	if isNetCmd {
 		// remove network from rip
 		f := strings.Fields(action.Cmd)
-		if err := rip.router.NetDel(f[3]); err != nil {
-			return err
+
+		if strings.HasPrefix("network", f[2]) {
+			if err := rip.router.NetDel("", f[3]); err != nil {
+				return err
+			}
+		} else if strings.HasPrefix("vrf", f[2]) {
+			if err := rip.router.NetDel(f[3], f[5]); err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("enableRip: bad network command: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
 		}
 
 		// router rip removed?
