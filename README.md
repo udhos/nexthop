@@ -18,13 +18,14 @@ quick start - Linux
 
 6. run daemons
 
-`rib: sudo $HOME/devel/nexthop/bin/rib
-rip: sudo $HOME/devel/nexthop/bin/rip`
+rib: `sudo $HOME/devel/nexthop/bin/rib`
+rip: `sudo $HOME/devel/nexthop/bin/rip`
 
 7. access the daemon CLI with TELNET
 
-`rib: telnet localhost 2001
-rip: telnet localhost 2002`
+rib: `telnet localhost 2001`
+
+rip: `telnet localhost 2002`
 
 quick start - Windows 8
 =======================
