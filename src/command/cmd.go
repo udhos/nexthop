@@ -221,6 +221,8 @@ func (n *ConfNode) deleteChild(child *ConfNode) error {
 	return fmt.Errorf("command.deleteChild: child not found: node=[%s] child[%s]", n.Path, child.Path)
 }
 
+// path: command node path
+// line: original user command line
 func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 	expanded, err := CmdExpand(line, path)

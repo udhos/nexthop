@@ -154,11 +154,13 @@ func installCommands(root *command.CmdNode) {
 	//cmdConH := command.CMD_CONF | command.CMD_HELP
 	cmdConH := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdConH, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
+	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
 	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
 
 	// Node description is used for pretty display in command help.
 	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
@@ -172,53 +174,52 @@ func installCommands(root *command.CmdNode) {
 	command.MissingDescription(root)
 }
 
-func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.HelperHostname(ctx, node, line, c)
-}
-
 func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	rip := ctx.(*Rip)
 	command.HelperShowVersion(rip.daemonName, c)
 }
 
 func cmdRip(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	confCand := ctx.ConfRootCandidate()
-	_, err, _ := confCand.Set(node.Path, line)
-	if err != nil {
-		c.Sendln(fmt.Sprintf("cmdRip: error: %v", err))
-		return
-	}
+	/*
+		confCand := ctx.ConfRootCandidate()
+		_, err, _ := confCand.Set(node.Path, line)
+		if err != nil {
+			c.Sendln(fmt.Sprintf("cmdRip: error: %v", err))
+			return
+		}
+	*/
+
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	linePath, netAddr := command.StripLastToken(line)
-
-	path, _ := command.StripLastToken(node.Path)
-
-	confCand := ctx.ConfRootCandidate()
-	confNode, err1, _ := confCand.Set(path, linePath)
-	if err1 != nil {
-		c.Sendln(fmt.Sprintf("cmdRipNetwork: error: %v", err1))
-		return
-	}
-
 	/*
-		ripRouterNode, err2 := confCand.Get("router rip")
-		c.Sendln(fmt.Sprintf("rip router: node=%v error=%v", ripRouterNode, err2))
+		linePath, netAddr := command.StripLastToken(line)
+
+		path, _ := command.StripLastToken(node.Path)
+
+		confCand := ctx.ConfRootCandidate()
+		confNode, err1, _ := confCand.Set(path, linePath)
+		if err1 != nil {
+			c.Sendln(fmt.Sprintf("cmdRipNetwork: error: %v", err1))
+			return
+		}
+
+		confNode.ValueAdd(netAddr)
 	*/
 
-	confNode.ValueAdd(netAddr)
+	command.MultiValueAdd(ctx, c, node.Path, line)
 }
 
 func applyRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	return enableRip(ctx, node, action, c, false)
+	return enableRip(ctx, node, action, c, false, 1)
 }
 
 func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	return enableRip(ctx, node, action, c, true)
+	return enableRip(ctx, node, action, c, true, 1)
 }
 
-func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool) error {
+func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool, cost int) error {
 	rip := ctx.(*Rip)
 
 	cand, _ := ctx.ConfRootCandidate().Get("router rip")
@@ -232,12 +233,13 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 
 		if isNetCmd {
 			// add network into rip
+
 			f := strings.Fields(action.Cmd)
 			if strings.HasPrefix("network", f[2]) {
-				return rip.router.NetAdd("", f[3])
+				return rip.router.NetAdd("", f[3], cost)
 			}
 			if strings.HasPrefix("vrf", f[2]) {
-				return rip.router.NetAdd(f[3], f[5])
+				return rip.router.NetAdd(f[3], f[5], cost)
 			}
 			return fmt.Errorf("enableRip: bad network command: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
 		}
@@ -281,4 +283,23 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 	rip.router = nil
 
 	return nil
+}
+
+func cmdRipNetCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.SingleValueSetSimple(ctx, c, node.Path, line)
+}
+
+func applyRipNetCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+	_, costStr := command.StripLastToken(action.Cmd)
+
+	cost, err := strconv.Atoi(costStr)
+	if err != nil {
+		return fmt.Errorf("applyRipNetCost: bad cost: '%s'", costStr)
+	}
+
+	if cost < 1 || cost > 15 {
+		return fmt.Errorf("applyRipNetCost: invalid cost: %d", cost)
+	}
+
+	return enableRip(ctx, node, action, c, true, cost)
 }

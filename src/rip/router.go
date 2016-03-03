@@ -13,9 +13,14 @@ import (
 	"sock"
 )
 
+type ripNet struct {
+	addr   *net.IPNet
+	metric int
+}
+
 type ripVrf struct {
 	name string
-	nets []*net.IPNet // locally generated networks (configuration)
+	nets []*ripNet // locally configured networks
 }
 
 // Empty: VRF does not contain any data
@@ -23,7 +28,7 @@ func (v *ripVrf) Empty() bool {
 	return len(v.nets) < 1
 }
 
-func (v *ripVrf) NetAdd(s string) error {
+func (v *ripVrf) NetAdd(s string, cost int) error {
 	_, ipnet, err := net.ParseCIDR(s)
 	if err != nil {
 		return fmt.Errorf("ripVrf.NetAdd: parse error: addr=[%s]: %v", s, err)
@@ -31,14 +36,15 @@ func (v *ripVrf) NetAdd(s string) error {
 	if err1 := addr.CheckMask(ipnet); err1 != nil {
 		return fmt.Errorf("ripVrf.NetAdd: bad mask: addr=[%s]: %v", s, err1)
 	}
-	for _, a := range v.nets {
-		if addr.NetEqual(ipnet, a) {
+	for _, n := range v.nets {
+		if addr.NetEqual(ipnet, n.addr) {
 			// found
+			n.metric = cost
 			return nil
 		}
 	}
 	// not found
-	v.nets = append(v.nets, ipnet) // add
+	v.nets = append(v.nets, &ripNet{addr: ipnet, metric: cost}) // add
 	return nil
 }
 
@@ -50,8 +56,8 @@ func (v *ripVrf) NetDel(s string) error {
 	if err1 := addr.CheckMask(ipnet); err1 != nil {
 		return fmt.Errorf("ripVrf.NetDel: bad mask: addr=[%s]: %v", s, err1)
 	}
-	for i, a := range v.nets {
-		if addr.NetEqual(ipnet, a) {
+	for i, n := range v.nets {
+		if addr.NetEqual(ipnet, n.addr) {
 			// found
 
 			last := len(v.nets) - 1
@@ -140,17 +146,17 @@ func NewRipRouter() *RipRouter {
 	return r
 }
 
-func (r *RipRouter) NetAdd(vrf, s string) error {
+func (r *RipRouter) NetAdd(vrf, s string, cost int) error {
 	for _, v := range r.vrfs {
 		if v.name == vrf {
 			// vrf found
-			return v.NetAdd(s)
+			return v.NetAdd(s, cost)
 		}
 	}
 	// vrf not found
 	v := &ripVrf{name: vrf}
 	r.vrfs = append(r.vrfs, v) // add vrf
-	return v.NetAdd(s)
+	return v.NetAdd(s, cost)
 }
 
 func (r *RipRouter) NetDel(vrf, s string) error {

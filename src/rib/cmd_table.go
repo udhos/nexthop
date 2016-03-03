@@ -160,18 +160,22 @@ func applyIfaceVrf(ctx command.ConfContext, node *command.CmdNode, action comman
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	linePath, addr := command.StripLastToken(line)
+	/*
+		linePath, addr := command.StripLastToken(line)
 
-	path, _ := command.StripLastToken(node.Path)
+		path, _ := command.StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		log.Printf("iface addr6: error: %v", err)
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, linePath)
+		if err != nil {
+			log.Printf("iface addr6: error: %v", err)
+			return
+		}
 
-	confNode.ValueAdd(addr)
+		confNode.ValueAdd(addr)
+	*/
+
+	command.MultiValueAdd(ctx, c, node.Path, line)
 }
 
 func cmdIfaceShutdown(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -184,27 +188,35 @@ func cmdIfaceShutdown(ctx command.ConfContext, node *command.CmdNode, line strin
 }
 
 func cmdIfaceVrf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	linePath, vrfName := command.StripLastToken(line)
+	/*
+		linePath, vrfName := command.StripLastToken(line)
 
-	path, _ := command.StripLastToken(node.Path)
+		path, _ := command.StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		log.Printf("iface vrf: error: %v", err)
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, linePath)
+		if err != nil {
+			log.Printf("iface vrf: error: %v", err)
+			return
+		}
 
-	confNode.ValueSet(vrfName)
+		confNode.ValueSet(vrfName)
+	*/
+
+	command.SingleValueSetSimple(ctx, c, node.Path, line)
 }
 
 func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	confCand := ctx.ConfRootCandidate()
-	_, err, _ := confCand.Set(node.Path, line)
-	if err != nil {
-		log.Printf("cmdIPRouting: error: %v", err)
-		return
-	}
+	/*
+		confCand := ctx.ConfRootCandidate()
+		_, err, _ := confCand.Set(node.Path, line)
+		if err != nil {
+			log.Printf("cmdIPRouting: error: %v", err)
+			return
+		}
+	*/
+
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdHostname(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -229,31 +241,39 @@ func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c c
 }
 
 func cmdVrfImportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	linePath, rt := command.StripLastToken(line)
+	/*
+		linePath, rt := command.StripLastToken(line)
 
-	path, _ := command.StripLastToken(node.Path)
+		path, _ := command.StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		log.Printf("vrf import rt: error: %v", err)
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, linePath)
+		if err != nil {
+			log.Printf("vrf import rt: error: %v", err)
+			return
+		}
 
-	confNode.ValueAdd(rt)
+		confNode.ValueAdd(rt)
+	*/
+
+	command.MultiValueAdd(ctx, c, node.Path, line)
 }
 
 func cmdVrfExportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	linePath, rt := command.StripLastToken(line)
+	/*
+		linePath, rt := command.StripLastToken(line)
 
-	path, _ := command.StripLastToken(node.Path)
+		path, _ := command.StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		log.Printf("vrf export rt: error: %v", err)
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, linePath)
+		if err != nil {
+			log.Printf("vrf export rt: error: %v", err)
+			return
+		}
 
-	confNode.ValueAdd(rt)
+		confNode.ValueAdd(rt)
+	*/
+
+	command.MultiValueAdd(ctx, c, node.Path, line)
 }

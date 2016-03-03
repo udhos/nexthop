@@ -320,18 +320,22 @@ func cmdShowRun(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 // However it is currently being used for helping in tests.
 func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
-	linePath, addr := StripLastToken(line)
+	/*
+		linePath, addr := StripLastToken(line)
 
-	path, _ := StripLastToken(node.Path)
+		path, _ := StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		c.Sendln(fmt.Sprintf("iface addr: error: %v", err))
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, linePath)
+		if err != nil {
+			c.Sendln(fmt.Sprintf("iface addr: error: %v", err))
+			return
+		}
 
-	confNode.ValueAdd(addr)
+		confNode.ValueAdd(addr)
+	*/
+
+	MultiValueAdd(ctx, c, node.Path, line)
 }
 
 func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -355,29 +359,37 @@ func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient)
 	fields := strings.Fields(node.Path)
 	path := strings.Join(fields[:3], " ") // interface XXX description
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, linePath)
-	if err != nil {
-		log.Printf("description: error: %v", err)
-		return
-	}
+	/*
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, linePath)
+		if err != nil {
+			log.Printf("description: error: %v", err)
+			return
+		}
 
-	confNode.ValueSet(desc)
+		confNode.ValueSet(desc)
+	*/
+
+	SingleValueSet(ctx, c, path, linePath, desc)
 }
 
 func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	line, host := StripLastToken(line)
+	/*
+		line, host := StripLastToken(line)
 
-	path, _ := StripLastToken(node.Path)
+		path, _ := StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, line)
-	if err != nil {
-		log.Printf("hostname: error: %v", err)
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, line)
+		if err != nil {
+			log.Printf("hostname: error: %v", err)
+			return
+		}
 
-	confNode.ValueSet(host)
+		confNode.ValueSet(host)
+	*/
+
+	SingleValueSetSimple(ctx, c, node.Path, line)
 }
 
 func cmdList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -523,16 +535,20 @@ func HelperShowVersion(daemonName string, c CmdClient) {
 }
 
 func cmdUsername(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	userLine, pass := StripLastToken(line)
+	/*
+		userLine, pass := StripLastToken(line)
 
-	path, _ := StripLastToken(node.Path)
+		path, _ := StripLastToken(node.Path)
 
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, userLine)
-	if err != nil {
-		c.Sendln(fmt.Sprintf("unable to set user password: error: %v", err))
-		return
-	}
+		confCand := ctx.ConfRootCandidate()
+		confNode, err, _ := confCand.Set(path, userLine)
+		if err != nil {
+			c.Sendln(fmt.Sprintf("unable to set user password: error: %v", err))
+			return
+		}
 
-	confNode.ValueSet(pass)
+		confNode.ValueSet(pass)
+	*/
+
+	SingleValueSetSimple(ctx, c, node.Path, line)
 }
