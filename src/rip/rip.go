@@ -167,9 +167,11 @@ func installCommands(root *command.CmdNode) {
 	command.DescInstall(root, "hostname", "Assign hostname")
 	command.DescInstall(root, "router", "Configure routing")
 	command.DescInstall(root, "router rip network", "Insert network into RIP protocol")
+	command.DescInstall(root, "router rip network {NETWORK} cost", "RIP network cost")
 	command.DescInstall(root, "router rip vrf", "Insert network into RIP protocol for specific VRF")
 	command.DescInstall(root, "router rip vrf {VRFNAME}", "Insert network into RIP protocol for specific VRF")
 	command.DescInstall(root, "router rip vrf {VRFNAME} network", "Insert network into RIP protocol for specific VRF")
+	command.DescInstall(root, "router rip vrf {VRFNAME} network {NETWORK} cost", "RIP network cost")
 
 	command.MissingDescription(root)
 }
@@ -294,7 +296,7 @@ func applyRipNetCost(ctx command.ConfContext, node *command.CmdNode, action comm
 
 	cost, err := strconv.Atoi(costStr)
 	if err != nil {
-		return fmt.Errorf("applyRipNetCost: bad cost: '%s'", costStr)
+		return fmt.Errorf("applyRipNetCost: parse error: '%s': %v", costStr, err)
 	}
 
 	if cost < 1 || cost > 15 {

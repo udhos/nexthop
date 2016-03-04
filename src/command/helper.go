@@ -20,6 +20,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
 	CmdInstall(root, cmdHelp, "exit", EXEC, cmdExit, nil, "Exit current location")
 	CmdInstall(root, cmdHelp, "list", EXEC, cmdList, nil, "List command tree")
+	CmdInstall(root, cmdHelp, "list brief", EXEC, cmdList, nil, "List only nodes with attached handlers")
 	CmdInstall(root, cmdHelp, "list description", EXEC, cmdList, nil, "List command tree showing descriptions")
 	CmdInstall(root, cmdHelp, "no {ANY}", CONF, HelperNo, nil, "Remove this configuration item")
 	CmdInstall(root, cmdHelp, "quit", EXEC, cmdQuit, nil, "Quit session")
@@ -393,25 +394,40 @@ func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 }
 
 func cmdList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	showDesc := len(strings.Fields(line)) > 1
+	var showDesc, handlerOnly bool
+
+	f := strings.Fields(line)
+	if len(f) > 1 {
+		if strings.HasPrefix("brief", f[1]) {
+			handlerOnly = true
+		}
+		if strings.HasPrefix("description", f[1]) {
+			showDesc = true
+		}
+	}
+
 	for _, n := range ctx.CmdRoot().Children {
-		list(n, 0, c, showDesc)
+		list(n, 0, c, showDesc, handlerOnly)
 	}
 }
 
-func list(node *CmdNode, depth int, c CmdClient, showDesc bool) {
+func list(node *CmdNode, depth int, c CmdClient, showDesc, handlerOnly bool) {
 	handler := "----"
 	if node.Handler != nil {
 		handler = "LEAF"
 	}
-	ident := strings.Repeat(" ", 2*depth)
-	c.Send(fmt.Sprintf("%s %d %s%s", handler, node.MinLevel, ident, node.Path))
-	if showDesc {
-		c.Send(fmt.Sprintf(" [%s]", node.Desc))
+
+	if node.Handler != nil || !handlerOnly {
+		ident := strings.Repeat(" ", 2*depth)
+		c.Send(fmt.Sprintf("%s %d %s%s", handler, node.MinLevel, ident, node.Path))
+		if showDesc {
+			c.Send(fmt.Sprintf(" [%s]", node.Desc))
+		}
+		c.Newline()
 	}
-	c.Newline()
+
 	for _, n := range node.Children {
-		list(n, depth+1, c, showDesc)
+		list(n, depth+1, c, showDesc, handlerOnly)
 	}
 }
 

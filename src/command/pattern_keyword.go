@@ -52,6 +52,7 @@ func LoadKeywordTable(ifScannerFunc interfaceListFunc, commitScannerFunc options
 	keywordAdd("{IFADDR6}", matchIfAddr6, nil)
 	keywordAdd("{COMMITID}", matchCommitId, commitScannerFunc)
 	keywordAdd("{NETWORK}", matchNetwork, nil)
+	keywordAdd("{RIPMETRIC}", matchRipMetric, nil)
 }
 
 func MatchKeyword(word, label string) error {
@@ -176,5 +177,19 @@ func matchNetwork(s string) error {
 	if err1 := addr.CheckMask(n); err1 != nil {
 		return fmt.Errorf("matchNetwork: bad mask: addr=[%s]: %v", s, err1)
 	}
+	return nil // accept
+}
+
+func matchRipMetric(costStr string) error {
+
+	cost, err := strconv.Atoi(costStr)
+	if err != nil {
+		return fmt.Errorf("bad rip network metric: '%s': %v", costStr, err)
+	}
+
+	if cost < 1 || cost > 15 {
+		return fmt.Errorf("invalid rip network cost: %d", cost)
+	}
+
 	return nil // accept
 }
