@@ -74,7 +74,7 @@ func (v *ripVrf) NetDel(s string) error {
 
 type RipRouter struct {
 	done        chan int // write into this channel (do not close) to request end of rip router
-	input       chan udpInfo
+	input       chan *udpInfo
 	vrfs        []*ripVrf
 	ports       []*port // rip interfaces
 	group       net.IP  // 224.0.0.9
@@ -104,7 +104,7 @@ func NewRipRouter() *RipRouter {
 
 	RIP_GROUP := net.IPv4(224, 0, 0, 9)
 
-	r := &RipRouter{done: make(chan int), input: make(chan udpInfo), group: RIP_GROUP, readerDone: make(chan int)}
+	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int)}
 
 	addInterfaces(r)
 
@@ -241,7 +241,7 @@ func delInterfaces(r *RipRouter) {
 	r.ports = nil // cleanup
 }
 
-func udpReader(c *ipv4.PacketConn, input chan<- udpInfo, ifname string, readerDone chan<- int, listenPort int) {
+func udpReader(c *ipv4.PacketConn, input chan<- *udpInfo, ifname string, readerDone chan<- int, listenPort int) {
 
 	log.Printf("udpReader: reading from '%s'", ifname)
 
@@ -291,7 +291,7 @@ LOOP:
 		copy(b, buf)
 
 		// deliver udp packet to main rip goroutine
-		input <- udpInfo{info: b, src: *udpSrc, dst: udpDst, ifIndex: cm.IfIndex, ifName: name}
+		input <- &udpInfo{info: b, src: *udpSrc, dst: udpDst, ifIndex: cm.IfIndex, ifName: name}
 	}
 
 	log.Printf("udpReader: exiting '%s' -- trying", ifname)
