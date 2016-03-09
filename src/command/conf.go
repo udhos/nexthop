@@ -146,7 +146,7 @@ func SaveNewConfig(configPathPrefix string, root *ConfNode, maxFiles int) (strin
 	w := bufio.NewWriter(f)
 	cw := configLineWriter{w}
 
-	if err := writeConfig(root, &cw); err != nil {
+	if err := WriteConfig(root, &cw); err != nil {
 		return "", fmt.Errorf("SaveNewConfig: error writing file: [%s]: %v", newFilepath, err)
 	}
 
@@ -196,7 +196,7 @@ type LineWriter interface {
 	WriteLine(s string) (int, error)
 }
 
-func writeConfig(node *ConfNode, w LineWriter) error {
+func WriteConfig(node *ConfNode, w LineWriter) error {
 
 	if len(node.Value) == 0 && len(node.Children) == 0 {
 		//line := fmt.Sprintf("%s\n", node.Path)
@@ -222,7 +222,7 @@ func writeConfig(node *ConfNode, w LineWriter) error {
 
 	// scan children
 	for _, n := range node.Children {
-		if err := writeConfig(n, w); err != nil {
+		if err := WriteConfig(n, w); err != nil {
 			return err
 		}
 	}

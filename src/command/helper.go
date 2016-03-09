@@ -14,7 +14,7 @@ func InstallCommonHelpers(root *CmdNode) {
 	//cmdHelp := CMD_HELP
 	cmdHelp := cmdNone
 
-	CmdInstall(root, cmdHelp, "commit", CONF, cmdCommit, nil, "Apply current candidate configuration")
+	CmdInstall(root, cmdHelp, "commit", CONF, HelperCommit, nil, "Apply current candidate configuration")
 	CmdInstall(root, cmdHelp, "commit force", CONF, cmdCommitForce, nil, "Force saving candidate configuration even if unchanged")
 	CmdInstall(root, cmdNone, "configure", ENAB, cmdConfig, nil, "Enter configuration mode")
 	CmdInstall(root, cmdNone, "enable", EXEC, cmdEnable, nil, "Enter privileged mode")
@@ -27,11 +27,11 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdNone, "reload", ENAB, cmdReload, nil, "Reload")
 	CmdInstall(root, cmdHelp, "rollback", CONF, cmdRollback, nil, "Reset candidate configuration from active configuration")
 	CmdInstall(root, cmdHelp, "rollback {COMMITID}", CONF, cmdRollback, nil, "Reset candidate configuration from rollback configuration")
-	CmdInstall(root, cmdHelp, "show configuration", EXEC, cmdShowConf, nil, "Show candidate configuration")
-	CmdInstall(root, cmdHelp, "show configuration compare", EXEC, cmdShowCompare, nil, "Show differences between active and candidate configurations")
+	CmdInstall(root, cmdHelp, "show configuration", EXEC, HelperShowConf, nil, "Show candidate configuration")
+	CmdInstall(root, cmdHelp, "show configuration compare", EXEC, HelperShowCompare, nil, "Show differences between active and candidate configurations")
 	CmdInstall(root, cmdHelp, "show configuration rollback", EXEC, cmdShowCommitList, nil, "Show list of saved configurations")
 	CmdInstall(root, cmdHelp, "show configuration rollback {COMMITID}", EXEC, cmdShowCommit, nil, "Show saved configuration")
-	CmdInstall(root, cmdHelp, "show configuration tree", EXEC, cmdShowConf, nil, "Show candidate configuration tree")
+	CmdInstall(root, cmdHelp, "show configuration tree", EXEC, HelperShowConf, nil, "Show candidate configuration tree")
 	CmdInstall(root, cmdHelp, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdHelp, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
 	CmdInstall(root, cmdHelp, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
@@ -53,7 +53,7 @@ func cmdCommitForce(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	doCommit(ctx, node, line, c, true)
 }
 
-func cmdCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+func HelperCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	doCommit(ctx, node, line, c, false)
 }
 
@@ -98,21 +98,40 @@ func findDeleted(root1, root2 *ConfNode) ([]string, []*ConfNode) {
 func searchDeletedNodes(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
 	//log.Printf("searchDeletedNodes: [%s]", n1.Path)
 
-	if len(n1.Children) > 0 {
-		for _, i := range n1.Children {
-			searchDeletedNodes(i, root2, pathList, nodeList)
+	/*
+		if len(n1.Children) > 0 {
+			for _, i := range n1.Children {
+				searchDeletedNodes(i, root2, pathList, nodeList)
+			}
+			return
+		}
+		if len(n1.Value) > 0 {
+			searchDeletedValues(n1, root2, pathList, nodeList)
+			return
+		}
+
+		if _, err := root2.Get(n1.Path); err != nil {
+			// not found
+			*pathList = append(*pathList, n1.Path)
+			*nodeList = append(*nodeList, n1)
+		}
+	*/
+
+	if len(n1.Value) == 0 && len(n1.Children) == 0 {
+		if _, err := root2.Get(n1.Path); err != nil {
+			// not found
+			*pathList = append(*pathList, n1.Path)
+			*nodeList = append(*nodeList, n1)
 		}
 		return
 	}
+
 	if len(n1.Value) > 0 {
 		searchDeletedValues(n1, root2, pathList, nodeList)
-		return
 	}
 
-	if _, err := root2.Get(n1.Path); err != nil {
-		// not found
-		*pathList = append(*pathList, n1.Path)
-		*nodeList = append(*nodeList, n1)
+	for _, i := range n1.Children {
+		searchDeletedNodes(i, root2, pathList, nodeList)
 	}
 }
 
@@ -279,7 +298,7 @@ func cmdShowCommit(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	c.Sendln(fmt.Sprintf("(found %d lines)", lineCount))
 }
 
-func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+func HelperShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	c.Sendln("difference from active to candidate:")
 
 	confAct := ctx.ConfRootActive()
@@ -296,7 +315,7 @@ func cmdShowCompare(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	}
 }
 
-func cmdShowConf(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+func HelperShowConf(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	showConfig(ctx.ConfRootCandidate(), node, line, c, "candidate configuration:")
 }
 

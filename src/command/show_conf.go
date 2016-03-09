@@ -26,7 +26,7 @@ func ShowConf(root *ConfNode, node *CmdNode, c CmdClient, treeMode bool) {
 			showConfTree(n, 0, c)
 		} else {
 			//showConfLine(n, c)
-			writeConfig(n, sender)
+			WriteConfig(n, sender)
 		}
 	}
 }

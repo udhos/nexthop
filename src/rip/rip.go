@@ -222,7 +222,14 @@ func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.
 }
 
 func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool, cost int) error {
-	rip := ctx.(*Rip)
+	//rip := ctx.(*Rip)
+	var rip *Rip
+	var ok bool
+	if rip, ok = ctx.(*Rip); !ok {
+		err := fmt.Errorf("enableRip: not a true Rip context: %v", ctx)
+		log.Printf("%v", err)
+		return nil
+	}
 
 	cand, _ := ctx.ConfRootCandidate().Get("router rip")
 

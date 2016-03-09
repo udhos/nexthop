@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"testing"
 
 	"command"
@@ -50,17 +51,45 @@ func (c ripTestClient) StatusConf()                                         {}
 func (c ripTestClient) StatusEnable()                                       {}
 func (c ripTestClient) StatusExit()                                         {}
 func (c ripTestClient) ConfigPathSet(path string)                           {}
-func (c ripTestClient) Newline()                                            {}
-func (c ripTestClient) Send(msg string) int                                 { return len(msg) }
-func (c ripTestClient) SendNow(msg string)                                  {}
-func (c ripTestClient) Sendln(msg string) int                               { return len(msg) }
-func (c ripTestClient) SendlnNow(msg string)                                {}
 func (c ripTestClient) InputQuit()                                          {}
 func (c ripTestClient) HistoryAdd(cmd string)                               {}
 func (c ripTestClient) HistoryShow()                                        {}
 func (c ripTestClient) LineBufferComplete(autoComplete string, attach bool) {}
-func (c ripTestClient) Output() chan<- string {
-	return c.outputChannel
+
+func (c ripTestClient) Newline()              { c.Send("\n") }
+func (c ripTestClient) SendNow(msg string)    { c.Output() <- msg }
+func (c ripTestClient) Sendln(msg string) int { return c.Send(fmt.Sprintf("%s\n", msg)) }
+func (c ripTestClient) SendlnNow(msg string)  { c.SendNow(fmt.Sprintf("%s\n", msg)) }
+func (c ripTestClient) Output() chan<- string { return c.outputChannel }
+func (c ripTestClient) Send(msg string) int {
+	c.SendNow(msg)
+	return len(msg)
+}
+
+func NewRipTestClient(outputSinkHandler func(string)) *ripTestClient {
+	c := &ripTestClient{outputChannel: make(chan string)}
+
+	if outputSinkHandler != nil {
+		go func() {
+			log.Printf("OutputSink: starting")
+			for {
+				log.Printf("OutputSink: waiting")
+				select {
+				case m, ok := <-c.outputChannel:
+					if !ok {
+						log.Printf("OutputSink: closed channel")
+						return
+					}
+					log.Printf("OutputSink: [%s]", m)
+					outputSinkHandler(m)
+				}
+			}
+		}()
+		return c
+	}
+
+	close(c.outputChannel) // closed channel will break writers
+	return c
 }
 
 func TestConf(t *testing.T) {
@@ -93,8 +122,7 @@ func TestConf(t *testing.T) {
 	command.CmdInstall(root, cmdConf, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
-	c := &ripTestClient{outputChannel: make(chan string)}
-	close(c.outputChannel) // closed channel will break writers
+	c := NewRipTestClient(nil)
 
 	r := "router rip"
 	net := fmt.Sprintf("%s network", r)
@@ -157,4 +185,135 @@ func TestConf(t *testing.T) {
 		}
 	}
 
+}
+
+type outputWriter struct {
+}
+
+func (w *outputWriter) WriteLine(s string) (int, error) {
+	fmt.Println(s)
+	return len(s), nil
+}
+
+func Example_diff1() {
+
+	app, c := setup_diff()
+
+	f := func(s string) {
+		if err := command.Dispatch(app, s, c, command.CONF, false); err != nil {
+			log.Printf("dispatch: [%s]: %v", s, err)
+		}
+	}
+
+	f("hostname rip")
+	f("router rip network 1.1.1.0/24")
+	f("router rip network 1.1.2.0/24")
+	f("router rip network 1.1.3.0/24 cost 2")
+	f("router rip network 1.1.4.0/24 cost 15")
+	f("router rip vrf X network 1.1.1.0/24")
+	f("router rip vrf X network 1.1.2.0/24")
+	f("router rip vrf X network 1.1.3.0/24 cost 3")
+	f("router rip vrf x network 1.1.1.1/32")
+
+	command.WriteConfig(app.confRootCandidate, &outputWriter{})
+	// Output:
+	// hostname rip
+	// router rip network 1.1.1.0/24
+	// router rip network 1.1.2.0/24
+	// router rip network 1.1.3.0/24 cost 2
+	// router rip network 1.1.4.0/24 cost 15
+	// router rip vrf X network 1.1.1.0/24
+	// router rip vrf X network 1.1.2.0/24
+	// router rip vrf X network 1.1.3.0/24 cost 3
+	// router rip vrf x network 1.1.1.1/32
+}
+
+func Example_diff2() {
+
+	app, c := setup_diff()
+
+	f := func(s string) {
+		if err := command.Dispatch(app, s, c, command.CONF, false); err != nil {
+			log.Printf("dispatch: [%s]: %v", s, err)
+		}
+	}
+
+	f("hostname rip")
+	f("router rip network 1.1.1.0/24")
+	f("router rip network 1.1.2.0/24")
+	f("router rip network 1.1.3.0/24 cost 2")
+	f("router rip network 1.1.4.0/24 cost 15")
+	f("router rip vrf X network 1.1.1.0/24")
+	f("router rip vrf X network 1.1.2.0/24")
+	f("router rip vrf X network 1.1.3.0/24 cost 3")
+	f("router rip vrf x network 1.1.1.1/32")
+
+	if err := command.Dispatch(app, "commit", c, command.CONF, false); err != nil {
+		log.Printf("dispatch: [commit]: %v", err)
+	}
+
+	noCmd, err := command.CmdFind(app.cmdRoot, "no X", command.CONF, true)
+	if err != nil {
+		log.Printf("could not find 'no' command: %v", err)
+		return
+	}
+
+	nonet := "no router rip network"
+	if err := command.CmdNo(app, noCmd, nonet, c); err != nil {
+		log.Printf("cmd failed: [%s] error=[%v]", nonet, err)
+		return
+	}
+
+	command.WriteConfig(app.confRootCandidate, &outputWriter{})
+	// Output:
+	// hostname rip
+	// router rip vrf X network 1.1.1.0/24
+	// router rip vrf X network 1.1.2.0/24
+	// router rip vrf X network 1.1.3.0/24 cost 3
+	// router rip vrf x network 1.1.1.1/32
+}
+
+func setup_diff() (*ripTestApp, *ripTestClient) {
+	app := &ripTestApp{
+		cmdRoot:           &command.CmdNode{MinLevel: command.EXEC},
+		confRootCandidate: &command.ConfNode{},
+		confRootActive:    &command.ConfNode{},
+	}
+
+	hardware := fwd.NewDataplaneBogus()
+
+	listInterfaces := func() ([]string, []string) {
+		ifaces, vrfs, err := hardware.Interfaces()
+		if err != nil {
+			log.Printf("Example_diff: hardware.Interfaces(): error: %v", err)
+		}
+		return ifaces, vrfs
+	}
+	listCommitId := func() []string {
+		return []string{"BOGUS:rip.Example_diff:listCommitId"}
+	}
+	command.LoadKeywordTable(listInterfaces, listCommitId)
+
+	root := app.cmdRoot
+	cmdNone := command.CMD_NONE
+	cmdConf := command.CMD_CONF
+
+	command.CmdInstall(root, cmdNone, "commit", command.CONF, command.HelperCommit, nil, "Apply current candidate configuration")
+	command.CmdInstall(root, cmdNone, "show configuration", command.EXEC, command.HelperShowConf, nil, "Show candidate configuration")
+	command.CmdInstall(root, cmdNone, "show configuration compare", command.EXEC, command.HelperShowCompare, nil, "Show differences between active and candidate configurations")
+	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
+
+	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
+	command.CmdInstall(root, cmdConf, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
+	command.CmdInstall(root, cmdConf, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
+	command.CmdInstall(root, cmdConf, "router rip network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConf, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
+	command.CmdInstall(root, cmdConf, "router rip vrf {VRFNAME} network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
+
+	outputSinkFunc := func(m string) {
+	}
+	c := NewRipTestClient(outputSinkFunc)
+
+	return app, c
 }
