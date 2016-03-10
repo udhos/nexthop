@@ -135,8 +135,7 @@ func NewRipRouter() *RipRouter {
 					log.Printf("rip router: udpReader channel closed")
 					break LOOP
 				}
-				log.Printf("rip router: recv %d bytes from %v to %v on %s ifIndex=%d",
-					len(u.info), &u.src, &u.dst, u.ifName, u.ifIndex)
+				parseRipPacket(r, u)
 			}
 		}
 
@@ -144,6 +143,55 @@ func NewRipRouter() *RipRouter {
 	}()
 
 	return r
+}
+
+func parseRipPacket(r *RipRouter, u *udpInfo) {
+	/*
+		log.Printf("parseRipPacket: recv %d bytes from %v to %v on %s ifIndex=%d",
+			len(u.info), &u.src, &u.dst, u.ifName, u.ifIndex)
+	*/
+
+	size := len(u.info)
+	entries := (size - 4) / 20
+	if entries < 1 {
+		log.Printf("parseRipPacket: short packet size=%d bytes from %v to %v on %s ifIndex=%d",
+			size, &u.src, &u.dst, u.ifName, u.ifIndex)
+		return
+	}
+	if entries > 25 {
+		log.Printf("parseRipPacket: long packet size=%d bytes from %v to %v on %s ifIndex=%d",
+			size, &u.src, &u.dst, u.ifName, u.ifIndex)
+		return
+	}
+
+	cmd := u.info[0]
+	version := int(u.info[1])
+
+	/*
+		log.Printf("parseRipPacket: entries=%d cmd=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+			entries, cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+	*/
+
+	switch cmd {
+	case 1:
+		ripRequest(r, u, size, version, entries)
+	case 2:
+		ripResponse(r, u, size, version, entries)
+	default:
+		log.Printf("parseRipPacket: unknown command %d version=%d size=%d from %v to %v on %s ifIndex=%d",
+			cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+	}
+
+}
+
+func ripRequest(r *RipRouter, u *udpInfo, size, version, entries int) {
+	log.Printf("ripRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+}
+
+func ripResponse(r *RipRouter, u *udpInfo, size, version, entries int) {
+	log.Printf("ripResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 }
 
 func (r *RipRouter) NetAdd(vrf, s string, cost int) error {
