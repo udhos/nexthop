@@ -14,13 +14,22 @@ import (
 )
 
 type ripNet struct {
-	addr   *net.IPNet
+	addr   net.IPNet
 	metric int
 }
 
+type ripRoute struct {
+	family  uint16
+	tag     uint16
+	addr    net.IPNet
+	nexthop net.IP
+	metric  int
+}
+
 type ripVrf struct {
-	name string
-	nets []*ripNet // locally configured networks
+	name   string
+	nets   []*ripNet   // locally configured networks
+	routes []*ripRoute // learnt networks
 }
 
 // Empty: VRF does not contain any data
@@ -37,14 +46,14 @@ func (v *ripVrf) NetAdd(s string, cost int) error {
 		return fmt.Errorf("ripVrf.NetAdd: bad mask: addr=[%s]: %v", s, err1)
 	}
 	for _, n := range v.nets {
-		if addr.NetEqual(ipnet, n.addr) {
+		if addr.NetEqual(ipnet, &n.addr) {
 			// found
 			n.metric = cost
 			return nil
 		}
 	}
 	// not found
-	v.nets = append(v.nets, &ripNet{addr: ipnet, metric: cost}) // add
+	v.nets = append(v.nets, &ripNet{addr: *ipnet, metric: cost}) // add
 	return nil
 }
 
@@ -57,7 +66,7 @@ func (v *ripVrf) NetDel(s string) error {
 		return fmt.Errorf("ripVrf.NetDel: bad mask: addr=[%s]: %v", s, err1)
 	}
 	for i, n := range v.nets {
-		if addr.NetEqual(ipnet, n.addr) {
+		if addr.NetEqual(ipnet, &n.addr) {
 			// found
 
 			last := len(v.nets) - 1
@@ -82,7 +91,10 @@ type RipRouter struct {
 	readerCount int
 }
 
-const RIP_PORT = 520
+const (
+	RIP_PORT            = 520
+	RIP_METRIC_INFINITY = 16
+)
 
 // rip interface
 type port struct {
@@ -172,9 +184,11 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 			entries, cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 	*/
 
+	vrf := getInterfaceVrf(u.ifName)
+
 	switch cmd {
 	case 1:
-		ripRequest(r, u, size, version, entries)
+		ripRequest(r, u, size, version, entries, vrf)
 	case 2:
 		ripResponse(r, u, size, version, entries)
 	default:
@@ -184,14 +198,110 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 
 }
 
-func ripRequest(r *RipRouter, u *udpInfo, size, version, entries int) {
+func ripRequest(r *RipRouter, u *udpInfo, size, version, entries int, vrf string) {
 	log.Printf("ripRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+
+	if entries == 1 {
+		/*
+			RFC2453 3.9.1 Request Messages
+
+			There is one special case.
+			If there is exactly one entry in the request,
+			and it has an address family identifier of
+			zero and a metric of infinity (i.e., 16),
+			then this is a request to send the entire
+			routing table.
+		*/
+		family, _, _, _, metric := parseEntry(u.info, 0)
+
+		if family == 0 && metric == RIP_METRIC_INFINITY {
+			log.Printf("ripRequest: FIXME WRITEME reply with full routing table")
+			return
+		}
+	}
+
+	/*
+		RFC2453 3.9.1 Request Messages
+
+		Examine the list of RTEs in the Request one by one.  For
+		each entry, look up the destination in the router's routing database
+		and, if there is a route, put that route's metric in the metric field
+		of the RTE.  If there is no explicit route to the specified
+		destination, put infinity in the metric field.  Once all the entries
+		have been filled in, change the command from Request to Response and
+		send the datagram back to the requestor.
+	*/
+	for i := 0; i < entries; i++ {
+		_, _, addr, _, _ := parseEntry(u.info, 0)
+		route := r.lookupAddress(vrf, addr)
+		var metric int
+		if route == nil {
+			metric = RIP_METRIC_INFINITY
+		} else {
+			metric = route.metric
+		}
+
+		setEntryMetric(u.info, i, metric)
+	}
+
+	log.Printf("ripRequest: FIXME WRITEME change request to response, echo dgram back")
+}
+
+func setEntryMetric(buf []byte, entry, metric int) {
+	offset := 4 + 20*entry
+	writeUint32(buf, offset+16, uint32(metric))
+}
+
+func parseEntry(buf []byte, entry int) (family int, tag int, addr net.IPNet, nexthop net.IP, metric int) {
+	offset := 4 + 20*entry
+
+	family = int(readUint16(buf, offset))
+	tag = int(readUint16(buf, offset+2))
+	addr = net.IPNet{IP: readIPv4(buf, offset+4), Mask: readIPv4Mask(buf, offset+8)}
+	nexthop = readIPv4(buf, offset+12)
+	metric = int(readUint32(buf, offset+16))
+
+	log.Printf("parseEntry: entry=%d family=%d tag=%d addr=%v nexthop=%v metric=%v", entry, family, tag, &addr, nexthop, metric)
+
+	return
+}
+
+func readIPv4(buf []byte, offset int) net.IP {
+	return net.IPv4(buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
+}
+
+func readIPv4Mask(buf []byte, offset int) net.IPMask {
+	return net.IPv4Mask(buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
+}
+
+func readUint16(buf []byte, offset int) uint16 {
+	return uint16(buf[offset])<<8 + uint16(buf[offset+1])
+}
+
+func readUint32(buf []byte, offset int) uint32 {
+	a := uint32(buf[offset]) << 24
+	b := uint32(buf[offset+1]) << 16
+	c := uint32(buf[offset+2]) << 8
+	d := uint32(buf[offset+3])
+	return a + b + c + d
+}
+
+func writeUint32(buf []byte, offset int, value uint32) {
+	buf[offset] = byte((value >> 24) & 0xFF)
+	buf[offset+1] = byte((value >> 16) & 0xFF)
+	buf[offset+2] = byte((value >> 8) & 0xFF)
+	buf[offset+3] = byte(value & 0xFF)
 }
 
 func ripResponse(r *RipRouter, u *udpInfo, size, version, entries int) {
 	log.Printf("ripResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+}
+
+func (r *RipRouter) lookupAddress(vrf string, addr net.IPNet) *ripRoute {
+	log.Printf("RipRouter.lookupAddress(vrf=%s,addr=%s): FIXME WRITEME", vrf, &addr)
+	return nil
 }
 
 func (r *RipRouter) NetAdd(vrf, s string, cost int) error {
@@ -280,6 +390,11 @@ func (r *RipRouter) Join(ifi *net.Interface) error {
 	r.readerCount++
 
 	return nil
+}
+
+func getInterfaceVrf(ifname string) string {
+	log.Printf("getInterfaceVrf(ifname=%s): FIXME WRITEME", ifname)
+	return ""
 }
 
 func delInterfaces(r *RipRouter) {
