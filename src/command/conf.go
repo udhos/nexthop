@@ -116,7 +116,15 @@ func (w *configLineWriter) WriteLine(s string) (int, error) {
 	return w.writer.WriteString(fmt.Sprintf("%s\n", s))
 }
 
+func bogusConfigPathPrefix(prefix string) bool {
+	return strings.HasPrefix(prefix, "BOGUS")
+}
+
 func SaveNewConfig(configPathPrefix string, root *ConfNode, maxFiles int) (string, error) {
+
+	if bogusConfigPathPrefix(configPathPrefix) {
+		return "", fmt.Errorf("SaveNewConfig: refusing to save to bogus config prefix: [%s]", configPathPrefix)
+	}
 
 	lastConfig, err1 := FindLastConfig(configPathPrefix)
 	if err1 != nil {

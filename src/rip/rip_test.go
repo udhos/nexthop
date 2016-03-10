@@ -31,7 +31,7 @@ func (a ripTestApp) SetCandidate(newCand *command.ConfNode) {
 	a.confRootCandidate = newCand
 }
 func (a ripTestApp) ConfigPathPrefix() string {
-	return "ripTestApp.configPathPrefix"
+	return "BOGUS:ripTestApp.configPathPrefix"
 }
 func (a ripTestApp) MaxConfigFiles() int {
 	return 3
