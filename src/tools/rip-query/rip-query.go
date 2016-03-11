@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 
 	"addr"
 	"netorder"
@@ -14,6 +16,7 @@ func main() {
 	if len(os.Args) < 3 {
 		fmt.Printf("usage:   rip-query host:port     net1 [ net2  ... netN ]\n")
 		fmt.Printf("example: rip-query 224.0.0.9:520 1.0.0.0/24       2.0.0.0/24\n")
+		fmt.Printf("example: rip-query 224.0.0.9:520 0.0.0.0/0,0\n")
 		return
 	}
 
@@ -30,6 +33,19 @@ func query(hostPort string, nets []string) {
 	buf[1] = 2 // rip version
 
 	for i, n := range nets {
+		family := uint16(2) // AF_INET
+		f := strings.Split(n, ",")
+		if len(f) > 1 {
+			af, err := strconv.Atoi(f[1])
+			if err == nil {
+				family = uint16(af)
+				n = f[0]
+			} else {
+				fmt.Printf("could not solve address family: '%s': %v\n", n, err)
+				return
+			}
+		}
+
 		_, netaddr, err := net.ParseCIDR(n)
 		if err != nil {
 			fmt.Printf("could not solve network: '%s': %v\n", n, err)
@@ -37,12 +53,12 @@ func query(hostPort string, nets []string) {
 		}
 
 		offset := 4 + 20*i
-		netorder.WriteUint16(buf, offset, 2)   // family=AF_INET
+		netorder.WriteUint16(buf, offset, family)
 		netorder.WriteUint16(buf, offset+2, 0) // route tag
 		addr.WriteIPv4(buf, offset+4, netaddr.IP)
 		addr.WriteIPv4Mask(buf, offset+8, netaddr.Mask)
 		addr.WriteIPv4(buf, offset+12, net.IPv4(0, 0, 0, 0))
-		netorder.WriteUint32(buf, offset+16, 0) // metric
+		netorder.WriteUint32(buf, offset+16, 16) // metric
 	}
 
 	proto := "udp"
