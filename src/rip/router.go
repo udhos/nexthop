@@ -11,6 +11,7 @@ import (
 
 	"addr"
 	"fwd"
+	"netorder"
 	"sock"
 )
 
@@ -192,11 +193,18 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 		return
 	}
 
+	port := r.getInterfaceByIndex(u.ifIndex)
+	if port == nil {
+		log.Printf("ripRequest: unable to find RIP interface for incoming %v to %v on %s ifIndex=%d",
+			&u.src, &u.dst, u.ifName, u.ifIndex)
+		return
+	}
+
 	switch cmd {
 	case 1:
-		ripRequest(r, u, size, version, entries, vrf)
+		ripRequest(r, u, port, size, version, entries, vrf)
 	case 2:
-		ripResponse(r, u, size, version, entries)
+		ripResponse(r, u, port, size, version, entries)
 	default:
 		log.Printf("parseRipPacket: unknown command %d version=%d size=%d from %v to %v on %s ifIndex=%d",
 			cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
@@ -204,7 +212,7 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 
 }
 
-func ripRequest(r *RipRouter, u *udpInfo, size, version, entries int, vrf string) {
+func ripRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
 	log.Printf("ripRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 
@@ -238,8 +246,11 @@ func ripRequest(r *RipRouter, u *udpInfo, size, version, entries int, vrf string
 		have been filled in, change the command from Request to Response and
 		send the datagram back to the requestor.
 	*/
+
+	// Update metric for every network in the request
+
 	for i := 0; i < entries; i++ {
-		_, _, addr, _, _ := parseEntry(u.info, 0)
+		_, _, addr, _, _ := parseEntry(u.info, i)
 		route := r.lookupAddress(vrf, addr)
 		var metric int
 		if route == nil {
@@ -251,56 +262,44 @@ func ripRequest(r *RipRouter, u *udpInfo, size, version, entries int, vrf string
 		setEntryMetric(u.info, i, metric)
 	}
 
-	log.Printf("ripRequest: FIXME WRITEME change request to response, echo dgram back")
+	// Echo request back to source
+
+	// Set 500 ms timeout
+	timeout := time.Duration(500) * time.Millisecond
+	deadline := time.Now().Add(timeout)
+	p.msock.U.SetWriteDeadline(deadline)
+
+	n, err := p.msock.U.WriteToUDP(u.info, &u.src)
+	if err != nil {
+		log.Printf("ripRequest: error writing back to %v on %s ifIndex=%d: %v", &u.src, u.ifName, u.ifIndex, err)
+	}
+	if n != size {
+		log.Printf("ripRequest: partial %d/%d write back to %v on %s ifIndex=%d: %v", n, size, &u.src, u.ifName, u.ifIndex, err)
+	}
+
+	log.Printf("ripRequest: wrote back to %v on %s ifIndex=%d", &u.src, u.ifName, u.ifIndex)
 }
 
 func setEntryMetric(buf []byte, entry, metric int) {
 	offset := 4 + 20*entry
-	writeUint32(buf, offset+16, uint32(metric))
+	netorder.WriteUint32(buf, offset+16, uint32(metric))
 }
 
-func parseEntry(buf []byte, entry int) (family int, tag int, addr net.IPNet, nexthop net.IP, metric int) {
+func parseEntry(buf []byte, entry int) (family int, tag int, netaddr net.IPNet, nexthop net.IP, metric int) {
 	offset := 4 + 20*entry
 
-	family = int(readUint16(buf, offset))
-	tag = int(readUint16(buf, offset+2))
-	addr = net.IPNet{IP: readIPv4(buf, offset+4), Mask: readIPv4Mask(buf, offset+8)}
-	nexthop = readIPv4(buf, offset+12)
-	metric = int(readUint32(buf, offset+16))
+	family = int(netorder.ReadUint16(buf, offset))
+	tag = int(netorder.ReadUint16(buf, offset+2))
+	netaddr = net.IPNet{IP: addr.ReadIPv4(buf, offset+4), Mask: addr.ReadIPv4Mask(buf, offset+8)}
+	nexthop = addr.ReadIPv4(buf, offset+12)
+	metric = int(netorder.ReadUint32(buf, offset+16))
 
-	log.Printf("parseEntry: entry=%d family=%d tag=%d addr=%v nexthop=%v metric=%v", entry, family, tag, &addr, nexthop, metric)
+	log.Printf("parseEntry: entry=%d family=%d tag=%d addr=%v nexthop=%v metric=%v", entry, family, tag, &netaddr, nexthop, metric)
 
 	return
 }
 
-func readIPv4(buf []byte, offset int) net.IP {
-	return net.IPv4(buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
-}
-
-func readIPv4Mask(buf []byte, offset int) net.IPMask {
-	return net.IPv4Mask(buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
-}
-
-func readUint16(buf []byte, offset int) uint16 {
-	return uint16(buf[offset])<<8 + uint16(buf[offset+1])
-}
-
-func readUint32(buf []byte, offset int) uint32 {
-	a := uint32(buf[offset]) << 24
-	b := uint32(buf[offset+1]) << 16
-	c := uint32(buf[offset+2]) << 8
-	d := uint32(buf[offset+3])
-	return a + b + c + d
-}
-
-func writeUint32(buf []byte, offset int, value uint32) {
-	buf[offset] = byte((value >> 24) & 0xFF)
-	buf[offset+1] = byte((value >> 16) & 0xFF)
-	buf[offset+2] = byte((value >> 8) & 0xFF)
-	buf[offset+3] = byte(value & 0xFF)
-}
-
-func ripResponse(r *RipRouter, u *udpInfo, size, version, entries int) {
+func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int) {
 	log.Printf("ripResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 }
@@ -371,6 +370,17 @@ func (r *RipRouter) InterfaceAdd(s string) error {
 	}
 
 	return r.Join(ifi)
+}
+
+func (r *RipRouter) getInterfaceByIndex(ifIndex int) *port {
+
+	for _, p := range r.ports {
+		if ifIndex == p.iface.Index {
+			return p
+		}
+	}
+
+	return nil
 }
 
 func (r *RipRouter) Join(ifi *net.Interface) error {

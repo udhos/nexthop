@@ -2,6 +2,7 @@ package addr
 
 import (
 	"fmt"
+	//"log"
 	"net"
 )
 
@@ -20,4 +21,26 @@ func NetEqual(n1, n2 *net.IPNet) bool {
 
 func NetIntersect(n1, n2 *net.IPNet) bool {
 	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
+}
+
+func ReadIPv4(buf []byte, offset int) net.IP {
+	return net.IPv4(buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
+}
+
+func ReadIPv4Mask(buf []byte, offset int) net.IPMask {
+	return net.IPv4Mask(buf[offset], buf[offset+1], buf[offset+2], buf[offset+3])
+}
+
+func WriteIPv4(buf []byte, offset int, ipaddr net.IP) {
+	buf[offset] = ipaddr[0]
+	buf[offset+1] = ipaddr[1]
+	buf[offset+2] = ipaddr[2]
+	buf[offset+3] = ipaddr[3]
+}
+
+func WriteIPv4Mask(buf []byte, offset int, ipaddr net.IPMask) {
+	buf[offset] = ipaddr[0]
+	buf[offset+1] = ipaddr[1]
+	buf[offset+2] = ipaddr[2]
+	buf[offset+3] = ipaddr[3]
 }

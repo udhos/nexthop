@@ -10,8 +10,8 @@ go tool fix $NEXTHOP/src
 go tool vet $NEXTHOP/src/sample $NEXTHOP/src/rib-old $NEXTHOP/src/rib $NEXTHOP/src/cli $NEXTHOP/src/rip $NEXTHOP/src/telnet $NEXTHOP/src/command $NEXTHOP/src/fwd
 gofmt -s -w $NEXTHOP/src
 
-go install rib-old rib rip
+go install rib-old rib rip tools/rip-query
 
-go test command cli addr sock rip
+go test command cli addr sock rip netorder
 
 # eof
