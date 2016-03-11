@@ -11,6 +11,7 @@ type Dataplane interface {
 	InterfaceAddressDel(ifname, addr string) error
 	InterfaceAddressGet(ifname string) ([]string, error)
 	Interfaces() ([]string, []string, error)
+	InterfaceVrfGet(ifname string) (string, error)
 }
 
 func NewDataplane(dataplaneName string) Dataplane {

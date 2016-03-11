@@ -94,3 +94,8 @@ func (d *linuxDataplane) InterfaceAddressGet(ifname string) ([]string, error) {
 func (d *linuxDataplane) Interfaces() ([]string, []string, error) {
 	return nil, nil, nil
 }
+
+func (d *linuxDataplane) InterfaceVrfGet(ifname string) (string, error) {
+	log.Printf("linuxDataplane.InterfaceVrfGet(%s): FIXME WRITEME", ifname)
+	return "", nil
+}

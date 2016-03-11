@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"addr"
+	"fwd"
 	"sock"
 )
 
@@ -89,6 +90,7 @@ type RipRouter struct {
 	group       net.IP  // 224.0.0.9
 	readerDone  chan int
 	readerCount int
+	hardware    fwd.Dataplane
 }
 
 const (
@@ -112,11 +114,11 @@ type udpInfo struct {
 
 // NewRipRouter(): Spawn new rip router.
 // Write on RipRouter.done channel (do not close it) to request termination of rip router.
-func NewRipRouter() *RipRouter {
+func NewRipRouter(hw fwd.Dataplane) *RipRouter {
 
 	RIP_GROUP := net.IPv4(224, 0, 0, 9)
 
-	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int)}
+	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int), hardware: hw}
 
 	addInterfaces(r)
 
@@ -184,7 +186,11 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 			entries, cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 	*/
 
-	vrf := getInterfaceVrf(u.ifName)
+	vrf, err := r.hardware.InterfaceVrfGet(u.ifName)
+	if err != nil {
+		log.Printf("parseRipPacket: unable to find VRF for interface '%s': %v", u.ifName, err)
+		return
+	}
 
 	switch cmd {
 	case 1:
@@ -390,11 +396,6 @@ func (r *RipRouter) Join(ifi *net.Interface) error {
 	r.readerCount++
 
 	return nil
-}
-
-func getInterfaceVrf(ifname string) string {
-	log.Printf("getInterfaceVrf(ifname=%s): FIXME WRITEME", ifname)
-	return ""
 }
 
 func delInterfaces(r *RipRouter) {

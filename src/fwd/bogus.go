@@ -128,3 +128,12 @@ func (d *bogusDataplane) Interfaces() ([]string, []string, error) {
 	}
 	return ifnames, vrfnames, nil
 }
+
+func (d *bogusDataplane) InterfaceVrfGet(ifname string) (string, error) {
+	i, ok := d.interfaceTable[ifname]
+	if !ok {
+		return "", fmt.Errorf("linuxDataplane.InterfaceVrfGet(%s): not found", ifname)
+	}
+
+	return i.vrf, nil
+}
