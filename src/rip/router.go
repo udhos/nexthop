@@ -97,6 +97,8 @@ type RipRouter struct {
 const (
 	RIP_PORT            = 520
 	RIP_METRIC_INFINITY = 16
+	RIP_REQUEST         = 1
+	RIP_RESPONSE        = 2
 )
 
 // rip interface
@@ -201,9 +203,9 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 	}
 
 	switch cmd {
-	case 1:
+	case RIP_REQUEST:
 		ripRequest(r, u, port, size, version, entries, vrf)
-	case 2:
+	case RIP_RESPONSE:
 		ripResponse(r, u, port, size, version, entries)
 	default:
 		log.Printf("parseRipPacket: unknown command %d version=%d size=%d from %v to %v on %s ifIndex=%d",
@@ -246,6 +248,8 @@ func ripRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, v
 		have been filled in, change the command from Request to Response and
 		send the datagram back to the requestor.
 	*/
+
+	u.info[0] = RIP_RESPONSE // change command to rip response
 
 	// Update metric for every network in the request
 
