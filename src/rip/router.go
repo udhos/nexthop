@@ -267,21 +267,27 @@ func ripRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, v
 	}
 
 	// Echo request back to source
+	ripSend(p.msock.U, &u.src, u.info, u.ifName, u.ifIndex)
+}
+
+func ripSend(conn *net.UDPConn, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) {
 
 	// Set 500 ms timeout
 	timeout := time.Duration(500) * time.Millisecond
 	deadline := time.Now().Add(timeout)
-	p.msock.U.SetWriteDeadline(deadline)
+	conn.SetWriteDeadline(deadline)
 
-	n, err := p.msock.U.WriteToUDP(u.info, &u.src)
+	size := len(buf)
+
+	n, err := conn.WriteToUDP(buf, dst)
 	if err != nil {
-		log.Printf("ripRequest: error writing back to %v on %s ifIndex=%d: %v", &u.src, u.ifName, u.ifIndex, err)
+		log.Printf("ripSend: error writing back to %v on %s ifIndex=%d: %v", dst, ifname, ifindex, err)
 	}
 	if n != size {
-		log.Printf("ripRequest: partial %d/%d write back to %v on %s ifIndex=%d: %v", n, size, &u.src, u.ifName, u.ifIndex, err)
+		log.Printf("ripSend: partial %d/%d write back to %v on %s ifIndex=%d: %v", n, size, dst, ifname, ifindex, err)
 	}
 
-	log.Printf("ripRequest: wrote back to %v on %s ifIndex=%d", &u.src, u.ifName, u.ifIndex)
+	log.Printf("ripSend: wrote back to %v on %s ifIndex=%d", dst, ifname, ifindex)
 }
 
 func setEntryMetric(buf []byte, entry, metric int) {
