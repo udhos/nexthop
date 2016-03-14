@@ -27,6 +27,10 @@ type ripRoute struct {
 	addr    net.IPNet
 	nexthop net.IP
 	metric  int
+
+	srcIfIndex int
+	srcIfName  string
+	srcRouter  net.IP
 }
 
 type ripVrf struct {
@@ -57,7 +61,18 @@ func (v *ripVrf) NetAdd(s string, cost int) error {
 	}
 	// not found
 	v.nets = append(v.nets, &ripNet{addr: *ipnet, metric: cost}) // add
+
+	v.RouteLocalAdd(ipnet, cost)
+
 	return nil
+}
+
+func (v *ripVrf) RouteLocalAdd(ipnet *net.IPNet, metric int) {
+	log.Printf("ripVrf.RouteAdd: %v/%d", ipnet, metric)
+}
+
+func (v *ripVrf) RouteLocalDel(ipnet *net.IPNet, metric int) {
+	log.Printf("ripVrf.RouteDel: %v/%d", ipnet, metric)
 }
 
 func (v *ripVrf) NetDel(s string) error {
@@ -72,10 +87,14 @@ func (v *ripVrf) NetDel(s string) error {
 		if addr.NetEqual(ipnet, &n.addr) {
 			// found
 
+			metric := n.metric // save
+
 			last := len(v.nets) - 1
 			v.nets[i] = v.nets[last] // overwrite position with last pointer
 			v.nets[last] = nil       // free last pointer for garbage collection
 			v.nets = v.nets[:last]   // shrink
+
+			v.RouteLocalDel(ipnet, metric)
 
 			return nil
 		}
@@ -101,6 +120,7 @@ const (
 	RIP_METRIC_INFINITY = 16
 	RIP_REQUEST         = 1
 	RIP_RESPONSE        = 2
+	RIP_FAMILY_INET     = 2 // AF_INET
 )
 
 // rip interface
@@ -376,12 +396,16 @@ func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, 
 		if metric < 1 || metric > RIP_METRIC_INFINITY {
 			log.Printf("ripResponse: bad metric entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d from %v to %v on %s ifIndex=%d",
 				i, entries, family, tag, &netaddr, nexthop, metric, &u.src, &u.dst, u.ifName, u.ifIndex)
-			continue
+			continue // ignore entry with bad metric
 		}
 
 		newMetric := metric + getInterfaceRipCost(r.conf, u.ifName)
 		if newMetric > RIP_METRIC_INFINITY {
 			newMetric = RIP_METRIC_INFINITY
+		}
+
+		if newMetric == RIP_METRIC_INFINITY {
+			continue // ignore entry with infinity metric
 		}
 	}
 
