@@ -88,7 +88,7 @@ func applyIfaceAddr(ctx command.ConfContext, node *command.CmdNode, action comma
 		}
 
 		for _, a := range addrs {
-			if a == ifaddr {
+			if a.String() == ifaddr {
 				return nil // success
 			}
 		}
@@ -106,7 +106,7 @@ func applyIfaceAddr(ctx command.ConfContext, node *command.CmdNode, action comma
 	}
 
 	for _, a := range addrs {
-		if a == ifaddr {
+		if a.String() == ifaddr {
 			return fmt.Errorf("applyIfaceAddr: deleted address found")
 		}
 	}

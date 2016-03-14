@@ -111,7 +111,27 @@ func (d *bogusDataplane) InterfaceAddressDel(ifname, addr string) error {
 	}
 	return fmt.Errorf("address not found")
 }
-func (d *bogusDataplane) InterfaceAddressGet(ifname string) ([]string, error) {
+func (d *bogusDataplane) VrfAddresses(vrfname string) ([]net.IPNet, error) {
+	log.Printf("bogusDataplane.VrfAddresses(%s): FIXME WRITEME", vrfname)
+	return nil, nil
+}
+
+func (d *bogusDataplane) InterfaceAddressGet(ifname string) ([]net.IPNet, error) {
+	addrList, err1 := d.addrGet(ifname)
+	if err1 != nil {
+		return nil, fmt.Errorf("bogusDataplane.InterfaceAddressGet: error: %v", err1)
+	}
+	nets := []net.IPNet{}
+	for _, a := range addrList {
+		ip, n, err2 := net.ParseCIDR(a)
+		if err2 != nil {
+			return nil, fmt.Errorf("bogusDataplane.InterfaceAddressGet: ParseCIDR(%s): %v", a, err2)
+		}
+		nets = append(nets, net.IPNet{IP: ip, Mask: n.Mask})
+	}
+	return nets, nil
+}
+func (d *bogusDataplane) addrGet(ifname string) ([]string, error) {
 	i, ok := d.interfaceTable[ifname]
 	if !ok {
 		return []string{}, fmt.Errorf("InterfaceAddressGet: interface not found")

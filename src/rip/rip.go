@@ -238,7 +238,7 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 		// enable RIP
 
 		if rip.router == nil {
-			rip.router = NewRipRouter(rip.hardware)
+			rip.router = NewRipRouter(rip.hardware, ctx)
 		}
 
 		if isNetCmd {

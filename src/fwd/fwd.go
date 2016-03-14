@@ -3,13 +3,15 @@ package fwd
 import (
 	"fmt"
 	"log"
+	"net"
 )
 
 type Dataplane interface {
 	InterfaceVrf(ifname, vrfname string) error
 	InterfaceAddressAdd(ifname, addr string) error
 	InterfaceAddressDel(ifname, addr string) error
-	InterfaceAddressGet(ifname string) ([]string, error)
+	InterfaceAddressGet(ifname string) ([]net.IPNet, error)
+	VrfAddresses(vrfname string) ([]net.IPNet, error)
 	Interfaces() ([]string, []string, error)
 	InterfaceVrfGet(ifname string) (string, error)
 }

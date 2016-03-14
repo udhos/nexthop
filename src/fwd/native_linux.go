@@ -3,6 +3,7 @@ package fwd
 import (
 	"fmt"
 	"log"
+	"net"
 	"syscall"
 
 	"github.com/udhos/netlink"
@@ -87,8 +88,29 @@ func (d *linuxDataplane) InterfaceAddressDel(ifname, addr string) error {
 	return nil
 }
 
-func (d *linuxDataplane) InterfaceAddressGet(ifname string) ([]string, error) {
+func (d *linuxDataplane) VrfAddresses(vrfname string) ([]net.IPNet, error) {
+	log.Printf("linuxDataplane.VrfAddresses(%s): FIXME WRITEME", vrfname)
 	return nil, nil
+}
+
+func (d *linuxDataplane) InterfaceAddressGet(ifname string) ([]net.IPNet, error) {
+	link, err1 := netlink.LinkByName(ifname)
+	if err1 != nil {
+		return nil, fmt.Errorf("linuxDataplane.InterfaceAddressGet: netlink LinkByName error: %v", err1)
+	}
+
+	addrs, err2 := netlink.AddrList(link, netlink.FAMILY_ALL)
+	if err2 != nil {
+		return nil, fmt.Errorf("linuxDataplane.InterfaceAddressGet: netlink AddrList error: %v", err2)
+	}
+
+	addrList := []net.IPNet{}
+
+	for _, a := range addrs {
+		addrList = append(addrList, *a.IPNet)
+	}
+
+	return addrList, nil
 }
 
 func (d *linuxDataplane) Interfaces() ([]string, []string, error) {

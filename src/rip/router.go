@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"addr"
+	"command"
 	"fwd"
 	"netorder"
 	"sock"
@@ -92,6 +93,7 @@ type RipRouter struct {
 	readerDone  chan int
 	readerCount int
 	hardware    fwd.Dataplane
+	conf        command.ConfContext
 }
 
 const (
@@ -117,11 +119,11 @@ type udpInfo struct {
 
 // NewRipRouter(): Spawn new rip router.
 // Write on RipRouter.done channel (do not close it) to request termination of rip router.
-func NewRipRouter(hw fwd.Dataplane) *RipRouter {
+func NewRipRouter(hw fwd.Dataplane, ctx command.ConfContext) *RipRouter {
 
 	RIP_GROUP := net.IPv4(224, 0, 0, 9)
 
-	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int), hardware: hw}
+	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int), hardware: hw, conf: ctx}
 
 	addInterfaces(r)
 
@@ -206,7 +208,7 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 	case RIP_REQUEST:
 		ripRequest(r, u, port, size, version, entries, vrf)
 	case RIP_RESPONSE:
-		ripResponse(r, u, port, size, version, entries)
+		ripResponse(r, u, port, size, version, entries, vrf)
 	default:
 		log.Printf("parseRipPacket: unknown command %d version=%d size=%d from %v to %v on %s ifIndex=%d",
 			cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
@@ -304,14 +306,98 @@ func parseEntry(buf []byte, entry int) (family int, tag int, netaddr net.IPNet, 
 	nexthop = addr.ReadIPv4(buf, offset+12)
 	metric = int(netorder.ReadUint32(buf, offset+16))
 
-	log.Printf("parseEntry: entry=%d family=%d tag=%d addr=%v nexthop=%v metric=%v", entry, family, tag, &netaddr, nexthop, metric)
+	// log.Printf("parseEntry: entry=%d family=%d tag=%d addr=%v nexthop=%v metric=%v", entry, family, tag, &netaddr, nexthop, metric)
 
 	return
 }
 
-func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int) {
+func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
 	log.Printf("ripResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+
+	/*
+		RFC2453 3.9.2 Response Messages
+		The Response must be ignored if it is not from the RIP port.
+	*/
+	if u.src.Port != RIP_PORT {
+		return
+	}
+
+	/*
+		RFC2453 3.9.2 Response Messages
+		the source of the datagram must be on a directly-connected network.
+	*/
+	ifaceAddrs, err1 := r.hardware.InterfaceAddressGet(u.ifName)
+	if err1 != nil {
+		log.Printf("ripResponse: unable to find addresses for interface %s: %v",
+			u.ifName, err1)
+		return
+	}
+
+	found := false
+	for _, a := range ifaceAddrs {
+		if a.Contains(u.src.IP) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return // ignore response from non-directly-connected address
+	}
+
+	/*
+		RFC2453 3.9.2 Response Messages
+		Ignore packets from our addresses.
+		(But only on the interface's VRF, because it is ok to
+	*/
+	vrfAddresses, err2 := r.hardware.VrfAddresses(vrf)
+	if err2 != nil {
+		log.Printf("ripResponse: unable to find addresses for VRF %s: %v",
+			vrf, err1)
+		return
+	}
+	for _, a := range vrfAddresses {
+		if a.IP.Equal(u.src.IP) {
+			return // ignore packets from our addresses
+		}
+	}
+
+	log.Printf("ripResponse: VALID RESPONSE entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+
+	for i := 0; i < entries; i++ {
+		family, tag, netaddr, nexthop, metric := parseEntry(u.info, i)
+
+		/*
+			log.Printf("ripResponse: entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d",
+				i, entries, family, tag, &netaddr, nexthop, metric)
+		*/
+
+		if metric < 1 || metric > RIP_METRIC_INFINITY {
+			log.Printf("ripResponse: bad metric entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d from %v to %v on %s ifIndex=%d",
+				i, entries, family, tag, &netaddr, nexthop, metric, &u.src, &u.dst, u.ifName, u.ifIndex)
+			continue
+		}
+
+		newMetric := metric + getInterfaceRipCost(r.conf, u.ifName)
+		if newMetric > RIP_METRIC_INFINITY {
+			newMetric = RIP_METRIC_INFINITY
+		}
+	}
+
+}
+
+func getInterfaceRipCost(ctx command.ConfContext, ifname string) int {
+	//
+	// CAUTION: Concurrent access to command.ConfContext
+	//
+	// RIP main goroutine has full (unprotected) access to command.ConfContext
+	// RIP router goroutine should synchronize its access to command.ConfContext
+	//
+
+	log.Printf("getInterfaceRipCost(%s): FIXME WRITE", ifname)
+
+	return 1
 }
 
 func (r *RipRouter) lookupAddress(vrf string, addr net.IPNet) *ripRoute {
