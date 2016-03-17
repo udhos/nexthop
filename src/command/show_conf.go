@@ -5,12 +5,12 @@ import (
 	//"strings"
 )
 
-type lineSender interface {
+type LineSender interface {
 	Sendln(string) int
 }
 
 type configSender struct {
-	sender lineSender
+	sender LineSender
 }
 
 func (s *configSender) WriteLine(line string) (int, error) {

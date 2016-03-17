@@ -17,12 +17,12 @@ import (
 )
 
 type ripNet struct {
-	addr   net.IPNet
-	metric int
+	addr    net.IPNet
+	nexthop net.IP
+	metric  int
 }
 
 type ripRoute struct {
-	family  uint16
 	tag     uint16
 	addr    net.IPNet
 	nexthop net.IP
@@ -31,6 +31,21 @@ type ripRoute struct {
 	srcIfIndex int
 	srcIfName  string
 	srcRouter  net.IP
+
+	creation          time.Time // timestamp
+	timeout           time.Time // timer
+	garbageCollection time.Time // timer
+}
+
+func newRipRoute(addr net.IPNet, metric int) *ripRoute {
+	r := &ripRoute{addr: addr, metric: metric, creation: time.Now()}
+	r.resetTimer()
+	return r
+}
+
+func (r *ripRoute) resetTimer() {
+	r.timeout = time.Now().Add(180 * time.Second)
+	r.garbageCollection = time.Unix(0, 0) // not running
 }
 
 type ripVrf struct {
@@ -44,62 +59,175 @@ func (v *ripVrf) Empty() bool {
 	return len(v.nets) < 1
 }
 
-func (v *ripVrf) NetAdd(s string, cost int) error {
-	_, ipnet, err := net.ParseCIDR(s)
-	if err != nil {
-		return fmt.Errorf("ripVrf.NetAdd: parse error: addr=[%s]: %v", s, err)
-	}
-	if err1 := addr.CheckMask(ipnet); err1 != nil {
-		return fmt.Errorf("ripVrf.NetAdd: bad mask: addr=[%s]: %v", s, err1)
-	}
-	for _, n := range v.nets {
-		if addr.NetEqual(ipnet, &n.addr) {
-			// found
-			n.metric = cost
-			return nil
+/*
+func (v *ripVrf) localRouteAdd(prefix net.IPNet, metric int) {
+	match := []*ripRoute{}
+	for _, r := range v.routes {
+		if addr.NetEqual(&prefix, &r.addr) {
+			match = append(match, r)
 		}
 	}
-	// not found
-	v.nets = append(v.nets, &ripNet{addr: *ipnet, metric: cost}) // add
+}
 
-	v.RouteLocalAdd(ipnet, cost)
+func (v *ripVrf) localRouteDel(prefix net.IPNet, metric int) {
+}
+*/
 
+func (v *ripVrf) nexthopGet(prefix *net.IPNet, nexthop net.IP) (int, *ripNet) {
+	for i, n := range v.nets {
+		if nexthop.Equal(n.nexthop) == addr.NetEqual(prefix, &n.addr) {
+			return i, n
+		}
+	}
+	return -1, nil
+}
+
+func (v *ripVrf) nexthopSet(prefix *net.IPNet, nexthop net.IP) *ripNet {
+	_, n := v.nexthopGet(prefix, nexthop)
+	if n == nil {
+		n = v.netAdd(prefix)
+		n.nexthop = nexthop
+	}
+	return n
+}
+
+func (v *ripVrf) netGet(prefix *net.IPNet) (int, *ripNet) {
+	for i, n := range v.nets {
+		if addr.NetEqual(prefix, &n.addr) {
+			return i, n
+		}
+	}
+	return -1, nil
+}
+
+func (v *ripVrf) netSet(prefix *net.IPNet) *ripNet {
+	_, n := v.netGet(prefix)
+	if n == nil {
+		n = v.netAdd(prefix)
+	}
+	return n
+}
+
+func (v *ripVrf) netAdd(prefix *net.IPNet) *ripNet {
+
+	/*
+		for i, n := range v.nets {
+			log.Printf("netAdd before: %d/%d vrf=%s net=%v", i, len(v.nets), v.name, n)
+		}
+	*/
+
+	n := &ripNet{addr: *prefix, nexthop: net.IPv4zero, metric: 1}
+	v.nets = append(v.nets, n) // add
+	return n
+}
+
+func (v *ripVrf) netDel(index int) {
+
+	/*
+		for i, n := range v.nets {
+			log.Printf("netDel before: %d/%d vrf=%s net=%v", i, len(v.nets), v.name, n)
+		}
+	*/
+
+	last := len(v.nets) - 1
+	v.nets[index] = v.nets[last] // overwrite position with last pointer
+	v.nets[last] = nil           // free last pointer for garbage collection
+	v.nets = v.nets[:last]       // shrink
+}
+
+func (v *ripVrf) NetAdd(prefix string) error {
+	_, ipnet, err := net.ParseCIDR(prefix)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetAdd: parse error: addr=[%s]: %v", prefix, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetAdd: bad mask: addr=[%s]: %v", prefix, err1)
+	}
+	_, n := v.netGet(ipnet)
+	if n != nil {
+		return fmt.Errorf("ripVrf.NetAdd: net exists: '%s'", prefix)
+	}
+	n = v.netAdd(ipnet)
+	//v.localRouteAdd(n.addr, n.metric)
 	return nil
 }
 
-func (v *ripVrf) RouteLocalAdd(ipnet *net.IPNet, metric int) {
-	log.Printf("ripVrf.RouteAdd: %v/%d", ipnet, metric)
-}
-
-func (v *ripVrf) RouteLocalDel(ipnet *net.IPNet, metric int) {
-	log.Printf("ripVrf.RouteDel: %v/%d", ipnet, metric)
-}
-
-func (v *ripVrf) NetDel(s string) error {
-	_, ipnet, err := net.ParseCIDR(s)
+func (v *ripVrf) NetDel(prefix string) error {
+	_, ipnet, err := net.ParseCIDR(prefix)
 	if err != nil {
-		return fmt.Errorf("ripVrf.NetDel: parse error: addr=[%s]: %v", s, err)
+		return fmt.Errorf("ripVrf.NetDel: parse error: addr=[%s]: %v", prefix, err)
 	}
 	if err1 := addr.CheckMask(ipnet); err1 != nil {
-		return fmt.Errorf("ripVrf.NetDel: bad mask: addr=[%s]: %v", s, err1)
+		return fmt.Errorf("ripVrf.NetDel: bad mask: addr=[%s]: %v", prefix, err1)
 	}
-	for i, n := range v.nets {
-		if addr.NetEqual(ipnet, &n.addr) {
-			// found
-
-			metric := n.metric // save
-
-			last := len(v.nets) - 1
-			v.nets[i] = v.nets[last] // overwrite position with last pointer
-			v.nets[last] = nil       // free last pointer for garbage collection
-			v.nets = v.nets[:last]   // shrink
-
-			v.RouteLocalDel(ipnet, metric)
-
-			return nil
-		}
+	i, n := v.netGet(ipnet)
+	if n == nil {
+		return fmt.Errorf("ripVrf.NetNet: not found: '%s'", prefix)
 	}
-	// not found
+	v.netDel(i)
+	//v.localRouteDel(n.addr, n.metric)
+	return nil
+}
+
+func (v *ripVrf) NetNexthopAdd(prefix string, nexthop net.IP) error {
+	_, ipnet, err := net.ParseCIDR(prefix)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetNexthopAdd: parse error: addr=[%s]: %v", prefix, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetNexthopAdd: bad mask: addr=[%s]: %v", prefix, err1)
+	}
+	n := v.netSet(ipnet)
+	n.nexthop = nexthop
+	//v.localRouteAdd(n.addr, n.metric)
+	return nil
+}
+
+func (v *ripVrf) NetNexthopDel(prefix string, nexthop net.IP) error {
+	_, ipnet, err := net.ParseCIDR(prefix)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetNexthopDel: parse error: addr=[%s]: %v", prefix, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetNexthopDel: bad mask: addr=[%s]: %v", prefix, err1)
+	}
+	_, n := v.nexthopGet(ipnet, nexthop)
+	if n == nil {
+		return fmt.Errorf("ripVrf.NetNexthopDel: not found: prefix=%s nexthop=%v", prefix, nexthop)
+	}
+	n.nexthop = net.IPv4zero
+	//v.localRouteDel(n.addr, n.metric)
+	return nil
+}
+
+func (v *ripVrf) NetMetricAdd(prefix string, nexthop net.IP, metric int) error {
+	_, ipnet, err := net.ParseCIDR(prefix)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetMetricAdd: parse error: addr=[%s]: %v", prefix, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetMetricAdd: bad mask: addr=[%s]: %v", prefix, err1)
+	}
+	n := v.nexthopSet(ipnet, nexthop)
+	n.metric = metric
+	//v.localRouteAdd(n.addr, n.metric)
+	return nil
+}
+
+func (v *ripVrf) NetMetricDel(prefix string, nexthop net.IP, metric int) error {
+	_, ipnet, err := net.ParseCIDR(prefix)
+	if err != nil {
+		return fmt.Errorf("ripVrf.NetMetricDel: parse error: addr=[%s]: %v", prefix, err)
+	}
+	if err1 := addr.CheckMask(ipnet); err1 != nil {
+		return fmt.Errorf("ripVrf.NetMetricDel: bad mask: addr=[%s]: %v", prefix, err1)
+	}
+	_, n := v.nexthopGet(ipnet, nexthop)
+	if n == nil {
+		return fmt.Errorf("ripVrf.NetMetricDel: not found: prefix=%s nexthop=%v", prefix, nexthop)
+	}
+	n.metric = 1
+	//v.localRouteDel(n.addr, n.metric)
 	return nil
 }
 
@@ -135,6 +263,12 @@ type udpInfo struct {
 	dst     net.UDPAddr
 	ifIndex int
 	ifName  string
+}
+
+func (r *RipRouter) ShowRoutes(c command.LineSender) {
+	warn := fmt.Sprintf("RipRouter.ShowRoutes: FIXME concurrent access to VRF tables")
+	log.Printf(warn)
+	c.Sendln(warn)
 }
 
 // NewRipRouter(): Spawn new rip router.
@@ -429,39 +563,106 @@ func (r *RipRouter) lookupAddress(vrf string, addr net.IPNet) *ripRoute {
 	return nil
 }
 
-func (r *RipRouter) NetAdd(vrf, s string, cost int) error {
-	for _, v := range r.vrfs {
-		if v.name == vrf {
-			// vrf found
-			return v.NetAdd(s, cost)
-		}
+func (r *RipRouter) vrfSet(vrf string) *ripVrf {
+	_, v := r.vrfGet(vrf)
+	if v == nil {
+		v = r.vrfAdd(vrf)
 	}
-	// vrf not found
-	v := &ripVrf{name: vrf}
-	r.vrfs = append(r.vrfs, v) // add vrf
-	return v.NetAdd(s, cost)
+	return v
 }
 
-func (r *RipRouter) NetDel(vrf, s string) error {
+func (r *RipRouter) vrfGet(vrf string) (int, *ripVrf) {
+	/*
+		for i, v := range r.vrfs {
+			log.Printf("vrfGet: %v %d/%d", v.name, i, len(r.vrfs))
+		}
+	*/
 	for i, v := range r.vrfs {
 		if v.name == vrf {
-			// vrf found
-
-			err := v.NetDel(s) // remove net from VRF
-
-			if v.Empty() {
-				// delete vrf
-				last := len(r.vrfs) - 1
-				r.vrfs[i] = r.vrfs[last] // overwrite position with last pointer
-				r.vrfs[last] = nil       // free last pointer for garbage collection
-				r.vrfs = r.vrfs[:last]   // shrink
-			}
-
-			return err
+			return i, v // found
 		}
 	}
-	// vrf not found
-	return fmt.Errorf("RipRouter.NetDel: vrf not found: vrf=[%s] addr=[%s]", vrf, s)
+	return -1, nil // not found
+}
+
+func (r *RipRouter) vrfAdd(vrf string) *ripVrf {
+	//log.Printf("vrfAdd: %s size=%d", vrf, len(r.vrfs))
+
+	v := &ripVrf{name: vrf}
+	r.vrfs = append(r.vrfs, v)
+	return v
+}
+
+func (r *RipRouter) vrfDel(index int) {
+	//log.Printf("vrfDel: %s size=%d", r.vrfs[index].name, len(r.vrfs))
+
+	last := len(r.vrfs) - 1
+	r.vrfs[index] = r.vrfs[last] // overwrite position with last pointer
+	r.vrfs[last] = nil           // free last pointer for garbage collection
+	r.vrfs = r.vrfs[:last]       // shrink
+}
+
+func (r *RipRouter) NetAdd(vrf, netAddr string) error {
+	v := r.vrfSet(vrf)
+	err := v.NetAdd(netAddr)
+
+	//log.Printf("RipRouter.NetAdd(%s,%s) after:", vrf, netAddr)
+	//r.dump(&ripDumper{})
+
+	return err
+}
+
+func (r *RipRouter) NetDel(vrf, netAddr string) error {
+	//log.Printf("NetDel: vrf=[%s] addr=%s", vrf, netAddr)
+
+	i, v := r.vrfGet(vrf)
+	if v == nil {
+		return fmt.Errorf("RipRouter.NetDel: vrf not found: vrf=[%s] addr=[%s]", vrf, netAddr)
+	}
+	err := v.NetDel(netAddr) // remove net from VRF
+	if v.Empty() {
+		r.vrfDel(i)
+	}
+	return err
+}
+
+func (r *RipRouter) NetNexthopAdd(vrf, netAddr string, nexthop net.IP) error {
+	v := r.vrfSet(vrf)
+	return v.NetNexthopAdd(netAddr, nexthop)
+}
+
+func (r *RipRouter) NetNexthopDel(vrf, netAddr string, nexthop net.IP) error {
+	i, v := r.vrfGet(vrf)
+	if v == nil {
+		return fmt.Errorf("RipRouter.NetNexthopDel: vrf not found: vrf=[%s] addr=[%s]", vrf, netAddr)
+	}
+	err := v.NetNexthopDel(netAddr, nexthop)
+	if v.Empty() {
+		r.vrfDel(i)
+	}
+	return err
+}
+
+func (r *RipRouter) NetMetricAdd(vrf, netAddr string, nexthop net.IP, metric int) error {
+	v := r.vrfSet(vrf)
+	err := v.NetMetricAdd(netAddr, nexthop, metric)
+
+	//log.Printf("RipRouter.NetMetricAdd(%s,%s,%v,%d) after:", vrf, netAddr, nexthop, metric)
+	//r.dump(&ripDumper{})
+
+	return err
+}
+
+func (r *RipRouter) NetMetricDel(vrf, netAddr string, nexthop net.IP, metric int) error {
+	i, v := r.vrfGet(vrf)
+	if v == nil {
+		return fmt.Errorf("RipRouter.NetMetricDel: vrf not found: vrf=[%s] addr=[%s]", vrf, netAddr)
+	}
+	err := v.NetMetricDel(netAddr, nexthop, metric)
+	if v.Empty() {
+		r.vrfDel(i)
+	}
+	return err
 }
 
 func addInterfaces(r *RipRouter) {
@@ -615,7 +816,7 @@ func (r *RipRouter) ifClose(i int) {
 
 	if err := sock.Leave(p.msock, r.group, p.iface); err != nil {
 		// warning only
-		log.Printf("RipRouter.InterfaceDel: leave group error: %v", err)
+		log.Printf("RipRouter.ifClose: leave group error: %v", err)
 	}
 
 	sock.Close(p.msock) // break reader goroutine
@@ -625,4 +826,24 @@ func (r *RipRouter) ifDel(i int) {
 	size := len(r.ports)
 	r.ports[i] = r.ports[size-1]
 	r.ports = r.ports[:size-1]
+}
+
+type ripDumper struct{}
+
+func (d *ripDumper) Sendln(msg string) int {
+	log.Printf(msg)
+	return 0
+}
+
+func (r *RipRouter) dump(c command.LineSender) {
+	for _, v := range r.vrfs {
+		c.Sendln(fmt.Sprintf("vrf %s", v.name))
+		v.dump(c)
+	}
+}
+
+func (v *ripVrf) dump(c command.LineSender) {
+	for _, n := range v.nets {
+		c.Sendln(fmt.Sprintf("vrf %s - %v/%v/%d", v.name, n.addr, n.nexthop, n.metric))
+	}
 }

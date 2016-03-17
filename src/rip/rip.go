@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"fwd"
 	"log"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -156,11 +157,16 @@ func installCommands(root *command.CmdNode) {
 
 	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
+	command.CmdInstall(root, cmdNone, "show rip routes", command.EXEC, cmdShowRipRoutes, nil, "Show RIP routes")
 	command.CmdInstall(root, cmdConH, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
-	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
-	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} nexthop {IPADDR}", command.CONF, cmdRipNetNexthop, applyRipNetNexthop, "RIP network nexthop")
+	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} nexthop {IPADDR} cost {RIPMETRIC}", command.CONF, cmdRipNetNexthopCost, applyRipNetNexthopCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipVrfNet, "Insert network into RIP protocol")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipVrfNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} nexthop {IPADDR}", command.CONF, cmdRipNetNexthop, applyRipVrfNetNexthop, "RIP network nexthop")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} nexthop {IPADDR} cost {RIPMETRIC}", command.CONF, cmdRipNetNexthopCost, applyRipVrfNetNexthopCost, "RIP network metric")
 
 	// Node description is used for pretty display in command help.
 	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
@@ -179,6 +185,15 @@ func installCommands(root *command.CmdNode) {
 func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	rip := ctx.(*Rip)
 	command.HelperShowVersion(rip.daemonName, c)
+}
+
+func cmdShowRipRoutes(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	rip := ctx.(*Rip)
+	if rip.router == nil {
+		c.Sendln("RIP not running")
+		return
+	}
+	rip.router.ShowRoutes(c)
 }
 
 func cmdRip(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -213,15 +228,357 @@ func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, 
 	command.MultiValueAdd(ctx, c, node.Path, line)
 }
 
+func cmdRipNetCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.SingleValueSetSimple(ctx, c, node.Path, line)
+}
+
+func cmdRipNetNexthop(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.MultiValueAdd(ctx, c, node.Path, line)
+}
+
+func cmdRipNetNexthopCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.SingleValueSetSimple(ctx, c, node.Path, line)
+}
+
+func ripCtx(ctx command.ConfContext, c command.CmdClient) *Rip {
+	if rip, ok := ctx.(*Rip); ok {
+		return rip
+	}
+	// non-rip context is a bogus state used for unit testing
+	err := fmt.Errorf("ripCtx: not a true Rip context: %v", ctx)
+	log.Printf("%v", err)
+	c.Sendln(fmt.Sprintf("%v", err))
+	return nil
+}
+
 func applyRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	return enableRip(ctx, node, action, c, false, 1)
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	enableRip(rip, action.Enable)
+
+	return nil
 }
 
 func applyRipNet(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	return enableRip(ctx, node, action, c, true, 1)
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := ""
+	netAddr := f[3]
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetAdd(vrf, netAddr)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipNet: rip router disabled")
+	}
+
+	if err := rip.router.NetDel(vrf, netAddr); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
 }
 
-func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool, cost int) error {
+func applyRipVrfNet(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := f[3]
+	netAddr := f[5]
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetAdd(vrf, netAddr)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipVrfNet: rip router disabled")
+	}
+
+	if err := rip.router.NetDel(vrf, netAddr); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func applyRipNetCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	vrf := ""
+	f := strings.Fields(action.Cmd)
+	netAddr := f[3]
+	metricStr := f[5]
+
+	metric, err := strconv.Atoi(metricStr)
+	if err != nil {
+		return fmt.Errorf("applyRipNetCost: bad metric: '%s': %v", metricStr, err)
+	}
+
+	nexthop := net.IPv4zero
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetMetricAdd(vrf, netAddr, nexthop, metric)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipNetCost: rip router disabled")
+	}
+
+	if err := rip.router.NetMetricDel(vrf, netAddr, nexthop, metric); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func applyRipVrfNetCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := f[3]
+	netAddr := f[5]
+	metricStr := f[7]
+
+	metric, err := strconv.Atoi(metricStr)
+	if err != nil {
+		return fmt.Errorf("applyRipNetCost: bad metric: '%s': %v", metricStr, err)
+	}
+
+	nexthop := net.IPv4zero
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetMetricAdd(vrf, netAddr, nexthop, metric)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipVrfNetCost: rip router disabled")
+	}
+
+	if err := rip.router.NetMetricDel(vrf, netAddr, nexthop, metric); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func applyRipNetNexthop(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := ""
+	netAddr := f[3]
+	nexthopStr := f[5]
+
+	nexthop := net.ParseIP(nexthopStr)
+	if nexthop == nil {
+		return fmt.Errorf("applyRipNetNexthop: bad address: '%s'", nexthopStr)
+	}
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetNexthopAdd(vrf, netAddr, nexthop)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipNetNexthop: rip router disabled")
+	}
+
+	if err := rip.router.NetNexthopDel(vrf, netAddr, nexthop); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func applyRipVrfNetNexthop(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := f[3]
+	netAddr := f[5]
+	nexthopStr := f[7]
+
+	nexthop := net.ParseIP(nexthopStr)
+	if nexthop == nil {
+		return fmt.Errorf("applyRipVrfNetNexthop: bad address: '%s'", nexthopStr)
+	}
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetNexthopAdd(vrf, netAddr, nexthop)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipVrfNetNexthop: rip router disabled")
+	}
+
+	if err := rip.router.NetNexthopDel(vrf, netAddr, nexthop); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func applyRipNetNexthopCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := ""
+	netAddr := f[3]
+	nexthopStr := f[5]
+	metricStr := f[7]
+
+	nexthop := net.ParseIP(nexthopStr)
+	if nexthop == nil {
+		return fmt.Errorf("applyRipNetNexthopCost: bad address: '%s'", nexthopStr)
+	}
+
+	metric, err1 := strconv.Atoi(metricStr)
+	if err1 != nil {
+		return fmt.Errorf("applyRipNetNexthopCost: bad metric: '%s': %v", metricStr, err1)
+	}
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetMetricAdd(vrf, netAddr, nexthop, metric)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipNetNexthopCost: rip router disabled")
+	}
+
+	if err := rip.router.NetMetricDel(vrf, netAddr, nexthop, metric); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func applyRipVrfNetNexthopCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	vrf := f[3]
+	netAddr := f[5]
+	nexthopStr := f[7]
+	metricStr := f[9]
+
+	nexthop := net.ParseIP(nexthopStr)
+	if nexthop == nil {
+		return fmt.Errorf("applyRipVrfNetNexthopCost: bad address: '%s'", nexthopStr)
+	}
+
+	metric, err1 := strconv.Atoi(metricStr)
+	if err1 != nil {
+		return fmt.Errorf("applyRipVrfNetNexthopCost: bad metric: '%s': %v", metricStr, err1)
+	}
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		return rip.router.NetMetricAdd(vrf, netAddr, nexthop, metric)
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipVrfNetNexthopCost: rip router disabled")
+	}
+
+	if err := rip.router.NetMetricDel(vrf, netAddr, nexthop, metric); err != nil {
+		return err
+	}
+
+	enableRip(rip, false) // disable rip if needed
+
+	return nil
+}
+
+func enableRip(rip *Rip, enable bool) {
+
+	if enable {
+		// enable RIP
+
+		if rip.router == nil {
+			rip.router = NewRipRouter(rip.hardware, rip)
+		}
+
+		return
+	}
+
+	// disable RIP
+
+	if cand, _ := rip.ConfRootCandidate().Get("router rip"); cand != nil {
+		return // router rip still in place
+	}
+
+	//log.Printf("enableRip: disabling RIP")
+
+	if rip.router == nil {
+		return // rip not running
+	}
+
+	// fully disable RIP
+
+	rip.router.done <- 1 // request end of rip goroutine
+	rip.router = nil
+}
+
+/*
+func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool, cost int, nexthop net.IP) error {
 	var rip *Rip
 	var ok bool
 	if rip, ok = ctx.(*Rip); !ok {
@@ -246,10 +603,10 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 
 			f := strings.Fields(action.Cmd)
 			if strings.HasPrefix("network", f[2]) {
-				return rip.router.NetAdd("", f[3], cost)
+				return rip.router.NetAdd("", f[3], cost, nexthop)
 			}
 			if strings.HasPrefix("vrf", f[2]) {
-				return rip.router.NetAdd(f[3], f[5], cost)
+				return rip.router.NetAdd(f[3], f[5], cost, nexthop)
 			}
 			return fmt.Errorf("enableRip: bad network command: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
 		}
@@ -268,11 +625,11 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 		f := strings.Fields(action.Cmd)
 
 		if strings.HasPrefix("network", f[2]) {
-			if err := rip.router.NetDel("", f[3]); err != nil {
+			if err := rip.router.NetDel("", f[3], nexthop); err != nil {
 				return err
 			}
 		} else if strings.HasPrefix("vrf", f[2]) {
-			if err := rip.router.NetDel(f[3], f[5]); err != nil {
+			if err := rip.router.NetDel(f[3], f[5], nexthop); err != nil {
 				return err
 			}
 		} else {
@@ -294,22 +651,4 @@ func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.Co
 
 	return nil
 }
-
-func cmdRipNetCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.SingleValueSetSimple(ctx, c, node.Path, line)
-}
-
-func applyRipNetCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
-	_, costStr := command.StripLastToken(action.Cmd)
-
-	cost, err := strconv.Atoi(costStr)
-	if err != nil {
-		return fmt.Errorf("applyRipNetCost: parse error: '%s': %v", costStr, err)
-	}
-
-	if cost < 1 || cost > 15 {
-		return fmt.Errorf("applyRipNetCost: invalid cost: %d", cost)
-	}
-
-	return enableRip(ctx, node, action, c, true, cost)
-}
+*/
