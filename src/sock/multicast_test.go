@@ -26,7 +26,7 @@ func TestJoin(t *testing.T) {
 	dst := net.UDPAddr{IP: net.IPv4(1, 0, 0, 1), Port: 3000}
 	n, err2 := mcastSock.U.WriteToUDP(data, &dst)
 	if err2 != nil {
-		t.Errorf("Error sending to %v,%p: %v", dst.IP, dst.Port, err2)
+		t.Errorf("Error sending to %v,%d: %v", dst.IP, dst.Port, err2)
 		Close(mcastSock)
 		return
 	}
