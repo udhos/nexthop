@@ -28,6 +28,7 @@ type ripRoute struct {
 	nexthop net.IP
 	metric  int
 
+	srcLocal   bool
 	srcIfIndex int
 	srcIfName  string
 	srcRouter  net.IP
@@ -59,19 +60,13 @@ func (v *ripVrf) Empty() bool {
 	return len(v.nets) < 1
 }
 
-/*
-func (v *ripVrf) localRouteAdd(prefix net.IPNet, metric int) {
-	match := []*ripRoute{}
-	for _, r := range v.routes {
-		if addr.NetEqual(&prefix, &r.addr) {
-			match = append(match, r)
-		}
-	}
+func (v *ripVrf) localRouteAdd(n *ripNet) {
+	log.Printf("ripVrf.localRouteAdd: vrf[%s]: %v", v.name, n)
 }
 
-func (v *ripVrf) localRouteDel(prefix net.IPNet, metric int) {
+func (v *ripVrf) localRouteDel(n *ripNet) {
+	log.Printf("ripVrf.localRouteDel: vrf[%s]: %v", v.name, n)
 }
-*/
 
 func (v *ripVrf) nexthopGet(prefix *net.IPNet, nexthop net.IP) (int, *ripNet) {
 	for i, n := range v.nets {
@@ -148,7 +143,7 @@ func (v *ripVrf) NetAdd(prefix string) error {
 		return fmt.Errorf("ripVrf.NetAdd: net exists: '%s'", prefix)
 	}
 	n = v.netAdd(ipnet)
-	//v.localRouteAdd(n.addr, n.metric)
+	v.localRouteAdd(n)
 	return nil
 }
 
@@ -165,7 +160,7 @@ func (v *ripVrf) NetDel(prefix string) error {
 		return fmt.Errorf("ripVrf.NetNet: not found: '%s'", prefix)
 	}
 	v.netDel(i)
-	//v.localRouteDel(n.addr, n.metric)
+	v.localRouteDel(n)
 	return nil
 }
 
@@ -179,7 +174,7 @@ func (v *ripVrf) NetNexthopAdd(prefix string, nexthop net.IP) error {
 	}
 	n := v.netSet(ipnet)
 	n.nexthop = nexthop
-	//v.localRouteAdd(n.addr, n.metric)
+	v.localRouteAdd(n)
 	return nil
 }
 
@@ -196,7 +191,7 @@ func (v *ripVrf) NetNexthopDel(prefix string, nexthop net.IP) error {
 		return fmt.Errorf("ripVrf.NetNexthopDel: not found: prefix=%s nexthop=%v", prefix, nexthop)
 	}
 	n.nexthop = net.IPv4zero
-	//v.localRouteDel(n.addr, n.metric)
+	v.localRouteDel(n)
 	return nil
 }
 
@@ -210,7 +205,7 @@ func (v *ripVrf) NetMetricAdd(prefix string, nexthop net.IP, metric int) error {
 	}
 	n := v.nexthopSet(ipnet, nexthop)
 	n.metric = metric
-	//v.localRouteAdd(n.addr, n.metric)
+	v.localRouteAdd(n)
 	return nil
 }
 
@@ -227,7 +222,7 @@ func (v *ripVrf) NetMetricDel(prefix string, nexthop net.IP, metric int) error {
 		return fmt.Errorf("ripVrf.NetMetricDel: not found: prefix=%s nexthop=%v", prefix, nexthop)
 	}
 	n.metric = 1
-	//v.localRouteDel(n.addr, n.metric)
+	v.localRouteDel(n)
 	return nil
 }
 
