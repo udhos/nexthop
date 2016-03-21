@@ -19,3 +19,4 @@ go_get () {
 go_get golang.org/x/net/ipv4
 go_get github.com/udhos/netlink
 go_get honnef.co/go/unused/cmd/unused
+go_get github.com/golang/lint/golint

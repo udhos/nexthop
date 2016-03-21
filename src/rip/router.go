@@ -38,15 +38,34 @@ type ripRoute struct {
 	garbageCollection time.Time // timer
 }
 
-func newRipRoute(addr net.IPNet, metric int) *ripRoute {
-	r := &ripRoute{addr: addr, metric: metric, creation: time.Now()}
-	r.resetTimer()
+func newRipRoute(addr net.IPNet, nexthop net.IP, metric int) *ripRoute {
+	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: time.Now()}
+	r.resetTimer(time.Now())
 	return r
 }
 
-func (r *ripRoute) resetTimer() {
-	r.timeout = time.Now().Add(180 * time.Second)
-	r.garbageCollection = time.Unix(0, 0) // not running
+func (r *ripRoute) resetTimer(now time.Time) {
+	r.timeout = now.Add(180 * time.Second) // start timeout timer
+	r.garbageCollection = time.Unix(0, 0)  // not running
+}
+
+func (r *ripRoute) disable(now time.Time) {
+	if r.isValid(now) {
+		r.timeout = now                                         // timeout expired now
+		r.garbageCollection = time.Now().Add(120 * time.Second) // start garbage collection timer
+	}
+}
+
+func (r *ripRoute) isValid(now time.Time) bool {
+	return r.timeout.After(now)
+}
+
+func (r *ripRoute) isGarbage(now time.Time) bool {
+	if r.isValid(now) {
+		return false // timeout timer is still running
+	}
+
+	return r.garbageCollection.Before(now)
 }
 
 type ripVrf struct {
@@ -62,6 +81,35 @@ func (v *ripVrf) Empty() bool {
 
 func (v *ripVrf) localRouteAdd(n *ripNet) {
 	log.Printf("ripVrf.localRouteAdd: vrf[%s]: %v", v.name, n)
+
+	deleteList := []*ripRoute{}
+
+	for _, route := range v.routes {
+		if n.metric > route.metric {
+			continue // can't affec routes with better metric
+		}
+		if !addr.NetEqual(&n.addr, &route.addr) {
+			continue // ignore other routes
+		}
+		if n.metric < route.metric {
+			// new route has better metric: delete existing
+			deleteList = append(deleteList, route)
+			continue
+		}
+		// new route has equal metric: keep existing
+	}
+
+	for _, route := range deleteList {
+		route.disable(time.Now().Add(-1 * time.Second))
+	}
+
+	newRoute := newRipRoute(n.addr, n.nexthop, n.metric)
+
+	v.routeAdd(newRoute)
+}
+
+func (v *ripVrf) routeAdd(newRoute *ripRoute) {
+	v.routes = append(v.routes, newRoute)
 }
 
 func (v *ripVrf) localRouteDel(n *ripNet) {
@@ -830,14 +878,14 @@ func (d *ripDumper) Sendln(msg string) int {
 	return 0
 }
 
-func (r *RipRouter) dump(c command.LineSender) {
+func (r *RipRouter) dumpNets(c command.LineSender) {
 	for _, v := range r.vrfs {
 		c.Sendln(fmt.Sprintf("vrf %s", v.name))
-		v.dump(c)
+		v.dumpNets(c)
 	}
 }
 
-func (v *ripVrf) dump(c command.LineSender) {
+func (v *ripVrf) dumpNets(c command.LineSender) {
 	for _, n := range v.nets {
 		c.Sendln(fmt.Sprintf("vrf %s - %v/%v/%d", v.name, n.addr, n.nexthop, n.metric))
 	}
