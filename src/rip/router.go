@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	//"sync"
+	"sync"
 	"time"
 
 	"golang.org/x/net/ipv4"
@@ -28,19 +28,20 @@ type ripRoute struct {
 	nexthop net.IP
 	metric  int
 
-	srcLocal   bool
-	srcIfIndex int
-	srcIfName  string
-	srcRouter  net.IP
-
 	creation          time.Time // timestamp
 	timeout           time.Time // timer
 	garbageCollection time.Time // timer
+
+	// only for non-local routes
+	srcExternal bool
+	srcIfIndex  int
+	srcIfName   string
+	srcRouter   net.IP
 }
 
-func newRipRoute(addr net.IPNet, nexthop net.IP, metric int) *ripRoute {
-	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: time.Now()}
-	r.resetTimer(time.Now())
+func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time) *ripRoute {
+	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: now}
+	r.resetTimer(now)
 	return r
 }
 
@@ -51,8 +52,8 @@ func (r *ripRoute) resetTimer(now time.Time) {
 
 func (r *ripRoute) disable(now time.Time) {
 	if r.isValid(now) {
-		r.timeout = now                                         // timeout expired now
-		r.garbageCollection = time.Now().Add(120 * time.Second) // start garbage collection timer
+		r.timeout = now.Add(-1 * time.Second)            // forcedly expire timeout
+		r.garbageCollection = now.Add(120 * time.Second) // start garbage collection timer
 	}
 }
 
@@ -84,27 +85,39 @@ func (v *ripVrf) localRouteAdd(n *ripNet) {
 
 	deleteList := []*ripRoute{}
 
+	now := time.Now()
+
 	for _, route := range v.routes {
-		if n.metric > route.metric {
-			continue // can't affec routes with better metric
+		if !route.isValid(now) {
+			continue // ignore expired routes
 		}
 		if !addr.NetEqual(&n.addr, &route.addr) {
-			continue // ignore other routes
+			continue // ignore routes for other prefixes
+		}
+		if n.metric > route.metric {
+			return // found better metric -- refuse to change routing table
 		}
 		if n.metric < route.metric {
-			// new route has better metric: delete existing
+			// new route has better metric: delete existing routes
 			deleteList = append(deleteList, route)
 			continue
 		}
-		// new route has equal metric: keep existing
+
+		// new route has equal metric: keep existing routes
+
+		if n.nexthop.Equal(route.nexthop) {
+			log.Printf("ripVrf.localRouteAdd: internal error: duplicate prefix/nexthop/metric: vrf=[%s] route: %v", v.name, route)
+			continue
+		}
 	}
 
+	// delete existing routes
 	for _, route := range deleteList {
-		route.disable(time.Now().Add(-1 * time.Second))
+		route.disable(now)
 	}
 
-	newRoute := newRipRoute(n.addr, n.nexthop, n.metric)
-
+	// add route
+	newRoute := newRipRoute(n.addr, n.nexthop, n.metric, now)
 	v.routeAdd(newRoute)
 }
 
@@ -114,6 +127,34 @@ func (v *ripVrf) routeAdd(newRoute *ripRoute) {
 
 func (v *ripVrf) localRouteDel(n *ripNet) {
 	log.Printf("ripVrf.localRouteDel: vrf[%s]: %v", v.name, n)
+
+	count := 0
+
+	now := time.Now()
+
+	for _, route := range v.routes {
+		if route.srcExternal {
+			continue // do not remove external routes
+		}
+		if !route.isValid(now) {
+			continue // ignore expired routes
+		}
+		if !addr.NetEqual(&n.addr, &route.addr) {
+			continue // ignore routes for other prefixes
+		}
+		if !n.nexthop.Equal(route.nexthop) {
+			continue // ignore routes for other nexthops
+		}
+		if n.metric != route.metric {
+			log.Printf("ripVrf.localRouteDel: internal error: wrong metric=%d: vrf=[%s]: %v", route.metric, v.name, route)
+		}
+
+		route.disable(now)
+		count++
+		if count > 1 {
+			log.Printf("ripVrf.localRouteDel: internal error: removed multiple routes: count=%d: vrf=[%s]: %v", count, v.name, route)
+		}
+	}
 }
 
 func (v *ripVrf) nexthopGet(prefix *net.IPNet, nexthop net.IP) (int, *ripNet) {
@@ -277,6 +318,7 @@ func (v *ripVrf) NetMetricDel(prefix string, nexthop net.IP, metric int) error {
 type RipRouter struct {
 	done        chan int // write into this channel (do not close) to request end of rip router
 	input       chan *udpInfo
+	vrfMutex    sync.RWMutex // both main and RipRouter goroutines access the routing table (under member vrfs)
 	vrfs        []*ripVrf
 	ports       []*port // rip interfaces
 	group       net.IP  // 224.0.0.9
@@ -309,9 +351,30 @@ type udpInfo struct {
 }
 
 func (r *RipRouter) ShowRoutes(c command.LineSender) {
-	warn := fmt.Sprintf("RipRouter.ShowRoutes: FIXME concurrent access to VRF tables")
-	log.Printf(warn)
-	c.Sendln(warn)
+
+	defer r.vrfMutex.RUnlock()
+	r.vrfMutex.RLock()
+
+	header := fmt.Sprintf("%-14s %-18s %-15s %-6s", "VRF", "NETWORK", "NEXTHOP", "METRIC")
+	format := "%-14s %-18v %-15s %6d"
+
+	c.Sendln("RIP local networks:")
+	c.Sendln(header)
+
+	for _, v := range r.vrfs {
+		for _, n := range v.nets {
+			c.Sendln(fmt.Sprintf(format, v.name, &n.addr, n.nexthop, n.metric))
+		}
+	}
+
+	c.Sendln("RIP routes:")
+	c.Sendln(header)
+
+	for _, v := range r.vrfs {
+		for _, r := range v.routes {
+			c.Sendln(fmt.Sprintf(format, v.name, &r.addr, r.nexthop, r.metric))
+		}
+	}
 }
 
 // NewRipRouter(): Spawn new rip router.
@@ -646,6 +709,9 @@ func (r *RipRouter) vrfDel(index int) {
 }
 
 func (r *RipRouter) NetAdd(vrf, netAddr string) error {
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
 	v := r.vrfSet(vrf)
 	err := v.NetAdd(netAddr)
 
@@ -656,7 +722,8 @@ func (r *RipRouter) NetAdd(vrf, netAddr string) error {
 }
 
 func (r *RipRouter) NetDel(vrf, netAddr string) error {
-	//log.Printf("NetDel: vrf=[%s] addr=%s", vrf, netAddr)
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
 
 	i, v := r.vrfGet(vrf)
 	if v == nil {
@@ -670,11 +737,17 @@ func (r *RipRouter) NetDel(vrf, netAddr string) error {
 }
 
 func (r *RipRouter) NetNexthopAdd(vrf, netAddr string, nexthop net.IP) error {
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
 	v := r.vrfSet(vrf)
 	return v.NetNexthopAdd(netAddr, nexthop)
 }
 
 func (r *RipRouter) NetNexthopDel(vrf, netAddr string, nexthop net.IP) error {
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
 	i, v := r.vrfGet(vrf)
 	if v == nil {
 		return fmt.Errorf("RipRouter.NetNexthopDel: vrf not found: vrf=[%s] addr=[%s]", vrf, netAddr)
@@ -687,6 +760,9 @@ func (r *RipRouter) NetNexthopDel(vrf, netAddr string, nexthop net.IP) error {
 }
 
 func (r *RipRouter) NetMetricAdd(vrf, netAddr string, nexthop net.IP, metric int) error {
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
 	v := r.vrfSet(vrf)
 	err := v.NetMetricAdd(netAddr, nexthop, metric)
 
@@ -697,6 +773,9 @@ func (r *RipRouter) NetMetricAdd(vrf, netAddr string, nexthop net.IP, metric int
 }
 
 func (r *RipRouter) NetMetricDel(vrf, netAddr string, nexthop net.IP, metric int) error {
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
 	i, v := r.vrfGet(vrf)
 	if v == nil {
 		return fmt.Errorf("RipRouter.NetMetricDel: vrf not found: vrf=[%s] addr=[%s]", vrf, netAddr)
