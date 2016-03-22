@@ -367,12 +367,25 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 		}
 	}
 
+	h := fmt.Sprintf("%s %-5s", header, "FLAGS")
+	f := fmt.Sprintf("%s %%-5s", format)
+
 	c.Sendln("RIP routes:")
-	c.Sendln(header)
+	c.Sendln("Flags: I=Invalid E=External")
+	c.Sendln(h)
+
+	now := time.Now()
 
 	for _, v := range r.vrfs {
 		for _, r := range v.routes {
-			c.Sendln(fmt.Sprintf(format, v.name, &r.addr, r.nexthop, r.metric))
+			flags := ""
+			if !r.isValid(now) {
+				flags += "I"
+			}
+			if r.srcExternal {
+				flags += "E"
+			}
+			c.Sendln(fmt.Sprintf(f, v.name, &r.addr, r.nexthop, r.metric, flags))
 		}
 	}
 }
