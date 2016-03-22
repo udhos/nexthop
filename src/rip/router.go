@@ -39,6 +39,16 @@ type ripRoute struct {
 	srcRouter   net.IP
 }
 
+func (route *ripRoute) Family() int {
+	if route.addr.IP.To4() != nil {
+		return RIP_FAMILY_INET
+	}
+	if route.addr.IP.To16() != nil {
+		return RIP_FAMILY_INET6
+	}
+	return RIP_FAMILY_UNSPEC
+}
+
 func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time) *ripRoute {
 	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: now}
 	r.resetTimer(now)
@@ -333,7 +343,14 @@ const (
 	RIP_METRIC_INFINITY = 16
 	RIP_REQUEST         = 1
 	RIP_RESPONSE        = 2
-	RIP_FAMILY_INET     = 2 // AF_INET
+	RIP_FAMILY_UNSPEC   = 0  // AF_UNSPEC Unspecified
+	RIP_FAMILY_INET     = 2  // AF_INET   IPv4
+	RIP_FAMILY_INET6    = 10 // AF_INET6  IPv6
+	RIP_V2              = 2
+	RIP_PKT_MAX_ENTRIES = 25
+	RIP_ENTRY_SIZE      = 20
+	RIP_HEADER_SIZE     = 4
+	RIP_PKT_MAX_SIZE    = RIP_HEADER_SIZE + RIP_ENTRY_SIZE*RIP_PKT_MAX_ENTRIES
 )
 
 // rip interface
@@ -444,13 +461,13 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 	*/
 
 	size := len(u.info)
-	entries := (size - 4) / 20
+	entries := (size - RIP_HEADER_SIZE) / RIP_ENTRY_SIZE
 	if entries < 1 {
 		log.Printf("parseRipPacket: short packet size=%d bytes from %v to %v on %s ifIndex=%d",
 			size, &u.src, &u.dst, u.ifName, u.ifIndex)
 		return
 	}
-	if entries > 25 {
+	if entries > RIP_PKT_MAX_ENTRIES {
 		log.Printf("parseRipPacket: long packet size=%d bytes from %v to %v on %s ifIndex=%d",
 			size, &u.src, &u.dst, u.ifName, u.ifIndex)
 		return
@@ -472,16 +489,16 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 
 	port := r.getInterfaceByIndex(u.ifIndex)
 	if port == nil {
-		log.Printf("ripRequest: unable to find RIP interface for incoming %v to %v on %s ifIndex=%d",
+		log.Printf("ripParseRequest: unable to find RIP interface for incoming %v to %v on %s ifIndex=%d",
 			&u.src, &u.dst, u.ifName, u.ifIndex)
 		return
 	}
 
 	switch cmd {
 	case RIP_REQUEST:
-		ripRequest(r, u, port, size, version, entries, vrf)
+		ripParseRequest(r, u, port, size, version, entries, vrf)
 	case RIP_RESPONSE:
-		ripResponse(r, u, port, size, version, entries, vrf)
+		ripParseResponse(r, u, port, size, version, entries, vrf)
 	default:
 		log.Printf("parseRipPacket: unknown command %d version=%d size=%d from %v to %v on %s ifIndex=%d",
 			cmd, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
@@ -489,8 +506,8 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 
 }
 
-func ripRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
-	log.Printf("ripRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+func ripParseRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
+	log.Printf("ripParseRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 
 	if entries == 1 {
@@ -505,9 +522,8 @@ func ripRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, v
 			routing table.
 		*/
 		family, _, _, _, metric := parseEntry(u.info, 0)
-
 		if family == 0 && metric == RIP_METRIC_INFINITY {
-			log.Printf("ripRequest: FIXME WRITEME reply with full routing table")
+			ripSendTable(r, vrf, p.msock.U, &u.src, u.ifName, u.ifIndex)
 			return
 		}
 	}
@@ -542,10 +558,63 @@ func ripRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, v
 	}
 
 	// Echo request back to source
-	ripSend(p.msock.U, &u.src, u.info, u.ifName, u.ifIndex)
+	if err := ripSend(p.msock.U, &u.src, u.info, u.ifName, u.ifIndex); err != nil {
+		log.Printf("ripParseRequest: %v", err)
+	}
 }
 
-func ripSend(conn *net.UDPConn, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) {
+func ripSendTable(r *RipRouter, vrfname string, conn *net.UDPConn, dst *net.UDPAddr, ifname string, ifindex int) {
+
+	defer r.vrfMutex.RUnlock()
+	r.vrfMutex.RLock()
+
+	_, v := r.vrfGet(vrfname)
+	if v == nil {
+		log.Printf("ripSendTable: VRF not found: vrf=[%s]", vrfname)
+		return
+	}
+
+	validRoutes := []*ripRoute{}
+
+	now := time.Now()
+
+	for _, route := range v.routes {
+		if route.isValid(now) {
+			validRoutes = append(validRoutes, route)
+		}
+	}
+
+	entries := len(validRoutes)
+	buf := make([]byte, RIP_PKT_MAX_SIZE) // largest possible buffer
+
+	// packet header
+	buf[0] = RIP_RESPONSE // command response
+	buf[1] = RIP_V2       // version 2
+
+	// scan all valid entries
+	for entry := 0; entry < entries; {
+
+		// send batches of up to 25 entries
+
+		bufEntries := entries - entry
+		if bufEntries > RIP_PKT_MAX_ENTRIES {
+			bufEntries = RIP_PKT_MAX_ENTRIES
+		}
+		b := buf[:RIP_HEADER_SIZE+RIP_ENTRY_SIZE*bufEntries]
+
+		for i := 0; i < bufEntries; i++ {
+			route := validRoutes[entry]
+			setEntry(b, i, route.Family(), route.tag, route.addr, route.nexthop, route.metric)
+			entry++
+		}
+
+		if err := ripSend(conn, dst, b, ifname, ifindex); err != nil {
+			log.Printf("ripSendTable: %v", err)
+		}
+	}
+}
+
+func ripSend(conn *net.UDPConn, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) error {
 
 	// Set 500 ms timeout
 	timeout := time.Duration(500) * time.Millisecond
@@ -556,25 +625,42 @@ func ripSend(conn *net.UDPConn, dst *net.UDPAddr, buf []byte, ifname string, ifi
 
 	n, err := conn.WriteToUDP(buf, dst)
 	if err != nil {
-		log.Printf("ripSend: error writing back to %v on %s ifIndex=%d: %v", dst, ifname, ifindex, err)
+		return fmt.Errorf("ripSend: error writing size=%d to %v on %s ifIndex=%d: %v", size, dst, ifname, ifindex, err)
 	}
 	if n != size {
-		log.Printf("ripSend: partial %d/%d write back to %v on %s ifIndex=%d: %v", n, size, dst, ifname, ifindex, err)
+		return fmt.Errorf("ripSend: partial %d/%d write to %v on %s ifIndex=%d", n, size, dst, ifname, ifindex)
 	}
 
-	log.Printf("ripSend: wrote back to %v on %s ifIndex=%d", dst, ifname, ifindex)
+	log.Printf("ripSend: wrote size=%d to %v on %s ifIndex=%d", size, dst, ifname, ifindex)
+
+	return nil
+}
+
+func ripEntryOffset(entry int) int {
+	return RIP_HEADER_SIZE + RIP_ENTRY_SIZE*entry
 }
 
 func setEntryMetric(buf []byte, entry, metric int) {
-	offset := 4 + 20*entry
+	offset := ripEntryOffset(entry)
 	netorder.WriteUint32(buf, offset+16, uint32(metric))
 }
 
-func parseEntry(buf []byte, entry int) (family int, tag int, netaddr net.IPNet, nexthop net.IP, metric int) {
-	offset := 4 + 20*entry
+func setEntry(buf []byte, entry int, family int, tag uint16, netaddr net.IPNet, nexthop net.IP, metric int) {
+	offset := ripEntryOffset(entry)
+
+	netorder.WriteUint16(buf, offset, uint16(family))
+	netorder.WriteUint16(buf, offset+2, tag)
+	addr.WriteIPv4(buf, offset+4, netaddr.IP)
+	addr.WriteIPv4Mask(buf, offset+8, netaddr.Mask)
+	addr.WriteIPv4(buf, offset+12, nexthop)
+	netorder.WriteUint32(buf, offset+16, uint32(metric))
+}
+
+func parseEntry(buf []byte, entry int) (family int, tag uint16, netaddr net.IPNet, nexthop net.IP, metric int) {
+	offset := ripEntryOffset(entry)
 
 	family = int(netorder.ReadUint16(buf, offset))
-	tag = int(netorder.ReadUint16(buf, offset+2))
+	tag = netorder.ReadUint16(buf, offset+2)
 	netaddr = net.IPNet{IP: addr.ReadIPv4(buf, offset+4), Mask: addr.ReadIPv4Mask(buf, offset+8)}
 	nexthop = addr.ReadIPv4(buf, offset+12)
 	metric = int(netorder.ReadUint32(buf, offset+16))
@@ -584,8 +670,8 @@ func parseEntry(buf []byte, entry int) (family int, tag int, netaddr net.IPNet, 
 	return
 }
 
-func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
-	log.Printf("ripResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
+	log.Printf("ripParseResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 
 	/*
@@ -602,7 +688,7 @@ func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, 
 	*/
 	ifaceAddrs, err1 := r.hardware.InterfaceAddressGet(u.ifName)
 	if err1 != nil {
-		log.Printf("ripResponse: unable to find addresses for interface %s: %v",
+		log.Printf("ripParseResponse: unable to find addresses for interface %s: %v",
 			u.ifName, err1)
 		return
 	}
@@ -625,7 +711,7 @@ func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, 
 	*/
 	vrfAddresses, err2 := r.hardware.VrfAddresses(vrf)
 	if err2 != nil {
-		log.Printf("ripResponse: unable to find addresses for VRF %s: %v",
+		log.Printf("ripParseResponse: unable to find addresses for VRF %s: %v",
 			vrf, err1)
 		return
 	}
@@ -635,19 +721,19 @@ func ripResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, 
 		}
 	}
 
-	log.Printf("ripResponse: VALID RESPONSE entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+	log.Printf("ripParseResponse: VALID RESPONSE entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
 		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
 
 	for i := 0; i < entries; i++ {
 		family, tag, netaddr, nexthop, metric := parseEntry(u.info, i)
 
 		/*
-			log.Printf("ripResponse: entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d",
+			log.Printf("ripParseResponse: entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d",
 				i, entries, family, tag, &netaddr, nexthop, metric)
 		*/
 
 		if metric < 1 || metric > RIP_METRIC_INFINITY {
-			log.Printf("ripResponse: bad metric entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d from %v to %v on %s ifIndex=%d",
+			log.Printf("ripParseResponse: bad metric entry=%d/%d family=%d tag=%d net=%v nexthop=%v metric=%d from %v to %v on %s ifIndex=%d",
 				i, entries, family, tag, &netaddr, nexthop, metric, &u.src, &u.dst, u.ifName, u.ifIndex)
 			continue // ignore entry with bad metric
 		}
