@@ -355,8 +355,9 @@ const (
 
 // rip interface
 type port struct {
-	iface *net.Interface
-	msock *sock.MulticastSock
+	iface *net.Interface      // interface
+	msock *sock.MulticastSock // listen-only
+	send  *net.UDPConn        // send-only
 }
 
 type udpInfo struct {
@@ -523,7 +524,7 @@ func ripParseRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries i
 		*/
 		family, _, _, _, metric := parseEntry(u.info, 0)
 		if family == 0 && metric == RIP_METRIC_INFINITY {
-			ripSendTable(r, vrf, p.msock.U, &u.src, u.ifName, u.ifIndex)
+			ripSendTable(r, vrf, p, &u.src, u.ifName, u.ifIndex)
 			return
 		}
 	}
@@ -546,7 +547,7 @@ func ripParseRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries i
 
 	for i := 0; i < entries; i++ {
 		_, _, addr, _, _ := parseEntry(u.info, i)
-		route := r.lookupAddress(vrf, addr)
+		route, _ := r.lookupAddressFirstMatch(vrf, addr)
 		var metric int
 		if route == nil {
 			metric = RIP_METRIC_INFINITY
@@ -558,12 +559,12 @@ func ripParseRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries i
 	}
 
 	// Echo request back to source
-	if err := ripSend(p.msock.U, &u.src, u.info, u.ifName, u.ifIndex); err != nil {
+	if err := ripSend(p, &u.src, u.info, u.ifName, u.ifIndex); err != nil {
 		log.Printf("ripParseRequest: %v", err)
 	}
 }
 
-func ripSendTable(r *RipRouter, vrfname string, conn *net.UDPConn, dst *net.UDPAddr, ifname string, ifindex int) {
+func ripSendTable(r *RipRouter, vrfname string, p *port, dst *net.UDPAddr, ifname string, ifindex int) {
 
 	defer r.vrfMutex.RUnlock()
 	r.vrfMutex.RLock()
@@ -608,13 +609,25 @@ func ripSendTable(r *RipRouter, vrfname string, conn *net.UDPConn, dst *net.UDPA
 			entry++
 		}
 
-		if err := ripSend(conn, dst, b, ifname, ifindex); err != nil {
+		if err := ripSend(p, dst, b, ifname, ifindex); err != nil {
 			log.Printf("ripSendTable: %v", err)
 		}
 	}
 }
 
-func ripSend(conn *net.UDPConn, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) error {
+func ripSend(p *port, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) error {
+
+	if p.send == nil {
+		log.Printf("ripSend: creating sender socket for interface '%s' ifIndex=%d dst=%v", ifname, ifindex, dst)
+		var err error
+		//p.send, err = net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: RIP_PORT})
+		p.send, err = sock.NewUDPConn(&net.UDPAddr{IP: net.IPv4zero, Port: RIP_PORT}, ifname)
+		if err != nil {
+			return fmt.Errorf("ripSend: error creating sender socket for interface '%s' ifIndex=%d dst=%v: %v", ifname, ifindex, dst, err)
+		}
+	}
+
+	conn := p.send
 
 	// Set 500 ms timeout
 	timeout := time.Duration(500) * time.Millisecond
@@ -763,9 +776,28 @@ func getInterfaceRipCost(ctx command.ConfContext, ifname string) int {
 	return 1
 }
 
-func (r *RipRouter) lookupAddress(vrf string, addr net.IPNet) *ripRoute {
-	log.Printf("RipRouter.lookupAddress(vrf=%s,addr=%s): FIXME WRITEME", vrf, &addr)
-	return nil
+func (r *RipRouter) lookupAddressFirstMatch(vrfname string, netaddr net.IPNet) (*ripRoute, error) {
+
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
+	_, v := r.vrfGet(vrfname)
+	if v == nil {
+		return nil, fmt.Errorf("lookupAddressFirstMatch: VRF not found: vrf=[%s]", vrfname)
+	}
+
+	now := time.Now()
+
+	for _, route := range v.routes {
+		if !route.isValid(now) {
+			continue
+		}
+		if addr.NetEqual(&route.addr, &netaddr) {
+			return route, nil
+		}
+	}
+
+	return nil, fmt.Errorf("lookupAddressFirstMatch: prefix not found: vrf=[%s] prefix=[%v]", vrfname, &netaddr)
 }
 
 func (r *RipRouter) vrfSet(vrf string) *ripVrf {
