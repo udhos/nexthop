@@ -715,7 +715,7 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 	found := false
 	for _, a := range ifaceAddrs {
 		found = a.Contains(u.src.IP)
-		log.Printf("ripParseResponse: if=%s addr=%v src=%v found=%v", u.ifName, a, u.src.IP, found)
+		//log.Printf("ripParseResponse: if=%s addr=%v src=%v found=%v", u.ifName, a, u.src.IP, found)
 		if found {
 			break
 		}
