@@ -692,6 +692,7 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 		The Response must be ignored if it is not from the RIP port.
 	*/
 	if u.src.Port != RIP_PORT {
+		log.Printf("ripParseResponse: not from RIP port (520): vrf=[%s] src=%v on '%s' ifIndex=%d", vrf, u.src.IP, u.ifName, u.ifIndex)
 		return
 	}
 
@@ -706,21 +707,28 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 		return
 	}
 
+	if len(ifaceAddrs) < 1 {
+		log.Printf("ripParseResponse: no address on interface '%s'", u.ifName)
+		return
+	}
+
 	found := false
 	for _, a := range ifaceAddrs {
-		if a.Contains(u.src.IP) {
-			found = true
+		found = a.Contains(u.src.IP)
+		log.Printf("ripParseResponse: if=%s addr=%v src=%v found=%v", u.ifName, a, u.src.IP, found)
+		if found {
 			break
 		}
 	}
 	if !found {
+		log.Printf("ripParseResponse: not directly connected response: vrf=[%s] src=%v on '%s' ifIndex=%d", vrf, u.src.IP, u.ifName, u.ifIndex)
 		return // ignore response from non-directly-connected address
 	}
 
 	/*
 		RFC2453 3.9.2 Response Messages
 		Ignore packets from our addresses.
-		(But only on the interface's VRF, because it is ok to
+		(But only if is from the interface's VRF.)
 	*/
 	vrfAddresses, err2 := r.hardware.VrfAddresses(vrf)
 	if err2 != nil {
@@ -730,6 +738,7 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 	}
 	for _, a := range vrfAddresses {
 		if a.IP.Equal(u.src.IP) {
+			log.Printf("ripParseResponse: ignoring our packet from: vrf=[%s] src=%v on '%s' ifIndex=%d", vrf, u.src.IP, u.ifName, u.ifIndex)
 			return // ignore packets from our addresses
 		}
 	}
