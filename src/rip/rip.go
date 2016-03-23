@@ -159,6 +159,7 @@ func installCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdNone, "show rip routes", command.EXEC, cmdShowRipRoutes, nil, "Show RIP routes")
 	command.CmdInstall(root, cmdConH, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
+	command.CmdInstall(root, cmdConH, "router rip interface {IFNAME} cost {RIPMETRIC}", command.CONF, cmdRipIfaceCost, applyRipIfaceCost, "RIP interface cost")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} nexthop {IPADDR}", command.CONF, cmdRipNetNexthop, applyRipNetNexthop, "RIP network nexthop")
@@ -207,6 +208,10 @@ func cmdRip(ctx command.ConfContext, node *command.CmdNode, line string, c comma
 	*/
 
 	command.SetSimple(ctx, c, node.Path, line)
+}
+
+func cmdRipIfaceCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.SingleValueSetSimple(ctx, c, node.Path, line)
 }
 
 func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -259,6 +264,39 @@ func applyRip(ctx command.ConfContext, node *command.CmdNode, action command.Com
 	}
 
 	enableRip(rip, action.Enable)
+
+	return nil
+}
+
+func applyRipIfaceCost(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
+
+	rip := ripCtx(ctx, c)
+	if rip == nil {
+		return nil
+	}
+
+	f := strings.Fields(action.Cmd)
+	ifname := f[3]
+	costStr := f[5]
+
+	cost, err := strconv.Atoi(costStr)
+	if err != nil {
+		return fmt.Errorf("applyRipIfaceCost: bad cost: '%s': %v", costStr, err)
+	}
+
+	if action.Enable {
+		enableRip(rip, true) // try to enable rip
+		rip.router.setInterfaceRipCost(ifname, cost)
+		return nil
+	}
+
+	if rip.router == nil {
+		return fmt.Errorf("applyRipIfaceCost: rip router disabled")
+	}
+
+	rip.router.clearInterfaceRipCost(ifname)
+
+	enableRip(rip, false) // disable rip if needed
 
 	return nil
 }
@@ -553,7 +591,7 @@ func enableRip(rip *Rip, enable bool) {
 		// enable RIP
 
 		if rip.router == nil {
-			rip.router = NewRipRouter(rip.hardware, rip)
+			rip.router = NewRipRouter(rip.hardware)
 		}
 
 		return

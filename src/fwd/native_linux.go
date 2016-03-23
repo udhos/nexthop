@@ -114,7 +114,19 @@ func (d *linuxDataplane) InterfaceAddressGet(ifname string) ([]net.IPNet, error)
 }
 
 func (d *linuxDataplane) Interfaces() ([]string, []string, error) {
-	return nil, nil, nil
+	links, err1 := netlink.LinkList()
+	if err1 != nil {
+		return nil, nil, fmt.Errorf("linuxDataplane.Interfaces: netlink.LinkList error: %v", err1)
+	}
+	ifaces := []string{}
+	vrfs := []string{}
+	for _, l := range links {
+		ifname := l.Attrs().Name
+		ifaces = append(ifaces, ifname)
+		vrfname, _ := d.InterfaceVrfGet(ifname)
+		vrfs = append(vrfs, vrfname)
+	}
+	return ifaces, vrfs, nil
 }
 
 func (d *linuxDataplane) InterfaceVrfGet(ifname string) (string, error) {

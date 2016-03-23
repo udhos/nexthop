@@ -19,7 +19,7 @@ for i in $src; do
     gofmt -s -w $j
 done
 
-unused addr cli command fwd netorder rib rib-old rip sock telnet tools/rip-query
+#unused addr cli command fwd netorder rib rib-old rip sock telnet tools/rip-query
 
 go install rib-old rib rip tools/rip-query
 

@@ -98,6 +98,7 @@ func main() {
 		}
 		return idList
 	}
+
 	command.LoadKeywordTable(listInterfaces, listCommitId)
 
 	installRibCommands(ribConf.CmdRoot())

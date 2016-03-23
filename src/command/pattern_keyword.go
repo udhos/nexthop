@@ -39,6 +39,18 @@ func LoadKeywordTable(ifScannerFunc interfaceListFunc, commitScannerFunc options
 
 	keyword_table.table = map[string]keyword{} // discard previous map
 
+	// test interface list
+	ifaces, vrfs := ifScannerFunc()
+	size := len(ifaces)
+	if size < 1 {
+		log.Printf("LoadKeywordTable: error: interface list func returned empty set")
+	}
+	for i := 0; i < size; i++ {
+		vrfname := vrfs[i]
+		ifname := ifaces[i]
+		log.Printf("LoadKeywordTable: vrf=[%s] interface=%s", vrfname, ifname)
+	}
+
 	keyword_table.ifScanFunc = ifScannerFunc
 
 	listIf := func() []string {

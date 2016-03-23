@@ -65,6 +65,7 @@ func (r *ripRoute) disable(now time.Time) {
 		r.timeout = now.Add(-1 * time.Second)            // forcedly expire timeout
 		r.garbageCollection = now.Add(120 * time.Second) // start garbage collection timer
 	}
+	r.metric = RIP_METRIC_INFINITY
 }
 
 func (r *ripRoute) isValid(now time.Time) bool {
@@ -325,6 +326,10 @@ func (v *ripVrf) NetMetricDel(prefix string, nexthop net.IP, metric int) error {
 	return nil
 }
 
+type ripInterfaceConfig struct {
+	cost int
+}
+
 type RipRouter struct {
 	done        chan int // write into this channel (do not close) to request end of rip router
 	input       chan *udpInfo
@@ -335,22 +340,54 @@ type RipRouter struct {
 	readerDone  chan int
 	readerCount int
 	hardware    fwd.Dataplane
-	conf        command.ConfContext
+	configMutex sync.RWMutex // both main and RipRouter goroutines access interface config
+	config      map[string]*ripInterfaceConfig
+}
+
+func (r *RipRouter) clearInterfaceRipCost(ifname string) {
+	defer r.configMutex.RUnlock()
+	r.configMutex.RLock()
+
+	delete(r.config, ifname)
+}
+
+func (r *RipRouter) getInterfaceRipCost(ifname string) int {
+	defer r.configMutex.RUnlock()
+	r.configMutex.RLock()
+
+	i := r.config[ifname]
+	if i == nil {
+		return RIP_DEFAULT_IFACE_COST // not found -- default RIP interface cost
+	}
+	return i.cost
+}
+
+func (r *RipRouter) setInterfaceRipCost(ifname string, cost int) {
+	defer r.configMutex.Unlock()
+	r.configMutex.Lock()
+
+	i := r.config[ifname]
+	if i == nil {
+		i = &ripInterfaceConfig{}
+		r.config[ifname] = i
+	}
+	i.cost = cost
 }
 
 const (
-	RIP_PORT            = 520
-	RIP_METRIC_INFINITY = 16
-	RIP_REQUEST         = 1
-	RIP_RESPONSE        = 2
-	RIP_FAMILY_UNSPEC   = 0  // AF_UNSPEC Unspecified
-	RIP_FAMILY_INET     = 2  // AF_INET   IPv4
-	RIP_FAMILY_INET6    = 10 // AF_INET6  IPv6
-	RIP_V2              = 2
-	RIP_PKT_MAX_ENTRIES = 25
-	RIP_ENTRY_SIZE      = 20
-	RIP_HEADER_SIZE     = 4
-	RIP_PKT_MAX_SIZE    = RIP_HEADER_SIZE + RIP_ENTRY_SIZE*RIP_PKT_MAX_ENTRIES
+	RIP_PORT               = 520
+	RIP_METRIC_INFINITY    = 16
+	RIP_REQUEST            = 1
+	RIP_RESPONSE           = 2
+	RIP_FAMILY_UNSPEC      = 0  // AF_UNSPEC Unspecified
+	RIP_FAMILY_INET        = 2  // AF_INET   IPv4
+	RIP_FAMILY_INET6       = 10 // AF_INET6  IPv6
+	RIP_V2                 = 2
+	RIP_PKT_MAX_ENTRIES    = 25
+	RIP_ENTRY_SIZE         = 20
+	RIP_HEADER_SIZE        = 4
+	RIP_PKT_MAX_SIZE       = RIP_HEADER_SIZE + RIP_ENTRY_SIZE*RIP_PKT_MAX_ENTRIES
+	RIP_DEFAULT_IFACE_COST = 1
 )
 
 // rip interface
@@ -373,7 +410,7 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 	defer r.vrfMutex.RUnlock()
 	r.vrfMutex.RLock()
 
-	header := fmt.Sprintf("%-14s %-18s %-15s %-6s", "VRF", "NETWORK", "NEXTHOP", "METRIC")
+	header := fmt.Sprintf("%-13s %-18s %-15s %-3s", "VRF", "NETWORK", "NEXTHOP", "MET")
 	format := "%-14s %-18v %-15s %6d"
 
 	c.Sendln("RIP local networks:")
@@ -385,11 +422,11 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 		}
 	}
 
-	h := fmt.Sprintf("%s %-5s", header, "FLAGS")
-	f := fmt.Sprintf("%s %%-5s", format)
+	h := fmt.Sprintf("%s %-5s %-6s %-8s", header, "FLAGS", "INTERF", "NEIGHBOR")
+	f := fmt.Sprintf("%s %%-5s %%-6s %%-8s", format)
 
 	c.Sendln("RIP routes:")
-	c.Sendln("Flags: I=Invalid E=External")
+	c.Sendln("Flags: G=Garbage I=Invalid E=External")
 	c.Sendln(h)
 
 	now := time.Now()
@@ -397,24 +434,27 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 	for _, v := range r.vrfs {
 		for _, r := range v.routes {
 			flags := ""
+			if r.isGarbage(now) {
+				flags += "G"
+			}
 			if !r.isValid(now) {
 				flags += "I"
 			}
 			if r.srcExternal {
 				flags += "E"
 			}
-			c.Sendln(fmt.Sprintf(f, v.name, &r.addr, r.nexthop, r.metric, flags))
+			c.Sendln(fmt.Sprintf(f, v.name, &r.addr, r.nexthop, r.metric, flags, r.srcIfName, r.srcRouter))
 		}
 	}
 }
 
 // NewRipRouter(): Spawn new rip router.
 // Write on RipRouter.done channel (do not close it) to request termination of rip router.
-func NewRipRouter(hw fwd.Dataplane, ctx command.ConfContext) *RipRouter {
+func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 
 	RIP_GROUP := net.IPv4(224, 0, 0, 9)
 
-	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int), hardware: hw, conf: ctx}
+	r := &RipRouter{done: make(chan int), input: make(chan *udpInfo), group: RIP_GROUP, readerDone: make(chan int), hardware: hw, config: map[string]*ripInterfaceConfig{}}
 
 	addInterfaces(r)
 
@@ -580,9 +620,10 @@ func ripSendTable(r *RipRouter, vrfname string, p *port, dst *net.UDPAddr, ifnam
 	now := time.Now()
 
 	for _, route := range v.routes {
-		if route.isValid(now) {
-			validRoutes = append(validRoutes, route)
+		if route.isGarbage(now) {
+			continue
 		}
+		validRoutes = append(validRoutes, route)
 	}
 
 	entries := len(validRoutes)
@@ -620,7 +661,6 @@ func ripSend(p *port, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) 
 	if p.send == nil {
 		log.Printf("ripSend: creating sender socket for interface '%s' ifIndex=%d dst=%v", ifname, ifindex, dst)
 		var err error
-		//p.send, err = net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: RIP_PORT})
 		p.send, err = sock.NewUDPConn(&net.UDPAddr{IP: net.IPv4zero, Port: RIP_PORT}, ifname)
 		if err != nil {
 			return fmt.Errorf("ripSend: error creating sender socket for interface '%s' ifIndex=%d dst=%v: %v", ifname, ifindex, dst, err)
@@ -677,8 +717,6 @@ func parseEntry(buf []byte, entry int) (family int, tag uint16, netaddr net.IPNe
 	netaddr = net.IPNet{IP: addr.ReadIPv4(buf, offset+4), Mask: addr.ReadIPv4Mask(buf, offset+8)}
 	nexthop = addr.ReadIPv4(buf, offset+12)
 	metric = int(netorder.ReadUint32(buf, offset+16))
-
-	// log.Printf("parseEntry: entry=%d family=%d tag=%d addr=%v nexthop=%v metric=%v", entry, family, tag, &netaddr, nexthop, metric)
 
 	return
 }
@@ -760,7 +798,7 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 			continue // ignore entry with bad metric
 		}
 
-		newMetric := metric + getInterfaceRipCost(r.conf, u.ifName)
+		newMetric := metric + r.getInterfaceRipCost(u.ifName)
 		if newMetric > RIP_METRIC_INFINITY {
 			newMetric = RIP_METRIC_INFINITY
 		}
@@ -772,6 +810,7 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 
 }
 
+/*
 func getInterfaceRipCost(ctx command.ConfContext, ifname string) int {
 	//
 	// CAUTION: Concurrent access to command.ConfContext
@@ -784,6 +823,7 @@ func getInterfaceRipCost(ctx command.ConfContext, ifname string) int {
 
 	return 1
 }
+*/
 
 func (r *RipRouter) lookupAddressFirstMatch(vrfname string, netaddr net.IPNet) (*ripRoute, error) {
 
