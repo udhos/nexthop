@@ -57,7 +57,7 @@ func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time) *rip
 
 func (r *ripRoute) resetTimer(now time.Time) {
 	r.timeout = now.Add(180 * time.Second) // start timeout timer
-	r.garbageCollection = time.Unix(0, 0)  // not running
+	r.garbageCollection = r.timeout.Add(120 * time.Second)
 }
 
 func (r *ripRoute) disable(now time.Time) {
@@ -68,10 +68,21 @@ func (r *ripRoute) disable(now time.Time) {
 	r.metric = RIP_METRIC_INFINITY
 }
 
+/*
+Upon expiration of the timeout, the route is no longer valid; however,
+it is retained in the routing table for a short time so that neighbors
+can be notified that the route has been dropped.
+*/
 func (r *ripRoute) isValid(now time.Time) bool {
 	return r.timeout.After(now)
 }
 
+/*
+Until the garbage-collection timer expires, the route is included in
+all updates sent by this router.
+Upon expiration of the garbage-collection timer, the route is finally
+removed from the routing table.
+*/
 func (r *ripRoute) isGarbage(now time.Time) bool {
 	if r.isValid(now) {
 		return false // timeout timer is still running
@@ -411,7 +422,7 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 	r.vrfMutex.RLock()
 
 	header := fmt.Sprintf("%-13s %-18s %-15s %-3s", "VRF", "NETWORK", "NEXTHOP", "MET")
-	format := "%-14s %-18v %-15s %6d"
+	format := "%-13s %-18v %-15s %3d"
 
 	c.Sendln("RIP local networks:")
 	c.Sendln(header)
@@ -422,8 +433,8 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 		}
 	}
 
-	h := fmt.Sprintf("%s %-5s %-6s %-8s", header, "FLAGS", "INTERF", "NEIGHBOR")
-	f := fmt.Sprintf("%s %%-5s %%-6s %%-8s", format)
+	h := fmt.Sprintf("%s %-5s %-6s %-8s %4s %3s %-8s", header, "FLAGS", "INTERF", "NEIGHBOR", "TOUT", "GC", "UPTIME")
+	f := fmt.Sprintf("%s %%-5s %%-6s %%-8s %%4d %%3d %%8s", format)
 
 	c.Sendln("RIP routes:")
 	c.Sendln("Flags: G=Garbage I=Invalid E=External")
@@ -443,7 +454,23 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 			if r.srcExternal {
 				flags += "E"
 			}
-			c.Sendln(fmt.Sprintf(f, v.name, &r.addr, r.nexthop, r.metric, flags, r.srcIfName, r.srcRouter))
+
+			srcRouter := ""
+			if r.srcRouter != nil {
+				srcRouter = string(r.srcRouter)
+			}
+
+			timeout := int(r.timeout.Sub(now).Seconds())
+			if timeout < 0 {
+				timeout = 0
+			}
+			gc := int(r.garbageCollection.Sub(now).Seconds())
+			if gc < 0 {
+				gc = 0
+			}
+			uptime := now.Sub(r.creation)
+
+			c.Sendln(fmt.Sprintf(f, v.name, &r.addr, r.nexthop, r.metric, flags, r.srcIfName, srcRouter, timeout, gc, uptime))
 		}
 	}
 }
@@ -621,6 +648,10 @@ func ripSendTable(r *RipRouter, vrfname string, p *port, dst *net.UDPAddr, ifnam
 
 	for _, route := range v.routes {
 		if route.isGarbage(now) {
+			/*
+			   Until the garbage-collection timer expires, the route
+			   is included in all updates sent by this router.
+			*/
 			continue
 		}
 		validRoutes = append(validRoutes, route)
@@ -660,8 +691,9 @@ func ripSend(p *port, dst *net.UDPAddr, buf []byte, ifname string, ifindex int) 
 
 	if p.send == nil {
 		log.Printf("ripSend: creating sender socket for interface '%s' ifIndex=%d dst=%v", ifname, ifindex, dst)
+		localAddr := &net.UDPAddr{IP: net.IPv4zero, Port: RIP_PORT}
 		var err error
-		p.send, err = sock.NewUDPConn(&net.UDPAddr{IP: net.IPv4zero, Port: RIP_PORT}, ifname)
+		p.send, err = sock.NewUDPConn(localAddr, ifname)
 		if err != nil {
 			return fmt.Errorf("ripSend: error creating sender socket for interface '%s' ifIndex=%d dst=%v: %v", ifname, ifindex, dst, err)
 		}
@@ -803,27 +835,27 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 			newMetric = RIP_METRIC_INFINITY
 		}
 
-		if newMetric == RIP_METRIC_INFINITY {
-			continue // ignore entry with infinity metric
-		}
+		r.routeAdd(vrf, tag, netaddr, nexthop, newMetric, u.ifIndex, u.ifName, u.src.IP)
 	}
 
 }
 
-/*
-func getInterfaceRipCost(ctx command.ConfContext, ifname string) int {
-	//
-	// CAUTION: Concurrent access to command.ConfContext
-	//
-	// RIP main goroutine has full (unprotected) access to command.ConfContext
-	// RIP router goroutine should synchronize its access to command.ConfContext
-	//
+func (r *RipRouter) routeAdd(vrfname string, tag uint16, netaddr net.IPNet, nexthop net.IP, metric, ifindex int, ifname string, router net.IP) {
 
-	log.Printf("getInterfaceRipCost(%s): FIXME WRITE", ifname)
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
 
-	return 1
+	_, v := r.vrfGet(vrfname)
+	if v == nil {
+		log.Printf("RipRouter.routeAdd: VRF not found: vrf=[%s]", vrfname)
+		return
+	}
+
+	/*
+		for _, route := range v.routes {
+		}
+	*/
 }
-*/
 
 func (r *RipRouter) lookupAddressFirstMatch(vrfname string, netaddr net.IPNet) (*ripRoute, error) {
 
