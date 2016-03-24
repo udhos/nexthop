@@ -28,6 +28,8 @@ type ripRoute struct {
 	nexthop net.IP
 	metric  int
 
+	routeChanged bool // for triggered updates
+
 	creation          time.Time // timestamp
 	timeout           time.Time // timer
 	garbageCollection time.Time // timer
@@ -50,8 +52,9 @@ func (route *ripRoute) Family() int {
 }
 
 func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time) *ripRoute {
-	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: now}
+	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: now, routeChanged: true}
 	r.resetTimer(now)
+	log.Printf("newRipRoute: routeChanged=true start triggered update FIXME WRITEME")
 	return r
 }
 
@@ -111,7 +114,7 @@ func (v *ripVrf) localRouteAdd(n *ripNet) {
 
 	for _, route := range v.routes {
 		if !route.isValid(now) {
-			continue // ignore expired routes
+			continue // ignore invalid routes
 		}
 		if !addr.NetEqual(&n.addr, &route.addr) {
 			continue // ignore routes for other prefixes
@@ -835,12 +838,12 @@ func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries 
 			newMetric = RIP_METRIC_INFINITY
 		}
 
-		r.routeAdd(vrf, tag, netaddr, nexthop, newMetric, u.ifIndex, u.ifName, u.src.IP)
+		r.extRouteAdd(vrf, tag, netaddr, nexthop, newMetric, u.ifIndex, u.ifName, u.src.IP)
 	}
 
 }
 
-func (r *RipRouter) routeAdd(vrfname string, tag uint16, netaddr net.IPNet, nexthop net.IP, metric, ifindex int, ifname string, router net.IP) {
+func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, nexthop net.IP, metric, ifindex int, ifname string, router net.IP) {
 
 	defer r.vrfMutex.Unlock()
 	r.vrfMutex.Lock()
@@ -851,10 +854,46 @@ func (r *RipRouter) routeAdd(vrfname string, tag uint16, netaddr net.IPNet, next
 		return
 	}
 
-	/*
-		for _, route := range v.routes {
+	now := time.Now()
+
+	for _, route := range v.routes {
+		if !route.isValid(now) {
+			continue // ignore invalid routes
 		}
-	*/
+		if !addr.NetEqual(&netaddr, &route.addr) {
+			continue // ignore routes for other prefixes
+		}
+
+		/*
+			If there is an existing route, compare the next hop
+			address to the address of the router from which the
+			datagram came.  If this datagram is from the same
+			router as the existing route, reinitialize the
+			timeout.
+		*/
+		sameNexthop := route.nexthop.Equal(router)
+		if sameNexthop {
+			route.resetTimer(now)
+		}
+
+	}
+
+	// add new external route
+
+	if metric == RIP_METRIC_INFINITY {
+		return // refuse to add route with metric infinity
+	}
+
+	// Set the next hop address to be the address of the router
+	// from which the datagram came
+	newNexthop := router
+
+	newRoute := newRipRoute(netaddr, newNexthop, metric, now)
+	newRoute.srcExternal = true
+	newRoute.srcIfIndex = ifindex
+	newRoute.srcIfName = ifname
+	newRoute.srcRouter = router
+	v.routeAdd(newRoute)
 }
 
 func (r *RipRouter) lookupAddressFirstMatch(vrfname string, netaddr net.IPNet) (*ripRoute, error) {
