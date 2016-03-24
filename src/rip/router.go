@@ -59,14 +59,14 @@ func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time) *rip
 }
 
 func (r *ripRoute) resetTimer(now time.Time) {
-	r.timeout = now.Add(180 * time.Second) // start timeout timer
-	r.garbageCollection = r.timeout.Add(120 * time.Second)
+	r.timeout = now.Add(RIP_ROUTE_TIMEOUT * time.Second) // start timeout timer
+	r.garbageCollection = r.timeout.Add(RIP_ROUTE_GC * time.Second)
 }
 
 func (r *ripRoute) disable(now time.Time) {
 	if r.isValid(now) {
-		r.timeout = now.Add(-1 * time.Second)            // forcedly expire timeout
-		r.garbageCollection = now.Add(120 * time.Second) // start garbage collection timer
+		r.timeout = now.Add(-1 * time.Second)                     // forcedly expire timeout
+		r.garbageCollection = now.Add(RIP_ROUTE_GC * time.Second) // start garbage collection timer
 	}
 	r.metric = RIP_METRIC_INFINITY
 }
@@ -402,6 +402,8 @@ const (
 	RIP_HEADER_SIZE        = 4
 	RIP_PKT_MAX_SIZE       = RIP_HEADER_SIZE + RIP_ENTRY_SIZE*RIP_PKT_MAX_ENTRIES
 	RIP_DEFAULT_IFACE_COST = 1
+	RIP_ROUTE_TIMEOUT      = 180
+	RIP_ROUTE_GC           = 120
 )
 
 // rip interface
@@ -875,13 +877,12 @@ func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, n
 		if sameNexthop {
 			route.resetTimer(now)
 		}
-
 	}
 
 	// add new external route
 
 	if metric == RIP_METRIC_INFINITY {
-		return // refuse to add route with metric infinity
+		return // refuse to add new route with metric infinity
 	}
 
 	// Set the next hop address to be the address of the router
