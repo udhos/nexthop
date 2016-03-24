@@ -404,6 +404,7 @@ const (
 	RIP_DEFAULT_IFACE_COST = 1
 	RIP_ROUTE_TIMEOUT      = 180
 	RIP_ROUTE_GC           = 120
+	RIP_UPDATE_INTERVAL    = 30
 )
 
 // rip interface
@@ -493,14 +494,17 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 	go func() {
 		log.Printf("rip router: goroutine started")
 
-		tick := time.Duration(10)
-		ticker := time.NewTicker(time.Second * tick)
+		updateInterval := time.Second * time.Duration(RIP_UPDATE_INTERVAL)
+		updateTicker := time.NewTicker(updateInterval)
+		defer updateTicker.Stop()
+		nextUpdate := time.Now().Add(updateInterval)
 
 	LOOP:
 		for {
 			select {
-			case <-ticker.C:
-				log.Printf("rip router: %ds tick", tick)
+			case <-updateTicker.C:
+				nextUpdate = time.Now().Add(updateInterval)
+				log.Printf("rip router: FIXME WRITEME send periodic update: nextUpdate=%v", nextUpdate)
 			case <-r.done:
 				// finish requested
 				log.Printf("rip router: finish request received")
