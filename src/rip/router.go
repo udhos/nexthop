@@ -29,6 +29,7 @@ type ripRoute struct {
 	metric  int
 
 	routeChanged bool // for triggered updates
+	installed    bool // for interaction with FIB
 
 	creation          time.Time // timestamp
 	timeout           time.Time // timer
@@ -39,6 +40,10 @@ type ripRoute struct {
 	srcIfIndex  int
 	srcIfName   string
 	srcRouter   net.IP
+}
+
+func (route *ripRoute) String() string {
+	return fmt.Sprintf("%v nexthop=%v metric=%d if=%s", &route.addr, route.nexthop, route.metric, route.srcIfName)
 }
 
 func (route *ripRoute) Family() int {
@@ -69,6 +74,30 @@ func (r *ripRoute) disable(now time.Time) {
 		r.garbageCollection = now.Add(RIP_ROUTE_GC * time.Second) // start garbage collection timer
 	}
 	r.metric = RIP_METRIC_INFINITY
+	if r.installed {
+		// detect if we need to uninstall the route from FIB
+		// because .disable() might be called repeatedly for the same route
+		// but .uninstall() should be invoked only once per route
+		r.uninstall()
+	}
+}
+
+func (r *ripRoute) uninstall() {
+	if !r.installed {
+		log.Printf("ripRoute.uninstall: internal error: already uninstalled: %v", r)
+	}
+	r.installed = false
+	log.Printf("ripRoute.uninstall: FIXME: remove route from FIB: %s", r)
+	log.Printf("ripRoute.uninstall: route DOWN: %s", r)
+}
+
+func (r *ripRoute) install() {
+	if r.installed {
+		log.Printf("ripRoute.install: internal error: already installed: %s", r)
+	}
+	r.installed = true
+	log.Printf("ripRoute.install: FIXME: send route to FIB: %s", r)
+	log.Printf("ripRoute.install: route UP: %s", r)
 }
 
 /*
@@ -147,6 +176,7 @@ func (v *ripVrf) localRouteAdd(n *ripNet) {
 }
 
 func (v *ripVrf) routeAdd(newRoute *ripRoute) {
+	newRoute.install()
 	v.routes = append(v.routes, newRoute)
 }
 
