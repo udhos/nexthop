@@ -43,7 +43,7 @@ type ripRoute struct {
 }
 
 func (route *ripRoute) String() string {
-	return fmt.Sprintf("%v nexthop=%v metric=%d if=%s", &route.addr, route.nexthop, route.metric, route.srcIfName)
+	return fmt.Sprintf("%v nexthop=%v metric=%d if=%s fib=%v", &route.addr, route.nexthop, route.metric, route.srcIfName, route.installed)
 }
 
 func (route *ripRoute) Family() int {
@@ -475,7 +475,7 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 	f := fmt.Sprintf("%s %%-5s %%-6s %%-8s %%4d %%3d %%8s", format)
 
 	c.Sendln("RIP routes:")
-	c.Sendln("Flags: G=Garbage I=Invalid E=External")
+	c.Sendln("Flags: G=Garbage I=Invalid E=External F=FIB")
 	c.Sendln(h)
 
 	now := time.Now()
@@ -491,6 +491,9 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 			}
 			if r.srcExternal {
 				flags += "E"
+			}
+			if r.installed {
+				flags += "F"
 			}
 
 			srcRouter := ""

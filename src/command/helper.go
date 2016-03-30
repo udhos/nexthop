@@ -32,9 +32,11 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdHelp, "show configuration rollback", EXEC, cmdShowCommitList, nil, "Show list of saved configurations")
 	CmdInstall(root, cmdHelp, "show configuration rollback {COMMITID}", EXEC, cmdShowCommit, nil, "Show saved configuration")
 	CmdInstall(root, cmdHelp, "show configuration tree", EXEC, HelperShowConf, nil, "Show candidate configuration tree")
+	CmdInstall(root, cmdHelp, "show configuration info", EXEC, cmdShowConfInfo, nil, "Show candidate configuration info type")
 	CmdInstall(root, cmdHelp, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdHelp, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
 	CmdInstall(root, cmdHelp, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
+	CmdInstall(root, cmdHelp, "show running-configuration info", EXEC, cmdShowRunInfo, nil, "Show active configuration info type")
 	CmdInstall(root, cmdConf, "username {USERNAME} password {PASSWORD}", EXEC, cmdUsername, ApplyBogus, "User clear-text password")
 
 	DescInstall(root, "no", "Remove a configuration item")
@@ -323,7 +325,7 @@ func showConfig(root *ConfNode, node *CmdNode, line string, c CmdClient, head st
 	fields := strings.Fields(line)
 	treeMode := len(fields) > 2 && strings.HasPrefix("tree", fields[2])
 	c.Sendln(head)
-	ShowConf(root, node, c, treeMode)
+	ShowConf(root, node, c, treeMode, false)
 }
 
 func cmdShowHistory(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -333,6 +335,16 @@ func cmdShowHistory(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 
 func cmdShowRun(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	showConfig(ctx.ConfRootActive(), node, line, c, "running configuration:")
+}
+
+func cmdShowRunInfo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	c.Sendln("running configuration:")
+	ShowConf(ctx.ConfRootActive(), node, c, false, true)
+}
+
+func cmdShowConfInfo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+	c.Sendln("candidate configuration:")
+	ShowConf(ctx.ConfRootCandidate(), node, c, false, true)
 }
 
 // Iface addr config should not be a helper function,
@@ -479,7 +491,7 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 	matchAny := node.MatchAny()
 	childMatchAny := !matchAny && len(node.Children) == 1 && node.Children[0].MatchAny()
 
-	//c.Sendln(fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny))
+	//c.SendlnNow(fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny))
 
 	expanded, e := CmdExpand(arg, node.Path)
 	if e != nil {
@@ -530,6 +542,9 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 		childIndex = parentConf.FindChild(childLabel)
 
 		_, cmdLast := StripLastToken(node.Path)
+
+		//c.SendlnNow(fmt.Sprintf("cmdNo: node.Path=%s cmdLast=%s children=%d childLabel=%s childIndex=%d", node.Path, cmdLast, len(node.Children), childLabel, childIndex))
+
 		if IsUserPatternKeyword(cmdLast) && len(node.Children) == 0 {
 
 			// {}-pattern and no children: try to remove value
@@ -541,6 +556,8 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 			if len(parentConf.Value) > 0 {
 				return nil // done, can't delete node
 			}
+
+			//c.SendlnNow(fmt.Sprintf("cmdNo: value deleted: %s", childLabel))
 
 			// node without value
 
@@ -555,6 +572,7 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 		}
 	}
 
+	//c.SendlnNow(fmt.Sprintf("cmdNo: parent=[%v] childIndex=%d", parentConf, childIndex))
 	//c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] childIndex=%d", parentConf.Path, childIndex))
 	//c.Sendln(fmt.Sprintf("cmdNo: parent=[%s] child=[%s]", parentConf.Path, parentConf.Children[childIndex].Path))
 

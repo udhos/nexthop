@@ -122,7 +122,7 @@ func TestConf(t *testing.T) {
 	command.CmdInstall(root, cmdConf, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
 	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
-	c := NewRipTestClient(nil)
+	c := NewRipTestClient(func(string) {})
 
 	r := "router rip"
 	net := fmt.Sprintf("%s network", r)
@@ -215,7 +215,7 @@ func Example_diff1() {
 	f("router rip vrf X network 1.1.3.0/24 cost 3")
 	f("router rip vrf x network 1.1.1.1/32")
 
-	command.WriteConfig(app.confRootCandidate, &outputWriter{})
+	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
 	// Output:
 	// hostname rip
 	// router rip network 1.1.1.0/24
@@ -264,7 +264,7 @@ func Example_diff2() {
 		return
 	}
 
-	command.WriteConfig(app.confRootCandidate, &outputWriter{})
+	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
 	// Output:
 	// hostname rip
 	// router rip vrf X network 1.1.1.0/24
