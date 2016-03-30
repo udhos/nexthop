@@ -898,6 +898,11 @@ func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, n
 			route.metric = metric
 			route.routeChanged = true
 			r.trigUpdate(now)
+			return // do not add route below
+		}
+
+		if !sameNexthop && metric == route.metric {
+			continue // add route below as ECMP
 		}
 	}
 
