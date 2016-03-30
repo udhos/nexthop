@@ -345,17 +345,19 @@ type ripInterfaceConfig struct {
 }
 
 type RipRouter struct {
-	done        chan int // write into this channel (do not close) to request end of rip router
-	input       chan *udpInfo
-	vrfMutex    sync.RWMutex // both main and RipRouter goroutines access the routing table (under member vrfs)
-	vrfs        []*ripVrf
-	ports       []*port // rip interfaces
-	group       net.IP  // 224.0.0.9
-	readerDone  chan int
-	readerCount int
-	hardware    fwd.Dataplane
-	configMutex sync.RWMutex // both main and RipRouter goroutines access interface config
-	config      map[string]*ripInterfaceConfig
+	done         chan int // write into this channel (do not close) to request end of rip router
+	input        chan *udpInfo
+	vrfMutex     sync.RWMutex // both main and RipRouter goroutines access the routing table (under member vrfs)
+	vrfs         []*ripVrf
+	ports        []*port // rip interfaces
+	group        net.IP  // 224.0.0.9
+	readerDone   chan int
+	readerCount  int
+	hardware     fwd.Dataplane
+	configMutex  sync.RWMutex // both main and RipRouter goroutines access interface config
+	config       map[string]*ripInterfaceConfig
+	updateTicker *time.Ticker
+	updateNext   time.Time
 }
 
 func (r *RipRouter) clearInterfaceRipCost(ifname string) {
@@ -495,16 +497,16 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 		log.Printf("rip router: goroutine started")
 
 		updateInterval := time.Second * time.Duration(RIP_UPDATE_INTERVAL)
-		updateTicker := time.NewTicker(updateInterval)
-		defer updateTicker.Stop()
-		nextUpdate := time.Now().Add(updateInterval)
+		r.updateTicker = time.NewTicker(updateInterval)
+		defer r.updateTicker.Stop()
+		r.updateNext = time.Now().Add(updateInterval)
 
 	LOOP:
 		for {
 			select {
-			case <-updateTicker.C:
-				nextUpdate = time.Now().Add(updateInterval)
-				log.Printf("rip router: FIXME WRITEME send periodic update: nextUpdate=%v", nextUpdate)
+			case <-r.updateTicker.C:
+				r.updateNext = time.Now().Add(updateInterval)
+				log.Printf("rip router: FIXME WRITEME send periodic update: nextUpdate=%v", r.updateNext)
 			case <-r.done:
 				// finish requested
 				log.Printf("rip router: finish request received")
@@ -529,6 +531,10 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 	}()
 
 	return r
+}
+
+func (r *RipRouter) trigUpdate(now time.Time) {
+	log.Printf("RipRouter.trigUpdate: FIXME WRITEME")
 }
 
 func parseRipPacket(r *RipRouter, u *udpInfo) {
@@ -880,6 +886,18 @@ func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, n
 		sameNexthop := route.nexthop.Equal(router)
 		if sameNexthop {
 			route.resetTimer(now)
+		}
+
+		if metric < route.metric {
+			// new route is better, remove the old one
+			route.disable(now)
+			continue
+		}
+
+		if sameNexthop && metric != route.metric {
+			route.metric = metric
+			route.routeChanged = true
+			r.trigUpdate(now)
 		}
 	}
 
