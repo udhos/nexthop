@@ -15,8 +15,9 @@ for i in $src; do
     echo $j
     go tool fix $j
     go tool vet $j
-    #golint $j
     gofmt -s -w $j
+    gosimple $j
+    #golint $j     ;# golint is verbose, enable only when actually needed
 done
 
 #unused addr cli command fwd netorder rib rib-old rip sock telnet tools/rip-query

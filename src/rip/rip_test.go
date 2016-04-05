@@ -74,15 +74,14 @@ func NewRipTestClient(outputSinkHandler func(string)) *ripTestClient {
 			log.Printf("OutputSink: starting")
 			for {
 				log.Printf("OutputSink: waiting")
-				select {
-				case m, ok := <-c.outputChannel:
-					if !ok {
-						log.Printf("OutputSink: closed channel")
-						return
-					}
-					log.Printf("OutputSink: [%s]", m)
-					outputSinkHandler(m)
+
+				m, ok := <-c.outputChannel
+				if !ok {
+					log.Printf("OutputSink: closed channel")
+					return
 				}
+				log.Printf("OutputSink: [%s]", m)
+				outputSinkHandler(m)
 			}
 		}()
 		return c
