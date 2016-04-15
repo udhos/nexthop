@@ -137,11 +137,11 @@ func TestConf(t *testing.T) {
 	if node.Path != "interface eth0 description" {
 		t.Errorf("bad description path: [%s]", node.Path)
 	}
-	if len(node.Value) != 1 {
-		t.Errorf("bad description value count: %d", len(node.Value))
+	if len(node.Children) != 1 {
+		t.Errorf("bad description value count: %d", len(node.Children))
 	}
-	if node.Value[0] != " aa  bb   ccc" {
-		t.Errorf("bad description value: [%s]", node.Value[0])
+	if v := command.DescriptionDecode(command.LastToken(node.Children[0].Path)); v != " aa  bb   ccc" {
+		t.Errorf("bad description value: [%s]", v)
 	}
 
 	command.Dispatch(app, "no int eth0 desc xxxxxxx", c, command.CONF, false)
@@ -158,11 +158,11 @@ func TestConf(t *testing.T) {
 	if node.Path != "interface eth1 description" {
 		t.Errorf("bad description path: [%s]", node.Path)
 	}
-	if len(node.Value) != 1 {
-		t.Errorf("bad description value count: %d", len(node.Value))
+	if len(node.Children) != 1 {
+		t.Errorf("bad description value count: %d", len(node.Children))
 	}
-	if node.Value[0] != "ddd   eee   fff " {
-		t.Errorf("bad description value: [%s]", node.Value[0])
+	if v := command.DescriptionDecode(command.LastToken(node.Children[0].Path)); v != "ddd   eee   fff " {
+		t.Errorf("bad description value: [%s]", v)
 	}
 
 	command.Dispatch(app, "no int eth1 desc", c, command.CONF, false)
@@ -177,16 +177,16 @@ func TestConf(t *testing.T) {
 		t.Errorf("bad eth2 address 1: %v", err)
 		return
 	}
-	if len(node.Value) != 1 {
-		t.Errorf("wrong number of eth2 addresses (expected=1): %d", len(node.Value))
+	if len(node.Children) != 1 {
+		t.Errorf("wrong number of eth2 addresses (expected=1): %d", len(node.Children))
 	}
 	command.Dispatch(app, "int eth2 ipv4 addr 2.2.2.2/2", c, command.CONF, false)
 	if err != nil {
 		t.Errorf("bad eth2 address 2: %v", err)
 		return
 	}
-	if len(node.Value) != 2 {
-		t.Errorf("wrong number of eth2 addresses (expected=2): %d", len(node.Value))
+	if len(node.Children) != 2 {
+		t.Errorf("wrong number of eth2 addresses (expected=2): %d", len(node.Children))
 	}
 	command.Dispatch(app, "int eth2 ipv4 addr 3.3.3.3/3", c, command.CONF, false)
 	node, err = app.confRootCandidate.Get("interface eth2 ipv4 address")
@@ -194,12 +194,12 @@ func TestConf(t *testing.T) {
 		t.Errorf("bad eth2 address 3: %v", err)
 		return
 	}
-	if len(node.Value) != 3 {
-		t.Errorf("wrong number of eth2 addresses (expected=3): %d", len(node.Value))
+	if len(node.Children) != 3 {
+		t.Errorf("wrong number of eth2 addresses (expected=3): %d", len(node.Children))
 	}
 	command.Dispatch(app, "no int eth2 ipv4 addr 3.3.3.3/3", c, command.CONF, false)
-	if len(node.Value) != 2 {
-		t.Errorf("wrong number of eth2 addresses (expected=2): %d", len(node.Value))
+	if len(node.Children) != 2 {
+		t.Errorf("wrong number of eth2 addresses (expected=2): %d", len(node.Children))
 	}
 	command.Dispatch(app, "no int eth2 ipv4 addr", c, command.CONF, false)
 	node, err = app.confRootCandidate.Get("interface eth2 ipv4 address")
@@ -216,8 +216,8 @@ func TestConf(t *testing.T) {
 		t.Errorf("bad eth3 address: %v", err)
 		return
 	}
-	if len(node.Value) != 4 {
-		t.Errorf("wrong number of eth3 addresses (expected=4): %d", len(node.Value))
+	if len(node.Children) != 4 {
+		t.Errorf("wrong number of eth3 addresses (expected=4): %d", len(node.Children))
 	}
 	node, err = app.confRootCandidate.Get("interface eth3 ipv4")
 	if err != nil {
@@ -236,8 +236,8 @@ func TestConf(t *testing.T) {
 		t.Errorf("bad eth4 address: %v", err)
 		return
 	}
-	if len(node.Value) != 1 {
-		t.Errorf("wrong number of eth4 addresses (expected=1): %d", len(node.Value))
+	if len(node.Children) != 1 {
+		t.Errorf("wrong number of eth4 addresses (expected=1): %d", len(node.Children))
 	}
 	node, err = app.confRootCandidate.Get("interface eth4 description")
 	if err != nil {

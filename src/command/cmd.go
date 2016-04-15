@@ -109,8 +109,8 @@ func (n *CmdNode) MatchAny() bool {
 }
 
 type ConfNode struct {
-	Path     string
-	Value    []string
+	Path string
+	//Value    []string
 	Children []*ConfNode
 }
 
@@ -118,16 +118,7 @@ func (n *ConfNode) Clone() *ConfNode {
 	newNode := &ConfNode{Path: n.Path}
 
 	// clone values
-	/*
-		for _, v := range n.Value {
-			newNode.Value = append(newNode.Value, v)
-		}
-	*/
-	/*
-		newNode.Value = make([]string, len(n.Value))
-		copy(newNode.Value, n.Value)
-	*/
-	newNode.Value = append([]string{}, n.Value...)
+	//newNode.Value = append([]string{}, n.Value...)
 
 	// clone children
 	newNode.Children = make([]*ConfNode, len(n.Children))
@@ -139,16 +130,12 @@ func (n *ConfNode) Clone() *ConfNode {
 }
 
 func (n *ConfNode) ValueIndex(value string) int {
-	for i, v := range n.Value {
-		if v == value {
-			return i
-		}
-	}
-	return -1
+	return n.FindChild(value)
 }
 
 func (n *ConfNode) ValueSet(value string) {
-	n.Value = []string{value}
+	n.Children = nil
+	n.ValueAdd(value)
 }
 
 // remove node from tree.
@@ -196,12 +183,14 @@ func (n *ConfNode) Prune(root *CmdNode, parent, child *ConfNode, out CmdClient) 
 
 			deleteMe := len(n.Children) == 0 // lost all children, kill me
 
-			if size := len(n.Value); deleteMe && size > 0 {
-				msg := fmt.Sprintf("command.Prune: error: child=[%s] valueCount=%d: should not delete node with value", n.Path, size)
-				log.Printf(msg)
-				out.Sendln(msg)
-				return false
-			}
+			/*
+				if size := len(n.Value); deleteMe && size > 0 {
+					msg := fmt.Sprintf("command.Prune: error: child=[%s] valueCount=%d: should not delete node with value", n.Path, size)
+					log.Printf(msg)
+					out.Sendln(msg)
+					return false
+				}
+			*/
 
 			return deleteMe
 		}

@@ -77,38 +77,9 @@ func (n *ConfNode) deleteChildByIndex(i int) {
 }
 
 func (n *ConfNode) ValueAdd(value string) error {
-
-	size := len(n.Value)
-	if size < 1 {
-		// first element is special
-		// because both insert position=0 and current size=0
-		n.Value = append(n.Value, value)
-		return nil
-	}
-
-	// FIXME replace linear search with binary search
-	found := size
-	for i, v := range n.Value {
-		if value == v {
-			return nil // already exists
-		}
-		if value < v {
-			found = i // 0..size-1
-			break
-		}
-	}
-
-	if found == size {
-		// not found - insert into last position can be optimized as append
-		n.Value = append(n.Value, value)
-		return nil
-	}
-
-	// insert
-	n.Value = append(n.Value, "")            // grow
-	copy(n.Value[found+1:], n.Value[found:]) // shift
-	n.Value[found] = value                   // insert
-
+	newPath := fmt.Sprintf("%s %s", n.Path, value)
+	newNode := &ConfNode{Path: newPath}
+	pushConfChild(n, newNode)
 	return nil
 }
 
@@ -118,9 +89,12 @@ func (n *ConfNode) ValueDelete(value string) error {
 		return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
 	}
 
-	// delete preserving order: a, a[len(a)-1] = append(a[:i], a[i+1:]...), nil
-	last := len(n.Value) - 1
-	n.Value, n.Value[last] = append(n.Value[:i], n.Value[i+1:]...), ""
+	/*
+		// delete preserving order: a, a[len(a)-1] = append(a[:i], a[i+1:]...), nil
+		last := len(n.Value) - 1
+		n.Value, n.Value[last] = append(n.Value[:i], n.Value[i+1:]...), ""
+	*/
+	n.deleteChildByIndex(i)
 
 	return nil
 }

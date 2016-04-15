@@ -98,28 +98,8 @@ func findDeleted(root1, root2 *ConfNode) ([]string, []*ConfNode) {
 }
 
 func searchDeletedNodes(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
-	//log.Printf("searchDeletedNodes: [%s]", n1.Path)
 
-	/*
-		if len(n1.Children) > 0 {
-			for _, i := range n1.Children {
-				searchDeletedNodes(i, root2, pathList, nodeList)
-			}
-			return
-		}
-		if len(n1.Value) > 0 {
-			searchDeletedValues(n1, root2, pathList, nodeList)
-			return
-		}
-
-		if _, err := root2.Get(n1.Path); err != nil {
-			// not found
-			*pathList = append(*pathList, n1.Path)
-			*nodeList = append(*nodeList, n1)
-		}
-	*/
-
-	if len(n1.Value) == 0 && len(n1.Children) == 0 {
+	if /*len(n1.Value) == 0 &&*/ len(n1.Children) == 0 {
 		if _, err := root2.Get(n1.Path); err != nil {
 			// not found
 			*pathList = append(*pathList, n1.Path)
@@ -128,15 +108,18 @@ func searchDeletedNodes(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*Co
 		return
 	}
 
-	if len(n1.Value) > 0 {
-		searchDeletedValues(n1, root2, pathList, nodeList)
-	}
+	/*
+		if len(n1.Value) > 0 {
+			searchDeletedValues(n1, root2, pathList, nodeList)
+		}
+	*/
 
 	for _, i := range n1.Children {
 		searchDeletedNodes(i, root2, pathList, nodeList)
 	}
 }
 
+/*
 func searchDeletedValues(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
 	n2, err := root2.Get(n1.Path)
 	if err != nil {
@@ -156,6 +139,7 @@ func searchDeletedValues(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*C
 		}
 	}
 }
+*/
 
 func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	status := c.Status()
@@ -391,18 +375,15 @@ func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient)
 	fields := strings.Fields(node.Path)
 	path := strings.Join(fields[:3], " ") // interface XXX description
 
-	/*
-		confCand := ctx.ConfRootCandidate()
-		confNode, err, _ := confCand.Set(path, linePath)
-		if err != nil {
-			log.Printf("description: error: %v", err)
-			return
-		}
+	SingleValueSet(ctx, c, path, linePath, DescriptionEncode(desc))
+}
 
-		confNode.ValueSet(desc)
-	*/
+func DescriptionEncode(desc string) string {
+	return strings.Replace(desc, " ", "(_)", -1)
+}
 
-	SingleValueSet(ctx, c, path, linePath, desc)
+func DescriptionDecode(desc string) string {
+	return strings.Replace(desc, "(_)", " ", -1)
 }
 
 func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -553,9 +534,11 @@ func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
 				return fmt.Errorf("cmdNo: could not delete value: %v", e2)
 			}
 
-			if len(parentConf.Value) > 0 {
-				return nil // done, can't delete node
-			}
+			/*
+				if len(parentConf.Value) > 0 {
+					return nil // done, can't delete node
+				}
+			*/
 
 			//c.SendlnNow(fmt.Sprintf("cmdNo: value deleted: %s", childLabel))
 

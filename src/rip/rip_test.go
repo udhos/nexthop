@@ -141,14 +141,14 @@ func TestConf(t *testing.T) {
 		if node.Path != net {
 			t.Errorf("config node mismatch want=[%s] got=[%s]", net, node.Path)
 		}
-		if len(node.Value) != 2 {
-			t.Errorf("bad number of values want=2 got=%d", len(node.Value))
+		if len(node.Children) != 2 {
+			t.Errorf("bad number of values want=2 got=%d", len(node.Children))
 		}
-		if node.Value[0] != n1 {
-			t.Errorf("unexpected 1st network want=%s got=%s", n1, node.Value[0])
+		if v := command.LastToken(node.Children[0].Path); v != n1 {
+			t.Errorf("unexpected 1st network want=%s got=%s", n1, v)
 		}
-		if node.Value[1] != n2 {
-			t.Errorf("unexpected 2nd network want=%s got=%s", n2, node.Value[1])
+		if v := command.LastToken(node.Children[1].Path); v != n2 {
+			t.Errorf("unexpected 2nd network want=%s got=%s", n2, v)
 		}
 	}
 

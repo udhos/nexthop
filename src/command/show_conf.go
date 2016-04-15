@@ -56,12 +56,14 @@ func showConfTree(node *ConfNode, depth int, c CmdClient) {
 
 	newDepth := depth + 2
 
-	for _, v := range node.Value {
-		c.Sendln(fmt.Sprintf("%*s%s", newDepth, "", v))
-	}
-	if len(node.Value) > 0 {
-		c.Sendln(fmt.Sprintf("%*s%s", depth, "", "exit"))
-	}
+	/*
+		for _, v := range node.Value {
+			c.Sendln(fmt.Sprintf("%*s%s", newDepth, "", v))
+		}
+		if len(node.Value) > 0 {
+			c.Sendln(fmt.Sprintf("%*s%s", depth, "", "exit"))
+		}
+	*/
 
 	for _, n := range node.Children {
 		showConfTree(n, newDepth, c)

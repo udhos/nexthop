@@ -41,7 +41,7 @@ func getHostname(root *command.ConfNode) string {
 		return "hostname?"
 	}
 
-	return node.Value[0]
+	return command.LastToken(node.Children[0].Path)
 }
 
 func isAnyUserDefined(root *command.ConfNode) bool {
@@ -61,11 +61,11 @@ func checkPassword(root *command.ConfNode, username, password string) bool {
 		return false
 	}
 
-	if len(node.Value) != 1 {
+	if len(node.Children) != 1 {
 		return false
 	}
 
-	return password == node.Value[0]
+	return password == command.LastToken(node.Children[0].Path)
 }
 
 func executeLine(ctx command.ConfContext, line string, history bool, c *Client) {
