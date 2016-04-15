@@ -16,7 +16,7 @@ for i in $src; do
     go tool fix $j
     go tool vet $j
     gofmt -s -w $j
-    gosimple $j
+    gosimple $i
     #golint $j     ;# golint is verbose, enable only when actually needed
 done
 
