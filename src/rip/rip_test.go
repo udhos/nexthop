@@ -155,20 +155,30 @@ func TestConf(t *testing.T) {
 	nonet1 := fmt.Sprintf("no %s", net1)
 	nonet2 := fmt.Sprintf("no %s", net2)
 
-	noCmd, err := command.CmdFind(root, "no X", command.CONF, true)
-	if err != nil {
-		t.Errorf("could not find 'no' command: %v", err)
-		return
-	}
+	/*
+		noCmd, err := command.CmdFind(root, "no X", command.CONF, true)
+		if err != nil {
+			t.Errorf("could not find 'no' command: %v", err)
+			return
+		}
+	*/
 
-	if err := command.CmdNo(app, noCmd, nonet1, c); err != nil {
+	dumpConf(app.confRootCandidate, "conf1:")
+
+	fmt.Printf("trying: [%s]\n", nonet1)
+	if err := command.CmdNo(app, nil, nonet1, c); err != nil {
 		t.Errorf("cmd failed: [%s] error=[%v]", nonet1, err)
 		return
 	}
-	if err := command.CmdNo(app, noCmd, nonet2, c); err != nil {
+
+	dumpConf(app.confRootCandidate, "conf2:")
+	fmt.Printf("trying: [%s]\n", nonet2)
+	if err := command.CmdNo(app, nil, nonet2, c); err != nil {
 		t.Errorf("cmd failed: [%s] error=[%v]", nonet2, err)
 		return
 	}
+
+	dumpConf(app.confRootCandidate, "conf3:")
 
 	{
 		node, err := app.confRootCandidate.Get(net)
@@ -184,6 +194,11 @@ func TestConf(t *testing.T) {
 		}
 	}
 
+}
+
+func dumpConf(root *command.ConfNode, label string) {
+	fmt.Println(label)
+	command.WriteConfig(root, &outputWriter{}, false)
 }
 
 type outputWriter struct {
@@ -251,14 +266,16 @@ func Example_diff2() {
 		log.Printf("dispatch: [commit]: %v", err)
 	}
 
-	noCmd, err := command.CmdFind(app.cmdRoot, "no X", command.CONF, true)
-	if err != nil {
-		log.Printf("could not find 'no' command: %v", err)
-		return
-	}
+	/*
+		noCmd, err := command.CmdFind(app.cmdRoot, "no X", command.CONF, true)
+		if err != nil {
+			log.Printf("could not find 'no' command: %v", err)
+			return
+		}
+	*/
 
 	nonet := "no router rip network"
-	if err := command.CmdNo(app, noCmd, nonet, c); err != nil {
+	if err := command.CmdNo(app, nil, nonet, c); err != nil {
 		log.Printf("cmd failed: [%s] error=[%v]", nonet, err)
 		return
 	}

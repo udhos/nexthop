@@ -449,7 +449,7 @@ func HelperNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	}
 }
 
-func CmdNo(ctx ConfContext, node *CmdNode, line string, c CmdClient) error {
+func CmdNo(ctx ConfContext, noNode *CmdNode, line string, c CmdClient) error {
 	sep := strings.IndexByte(line, ' ')
 	if sep < 0 {
 		return fmt.Errorf("cmdNo: missing argument: %v", line)
