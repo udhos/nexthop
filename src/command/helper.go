@@ -472,7 +472,13 @@ func CmdNo(ctx ConfContext, noNode *CmdNode, line string, c CmdClient) error {
 	matchAny := node.MatchAny()
 	childMatchAny := !matchAny && len(node.Children) == 1 && node.Children[0].MatchAny()
 
-	//c.SendlnNow(fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny))
+	/*
+		{
+			msg := fmt.Sprintf("cmdNo: [%s] len=%d matchAny=%v childMatchAny=%v", node.Path, len(strings.Fields(node.Path)), matchAny, childMatchAny)
+			c.SendlnNow(msg)
+			log.Println(msg)
+		}
+	*/
 
 	expanded, e := CmdExpand(arg, node.Path)
 	if e != nil {
@@ -524,7 +530,13 @@ func CmdNo(ctx ConfContext, noNode *CmdNode, line string, c CmdClient) error {
 
 		_, cmdLast := StripLastToken(node.Path)
 
-		//c.SendlnNow(fmt.Sprintf("cmdNo: node.Path=%s cmdLast=%s children=%d childLabel=%s childIndex=%d", node.Path, cmdLast, len(node.Children), childLabel, childIndex))
+		/*
+			{
+				msg := fmt.Sprintf("cmdNo: node.Path=%s cmdLast=%s children=%d childLabel=%s childIndex=%d", node.Path, cmdLast, len(node.Children), childLabel, childIndex)
+				log.Println(msg)
+				c.SendlnNow(msg)
+			}
+		*/
 
 		if IsUserPatternKeyword(cmdLast) && len(node.Children) == 0 {
 
@@ -534,11 +546,9 @@ func CmdNo(ctx ConfContext, noNode *CmdNode, line string, c CmdClient) error {
 				return fmt.Errorf("cmdNo: could not delete value: %v", e2)
 			}
 
-			/*
-				if len(parentConf.Value) > 0 {
-					return nil // done, can't delete node
-				}
-			*/
+			if len(parentConf.Children) > 0 {
+				return nil // done, can't delete node
+			}
 
 			//c.SendlnNow(fmt.Sprintf("cmdNo: value deleted: %s", childLabel))
 
