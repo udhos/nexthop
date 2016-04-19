@@ -25,6 +25,11 @@ unused $unu ;# unused is slow
 
 go install rib-old rib rip bgp tools/rip-query
 
-go test bgp command cli addr sock rip netorder
+save=$PWD
+cd $NEXTHOP
+test_dirs=`ls src/*/*_test.go | awk -F/ '{ print $2 }'`
+cd $save
+
+go test $test_dirs
 
 # eof
