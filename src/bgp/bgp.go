@@ -104,7 +104,7 @@ func main() {
 
 	cliServer := cli.NewServer()
 
-	go cli.ListenTelnet(":2002", cliServer)
+	go cli.ListenTelnet(":2003", cliServer)
 
 	tick := time.Duration(10)
 	ticker := time.NewTicker(time.Second * tick)
@@ -201,6 +201,7 @@ func applyBgp(ctx command.ConfContext, node *command.CmdNode, action command.Com
 }
 
 func cmdNeighAsn(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func applyNeighAsn(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient) error {
