@@ -68,7 +68,8 @@ func main() {
 	}
 
 	var dataplaneName string
-	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", command.ConfigPathRoot+"/rib.conf.", "configuration path prefix")
+	configPrefix := command.ConfigPathRoot + "/" + daemonName + ".conf."
+	flag.StringVar(&ribConf.configPathPrefix, "configPathPrefix", configPrefix, "configuration path prefix")
 	flag.IntVar(&ribConf.maxConfigFiles, "maxConfigFiles", command.DefaultMaxConfigFiles, "limit number of configuration files (negative value means unlimited)")
 	flag.StringVar(&dataplaneName, "dataplane", "native", "select forwarding engine")
 	flag.Parse()
