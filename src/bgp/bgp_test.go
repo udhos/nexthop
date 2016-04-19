@@ -109,7 +109,8 @@ func Example_diff1() {
 		}
 	}
 
-	f("hostname bgp")
+	f("hostname bgp1")
+	f("hostname bgp2")
 	f("router bgp 1 neighbor 1.1.1.1 remote-as 1")
 	f("router bgp 1 neighbor 2.2.2.2 remote-as 1")
 	f("router bgp 1 neighbor 3.3.3.3 remote-as 2")
@@ -119,7 +120,7 @@ func Example_diff1() {
 
 	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
 	// Output:
-	// hostname bgp
+	// hostname bgp2
 	// router bgp 1 neighbor 1.1.1.1 remote-as 1
 	// router bgp 1 neighbor 2.2.2.2 remote-as 1
 	// router bgp 1 neighbor 3.3.3.3 remote-as 2
@@ -137,7 +138,8 @@ func Example_diff2() {
 		}
 	}
 
-	f("hostname bgp")
+	f("hostname bgp1")
+	f("hostname bgp2")
 	f("router bgp 1 neighbor 1.1.1.1 remote-as 1")
 	f("router bgp 1 neighbor 2.2.2.2 remote-as 1")
 	f("router bgp 1 neighbor 3.3.3.3 remote-as 2")
@@ -157,7 +159,7 @@ func Example_diff2() {
 
 	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
 	// Output:
-	// hostname bgp
+	// hostname bgp2
 	// router bgp 2 neighbor 3.3.3.3 remote-as 2
 	// router bgp 2 neighbor 4.4.4.4 remote-as 3
 }
