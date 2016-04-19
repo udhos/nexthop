@@ -36,15 +36,15 @@ const (
 const (
 	ctrlA = 'A' - '@'
 	ctrlB = 'B' - '@'
-	ctrlC = 'C' - '@'
+	//ctrlC = 'C' - '@'
 	ctrlD = 'D' - '@'
 	ctrlE = 'E' - '@'
 	ctrlF = 'F' - '@'
 	ctrlH = 'H' - '@'
-	ctrlK = 'K' - '@'
+	//ctrlK = 'K' - '@'
 	ctrlN = 'N' - '@'
 	ctrlP = 'P' - '@'
-	ctrlZ = 'Z' - '@'
+	//ctrlZ = 'Z' - '@'
 )
 
 const (

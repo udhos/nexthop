@@ -1262,6 +1262,7 @@ func (r *RipRouter) ifDel(i int) {
 	r.ports = r.ports[:size-1]
 }
 
+/*
 type ripDumper struct{}
 
 func (d *ripDumper) Sendln(msg string) int {
@@ -1281,3 +1282,4 @@ func (v *ripVrf) dumpNets(c command.LineSender) {
 		c.Sendln(fmt.Sprintf("vrf %s - %v/%v/%d", v.name, n.addr, n.nexthop, n.metric))
 	}
 }
+*/

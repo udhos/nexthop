@@ -9,6 +9,7 @@ export GOPATH=$NEXTHOP
 PATH=$NEXTHOP/bin:$PATH
 
 src="addr bgp cli command fwd netorder rib rib-old rip sample sock telnet tools"
+unu="addr bgp cli command fwd netorder rib rib-old rip        sock telnet tools/rip-query"
 
 for i in $src; do
     j=$NEXTHOP/src/$i
@@ -20,7 +21,7 @@ for i in $src; do
     #golint $j     ;# golint is verbose, enable only when actually needed
 done
 
-#unused addr cli command fwd netorder rib rib-old rip sock telnet tools/rip-query
+unused $unu ;# unused is slow
 
 go install rib-old rib rip bgp tools/rip-query
 

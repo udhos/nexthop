@@ -15,7 +15,7 @@ const (
 )
 
 const (
-	keyBell      = ctrlG // 7
+	//keyBell      = ctrlG // 7
 	keyBackspace = ctrlH // 8
 	keyTab       = ctrlI // 9
 	keyEscape    = 27
@@ -29,20 +29,20 @@ const (
 )
 
 const (
-	ctrlA        = 'A' - '@'
-	ctrlB        = 'B' - '@'
-	ctrlC        = 'C' - '@'
-	ctrlD        = 'D' - '@'
-	ctrlE        = 'E' - '@'
-	ctrlF        = 'F' - '@'
-	ctrlG        = 'G' - '@' // 7=bell
-	ctrlH        = 'H' - '@' // 8=backspace
-	ctrlI        = 'I' - '@' // 9=tab
-	ctrlK        = 'K' - '@'
-	ctrlL        = 'L' - '@'
-	ctrlN        = 'N' - '@'
-	ctrlP        = 'P' - '@'
-	ctrlZ        = 'Z' - '@'
+	ctrlA = 'A' - '@'
+	ctrlB = 'B' - '@'
+	//ctrlC        = 'C' - '@'
+	ctrlD = 'D' - '@'
+	ctrlE = 'E' - '@'
+	ctrlF = 'F' - '@'
+	//ctrlG        = 'G' - '@' // 7=bell
+	ctrlH = 'H' - '@' // 8=backspace
+	ctrlI = 'I' - '@' // 9=tab
+	ctrlK = 'K' - '@'
+	ctrlL = 'L' - '@'
+	ctrlN = 'N' - '@'
+	ctrlP = 'P' - '@'
+	//ctrlZ        = 'Z' - '@'
 	ctrlQuestion = 127
 )
 

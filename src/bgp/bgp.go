@@ -25,7 +25,7 @@ type Bgp struct {
 
 	hardware fwd.Dataplane
 
-	router *BgpRouter
+	//router *BgpRouter
 }
 
 func (r Bgp) CmdRoot() *command.CmdNode {

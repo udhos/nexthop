@@ -328,6 +328,7 @@ func StripLastToken(path string) (string, string) {
 	return path[:last], path[last+1:]
 }
 
+/*
 func dumpChildren(node *CmdNode) string {
 	str := ""
 	for _, p := range node.Children {
@@ -335,6 +336,7 @@ func dumpChildren(node *CmdNode) string {
 	}
 	return str
 }
+*/
 
 func CmdInstall(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply CommitFunc, desc string) {
 	if _, err := cmdAdd(root, opt, path, min, cmd, apply, desc); err != nil {
