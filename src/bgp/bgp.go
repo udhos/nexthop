@@ -157,13 +157,12 @@ func installCommands(root *command.CmdNode) {
 
 	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
-	command.CmdInstall(root, cmdConH, "router bgp {ASN}", command.CONF, cmdBgp, applyBgp, "Enable BGP protocol")
-	command.CmdInstall(root, cmdConH, "router bgp {ASN} neighbor {IPADDR} remote-as {ASN}", command.CONF, cmdNeighAsn, applyNeighAsn, "Neighbor ASN")
+	//command.CmdInstall(root, cmdConH, "router bgp {ASN}", command.CONF, cmdBgp, applyBgp, "Enable BGP protocol")
+	command.CmdInstall(root, cmdConH, "router bgp {ASN} neighbor {IPADDR} remote-as {ASN}", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
 
 	// Node description is used for pretty display in command help.
 	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
 	command.DescInstall(root, "hostname", "Assign hostname")
-	command.DescInstall(root, "router", "Configure routing")
 
 	command.MissingDescription(root)
 }
@@ -184,6 +183,7 @@ func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c c
 	command.HelperShowVersion(bgp.daemonName, c)
 }
 
+/*
 func cmdBgp(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	command.SetSimple(ctx, c, node.Path, line)
 }
@@ -199,6 +199,7 @@ func applyBgp(ctx command.ConfContext, node *command.CmdNode, action command.Com
 
 	return nil
 }
+*/
 
 func cmdNeighAsn(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
 	command.SetSimple(ctx, c, node.Path, line)
