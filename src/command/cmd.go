@@ -224,6 +224,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 	pathLabels := strings.Fields(path)
 	labels := strings.Fields(expanded)
 	size := len(labels)
+	last := size - 1
 	parent := n
 	for i, label := range labels {
 
@@ -236,7 +237,7 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 		// not found
 
-		for ; i < size-1; i++ {
+		for ; i < last; i++ {
 			// intermediate label
 			label = labels[i]
 			currPath := strings.Join(labels[:i+1], " ")
@@ -252,9 +253,9 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 		}
 
 		// last label
-		label = labels[size-1]
+		label = labels[last]
 
-		if pathLab := pathLabels[size-1]; IsUserPatternKeywordSingle(pathLab) {
+		if pathLab := pathLabels[last]; IsUserPatternKeywordSingle(pathLab) {
 			// only a single child is accepted
 			parent.Children = nil
 		}
