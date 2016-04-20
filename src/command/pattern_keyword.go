@@ -32,7 +32,19 @@ func IsUserPatternKeyword(str string) bool {
 	if size < 3 {
 		return false
 	}
-	return str[0] == '{' && str[size-1] == '}'
+	first := str[0]
+	last := str[size-1]
+	return (first == '{' && last == '}') || (first == '(' && last == ')')
+}
+
+func IsUserPatternKeywordSingle(str string) bool {
+	size := len(str)
+	if size < 3 {
+		return false
+	}
+	first := str[0]
+	last := str[size-1]
+	return first == '(' && last == ')'
 }
 
 func LoadKeywordTable(ifScannerFunc interfaceListFunc, commitScannerFunc optionsFunc) {

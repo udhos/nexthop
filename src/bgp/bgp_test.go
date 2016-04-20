@@ -196,7 +196,7 @@ func setup_diff() (*bgpTestApp, *bgpTestClient) {
 
 	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
-	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} remote-as {ASN}", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
+	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} remote-as (ASN)", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
 
 	outputSinkFunc := func(m string) {
 	}

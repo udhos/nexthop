@@ -221,10 +221,12 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 
 	//log.Printf("ConfNode.Set: line=[%v] path=[%v] expand=[%s]", line, path, expanded)
 
+	pathLabels := strings.Fields(path)
 	labels := strings.Fields(expanded)
 	size := len(labels)
 	parent := n
 	for i, label := range labels {
+
 		child := parent.FindChild(label)
 		if child >= 0 {
 			// found, search next
@@ -239,12 +241,24 @@ func (n *ConfNode) Set(path, line string) (*ConfNode, error, bool) {
 			label = labels[i]
 			currPath := strings.Join(labels[:i+1], " ")
 			newNode := &ConfNode{Path: currPath}
+
+			if pathLab := pathLabels[i]; IsUserPatternKeywordSingle(pathLab) {
+				// only a single child is accepted
+				parent.Children = nil
+			}
+
 			pushConfChild(parent, newNode)
 			parent = newNode
 		}
 
 		// last label
 		label = labels[size-1]
+
+		if pathLab := pathLabels[size-1]; IsUserPatternKeywordSingle(pathLab) {
+			// only a single child is accepted
+			parent.Children = nil
+		}
+
 		newNode := &ConfNode{Path: expanded}
 		pushConfChild(parent, newNode)
 
