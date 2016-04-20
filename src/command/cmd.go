@@ -109,16 +109,12 @@ func (n *CmdNode) MatchAny() bool {
 }
 
 type ConfNode struct {
-	Path string
-	//Value    []string
+	Path     string
 	Children []*ConfNode
 }
 
 func (n *ConfNode) Clone() *ConfNode {
 	newNode := &ConfNode{Path: n.Path}
-
-	// clone values
-	//newNode.Value = append([]string{}, n.Value...)
 
 	// clone children
 	newNode.Children = make([]*ConfNode, len(n.Children))
@@ -182,15 +178,6 @@ func (n *ConfNode) Prune(root *CmdNode, parent, child *ConfNode, out CmdClient) 
 			}
 
 			deleteMe := len(n.Children) == 0 // lost all children, kill me
-
-			/*
-				if size := len(n.Value); deleteMe && size > 0 {
-					msg := fmt.Sprintf("command.Prune: error: child=[%s] valueCount=%d: should not delete node with value", n.Path, size)
-					log.Printf(msg)
-					out.Sendln(msg)
-					return false
-				}
-			*/
 
 			return deleteMe
 		}

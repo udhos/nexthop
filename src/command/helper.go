@@ -99,7 +99,7 @@ func findDeleted(root1, root2 *ConfNode) ([]string, []*ConfNode) {
 
 func searchDeletedNodes(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
 
-	if /*len(n1.Value) == 0 &&*/ len(n1.Children) == 0 {
+	if len(n1.Children) == 0 {
 		if _, err := root2.Get(n1.Path); err != nil {
 			// not found
 			*pathList = append(*pathList, n1.Path)
@@ -108,38 +108,10 @@ func searchDeletedNodes(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*Co
 		return
 	}
 
-	/*
-		if len(n1.Value) > 0 {
-			searchDeletedValues(n1, root2, pathList, nodeList)
-		}
-	*/
-
 	for _, i := range n1.Children {
 		searchDeletedNodes(i, root2, pathList, nodeList)
 	}
 }
-
-/*
-func searchDeletedValues(n1, root2 *ConfNode, pathList *[]string, nodeList *[]*ConfNode) {
-	n2, err := root2.Get(n1.Path)
-	if err != nil {
-		// not found
-		for _, v := range n1.Value {
-			*pathList = append(*pathList, fmt.Sprintf("%s %s", n1.Path, v))
-			*nodeList = append(*nodeList, n1)
-		}
-		return
-	}
-
-	for _, v := range n1.Value {
-		i := n2.ValueIndex(v)
-		if i < 0 {
-			*pathList = append(*pathList, fmt.Sprintf("%s %s", n1.Path, v))
-			*nodeList = append(*nodeList, n1)
-		}
-	}
-}
-*/
 
 func cmdConfig(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	status := c.Status()
@@ -335,22 +307,6 @@ func cmdShowConfInfo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 // since it only applies to RIB daemon.
 // However it is currently being used for helping in tests.
 func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-
-	/*
-		linePath, addr := StripLastToken(line)
-
-		path, _ := StripLastToken(node.Path)
-
-		confCand := ctx.ConfRootCandidate()
-		confNode, err, _ := confCand.Set(path, linePath)
-		if err != nil {
-			c.Sendln(fmt.Sprintf("iface addr: error: %v", err))
-			return
-		}
-
-		confNode.ValueAdd(addr)
-	*/
-
 	MultiValueAdd(ctx, c, node.Path, line)
 }
 
@@ -387,21 +343,6 @@ func DescriptionDecode(desc string) string {
 }
 
 func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	/*
-		line, host := StripLastToken(line)
-
-		path, _ := StripLastToken(node.Path)
-
-		confCand := ctx.ConfRootCandidate()
-		confNode, err, _ := confCand.Set(path, line)
-		if err != nil {
-			log.Printf("hostname: error: %v", err)
-			return
-		}
-
-		confNode.ValueSet(host)
-	*/
-
 	SingleValueSetSimple(ctx, c, node.Path, line)
 }
 
@@ -581,20 +522,5 @@ func HelperShowVersion(daemonName string, c CmdClient) {
 }
 
 func cmdUsername(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	/*
-		userLine, pass := StripLastToken(line)
-
-		path, _ := StripLastToken(node.Path)
-
-		confCand := ctx.ConfRootCandidate()
-		confNode, err, _ := confCand.Set(path, userLine)
-		if err != nil {
-			c.Sendln(fmt.Sprintf("unable to set user password: error: %v", err))
-			return
-		}
-
-		confNode.ValueSet(pass)
-	*/
-
 	SingleValueSetSimple(ctx, c, node.Path, line)
 }

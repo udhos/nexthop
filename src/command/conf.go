@@ -222,22 +222,6 @@ func WriteConfig(node *ConfNode, w LineWriter, infoType bool) error {
 		return nil
 	}
 
-	/*
-		// show node values
-		for _, v := range node.Value {
-			var line string
-			if infoType {
-				line = fmt.Sprintf("V %s %s", node.Path, v)
-			} else {
-				line = fmt.Sprintf("%s %s", node.Path, v)
-			}
-			size := len(line)
-			count, err := w.WriteLine(line)
-			if count < size || err != nil {
-				return fmt.Errorf("writeConfig: error: write=%d < size=%d: %v", count, size, err)
-			}
-	*/
-
 	// scan children
 	for _, n := range node.Children {
 		if err := WriteConfig(n, w, infoType); err != nil {
