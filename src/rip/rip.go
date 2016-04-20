@@ -199,15 +199,6 @@ func cmdShowRipRoutes(ctx command.ConfContext, node *command.CmdNode, line strin
 }
 
 func cmdRip(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	/*
-		confCand := ctx.ConfRootCandidate()
-		_, err, _ := confCand.Set(node.Path, line)
-		if err != nil {
-			c.Sendln(fmt.Sprintf("cmdRip: error: %v", err))
-			return
-		}
-	*/
-
 	command.SetSimple(ctx, c, node.Path, line)
 }
 
@@ -216,21 +207,6 @@ func cmdRipIfaceCost(ctx command.ConfContext, node *command.CmdNode, line string
 }
 
 func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	/*
-		linePath, netAddr := command.StripLastToken(line)
-
-		path, _ := command.StripLastToken(node.Path)
-
-		confCand := ctx.ConfRootCandidate()
-		confNode, err1, _ := confCand.Set(path, linePath)
-		if err1 != nil {
-			c.Sendln(fmt.Sprintf("cmdRipNetwork: error: %v", err1))
-			return
-		}
-
-		confNode.ValueAdd(netAddr)
-	*/
-
 	command.MultiValueAdd(ctx, c, node.Path, line)
 }
 
@@ -615,79 +591,3 @@ func enableRip(rip *Rip, enable bool) {
 	rip.router.done <- 1 // request end of rip goroutine
 	rip.router = nil
 }
-
-/*
-func enableRip(ctx command.ConfContext, node *command.CmdNode, action command.CommitAction, c command.CmdClient, isNetCmd bool, cost int, nexthop net.IP) error {
-	var rip *Rip
-	var ok bool
-	if rip, ok = ctx.(*Rip); !ok {
-		// non-rip context is a bogus state used for unit testing
-		err := fmt.Errorf("enableRip: not a true Rip context: %v", ctx)
-		log.Printf("%v", err)
-		c.Sendln(fmt.Sprintf("%v", err))
-		return nil // fake success
-	}
-
-	cand, _ := ctx.ConfRootCandidate().Get("router rip")
-
-	if action.Enable {
-		// enable RIP
-
-		if rip.router == nil {
-			rip.router = NewRipRouter(rip.hardware, ctx)
-		}
-
-		if isNetCmd {
-			// add network into rip
-
-			f := strings.Fields(action.Cmd)
-			if strings.HasPrefix("network", f[2]) {
-				return rip.router.NetAdd("", f[3], cost, nexthop)
-			}
-			if strings.HasPrefix("vrf", f[2]) {
-				return rip.router.NetAdd(f[3], f[5], cost, nexthop)
-			}
-			return fmt.Errorf("enableRip: bad network command: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
-		}
-
-		return nil
-	}
-
-	// disable RIP
-
-	if rip.router == nil {
-		return nil // rip not running
-	}
-
-	if isNetCmd {
-		// remove network from rip
-		f := strings.Fields(action.Cmd)
-
-		if strings.HasPrefix("network", f[2]) {
-			if err := rip.router.NetDel("", f[3], nexthop); err != nil {
-				return err
-			}
-		} else if strings.HasPrefix("vrf", f[2]) {
-			if err := rip.router.NetDel(f[3], f[5], nexthop); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("enableRip: bad network command: cmd=[%s] conf=[%s]", node.Path, action.Cmd)
-		}
-
-		// router rip removed?
-		if cand != nil {
-			return nil // router rip still in place
-		}
-
-		// router rip removed, fully disable rip
-	}
-
-	// fully disable RIP
-
-	rip.router.done <- 1 // request end of rip goroutine
-	rip.router = nil
-
-	return nil
-}
-*/
