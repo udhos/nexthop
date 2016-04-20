@@ -32,12 +32,10 @@ func InstallCommonHelpers(root *CmdNode) {
 	CmdInstall(root, cmdHelp, "show configuration rollback", EXEC, cmdShowCommitList, nil, "Show list of saved configurations")
 	CmdInstall(root, cmdHelp, "show configuration rollback {COMMITID}", EXEC, cmdShowCommit, nil, "Show saved configuration")
 	CmdInstall(root, cmdHelp, "show configuration tree", EXEC, HelperShowConf, nil, "Show candidate configuration tree")
-	CmdInstall(root, cmdHelp, "show configuration info", EXEC, cmdShowConfInfo, nil, "Show candidate configuration info type")
 	CmdInstall(root, cmdHelp, "show history", EXEC, cmdShowHistory, nil, "Show command history")
 	CmdInstall(root, cmdHelp, "show running-configuration", EXEC, cmdShowRun, nil, "Show active configuration")
 	CmdInstall(root, cmdHelp, "show running-configuration tree", EXEC, cmdShowRun, nil, "Show active configuration tree")
-	CmdInstall(root, cmdHelp, "show running-configuration info", EXEC, cmdShowRunInfo, nil, "Show active configuration info type")
-	CmdInstall(root, cmdConf, "username {USERNAME} password {PASSWORD}", EXEC, cmdUsername, ApplyBogus, "User clear-text password")
+	CmdInstall(root, cmdConf, "username {USERNAME} password (PASSWORD)", EXEC, cmdUsername, ApplyBogus, "User clear-text password")
 
 	DescInstall(root, "no", "Remove a configuration item")
 	DescInstall(root, "show", "Show configuration item")
@@ -281,7 +279,7 @@ func showConfig(root *ConfNode, node *CmdNode, line string, c CmdClient, head st
 	fields := strings.Fields(line)
 	treeMode := len(fields) > 2 && strings.HasPrefix("tree", fields[2])
 	c.Sendln(head)
-	ShowConf(root, node, c, treeMode, false)
+	ShowConf(root, node, c, treeMode)
 }
 
 func cmdShowHistory(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -293,21 +291,11 @@ func cmdShowRun(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	showConfig(ctx.ConfRootActive(), node, line, c, "running configuration:")
 }
 
-func cmdShowRunInfo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	c.Sendln("running configuration:")
-	ShowConf(ctx.ConfRootActive(), node, c, false, true)
-}
-
-func cmdShowConfInfo(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	c.Sendln("candidate configuration:")
-	ShowConf(ctx.ConfRootCandidate(), node, c, false, true)
-}
-
 // Iface addr config should not be a helper function,
 // since it only applies to RIB daemon.
 // However it is currently being used for helping in tests.
 func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	MultiValueAdd(ctx, c, node.Path, line)
+	SetSimple(ctx, c, node.Path, line)
 }
 
 func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -343,7 +331,7 @@ func DescriptionDecode(desc string) string {
 }
 
 func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	SingleValueSetSimple(ctx, c, node.Path, line)
+	SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdList(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
@@ -483,7 +471,7 @@ func CmdNo(ctx ConfContext, noNode *CmdNode, line string, c CmdClient) error {
 
 			// {}-pattern and no children: try to remove value
 
-			if e2 := parentConf.ValueDelete(childLabel); e2 != nil {
+			if e2 := parentConf.deleteChildByLabel(childLabel); e2 != nil {
 				return fmt.Errorf("cmdNo: could not delete value: %v", e2)
 			}
 
@@ -522,5 +510,5 @@ func HelperShowVersion(daemonName string, c CmdClient) {
 }
 
 func cmdUsername(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
-	SingleValueSetSimple(ctx, c, node.Path, line)
+	SetSimple(ctx, c, node.Path, line)
 }

@@ -4,13 +4,6 @@ import (
 	"fmt"
 )
 
-func SingleValueSetSimple(ctx ConfContext, c LineSender, nodePath, fullLine string) {
-	line, value := StripLastToken(fullLine)
-	path, _ := StripLastToken(nodePath)
-
-	SingleValueSet(ctx, c, path, line, value)
-}
-
 // path: parent command node path
 // line: parent original user line
 // value: last label of original user line
@@ -22,7 +15,18 @@ func SingleValueSet(ctx ConfContext, c LineSender, path, line, value string) {
 		return
 	}
 
-	confNode.ValueSet(value)
+	confNode.Children = nil
+	newPath := fmt.Sprintf("%s %s", confNode.Path, value)
+	newNode := &ConfNode{Path: newPath}
+	pushConfChild(confNode, newNode)
+}
+
+/*
+func SingleValueSetSimple(ctx ConfContext, c LineSender, nodePath, fullLine string) {
+	line, value := StripLastToken(fullLine)
+	path, _ := StripLastToken(nodePath)
+
+	SingleValueSet(ctx, c, path, line, value)
 }
 
 func MultiValueAdd(ctx ConfContext, c LineSender, nodePath, fullLine string) {
@@ -38,6 +42,7 @@ func MultiValueAdd(ctx ConfContext, c LineSender, nodePath, fullLine string) {
 
 	confNode.ValueAdd(value)
 }
+*/
 
 func SetSimple(ctx ConfContext, c LineSender, nodePath, fullLine string) {
 	_, err, _ := ctx.ConfRootCandidate().Set(nodePath, fullLine)

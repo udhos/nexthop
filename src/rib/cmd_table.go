@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	//"log"
 	"strings"
 
 	//"cli"
@@ -24,7 +24,7 @@ func installRibCommands(root *command.CmdNode) {
 	command.CmdInstall(root, cmdConH, "interface {IFNAME} shutdown", command.CONF, cmdIfaceShutdown, command.ApplyBogus, "Disable interface")
 	command.CmdInstall(root, cmdConH, "interface {IFNAME} vrf {VRFNAME}", command.CONF, cmdIfaceVrf, applyIfaceVrf, "Interface VRF")
 	command.CmdInstall(root, cmdConH, "ip routing", command.CONF, cmdIPRouting, command.ApplyBogus, "Enable IP routing")
-	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
+	command.CmdInstall(root, cmdConH, "hostname (HOSTNAME)", command.CONF, cmdHostname, command.ApplyBogus, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "show interface", command.EXEC, cmdShowInt, nil, "Show interfaces")
 	command.CmdInstall(root, cmdNone, "show", command.EXEC, cmdShowInt, nil, "Ugh") // duplicated command
 	command.CmdInstall(root, cmdNone, "show ip address", command.EXEC, cmdShowIPAddr, nil, "Show addresses")
@@ -160,20 +160,15 @@ func applyIfaceVrf(ctx command.ConfContext, node *command.CmdNode, action comman
 }
 
 func cmdIfaceAddrIPv6(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.MultiValueAdd(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdIfaceShutdown(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	confCand := ctx.ConfRootCandidate()
-	_, err, _ := confCand.Set(node.Path, line)
-	if err != nil {
-		log.Printf("iface shutdown: error: %v", err)
-		return
-	}
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdIfaceVrf(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.SingleValueSetSimple(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdIPRouting(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
@@ -202,9 +197,9 @@ func cmdVersion(ctx command.ConfContext, node *command.CmdNode, line string, c c
 }
 
 func cmdVrfImportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.MultiValueAdd(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdVrfExportRT(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.MultiValueAdd(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }

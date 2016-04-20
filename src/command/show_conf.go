@@ -17,7 +17,7 @@ func (s *configSender) WriteLine(line string) (int, error) {
 	return s.sender.Sendln(line), nil
 }
 
-func ShowConf(root *ConfNode, node *CmdNode, c CmdClient, treeMode, infoType bool) {
+func ShowConf(root *ConfNode, node *CmdNode, c CmdClient, treeMode bool) {
 
 	sender := &configSender{c}
 
@@ -25,8 +25,7 @@ func ShowConf(root *ConfNode, node *CmdNode, c CmdClient, treeMode, infoType boo
 		if treeMode {
 			showConfTree(n, 0, c)
 		} else {
-			//showConfLine(n, c)
-			WriteConfig(n, sender, infoType)
+			WriteConfig(n, sender)
 		}
 	}
 }

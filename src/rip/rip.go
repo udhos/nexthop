@@ -156,19 +156,19 @@ func installCommands(root *command.CmdNode) {
 	//cmdConH := command.CMD_CONF | command.CMD_HELP
 	cmdConH := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConH, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdNone, "show rip routes", command.EXEC, cmdShowRipRoutes, nil, "Show RIP routes")
 	command.CmdInstall(root, cmdConH, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
-	command.CmdInstall(root, cmdConH, "router rip interface {IFNAME} cost {RIPMETRIC}", command.CONF, cmdRipIfaceCost, applyRipIfaceCost, "RIP interface cost")
+	command.CmdInstall(root, cmdConH, "router rip interface {IFNAME} cost (RIPMETRIC)", command.CONF, cmdRipIfaceCost, applyRipIfaceCost, "RIP interface cost")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
-	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} cost (RIPMETRIC)", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
 	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} nexthop {IPADDR}", command.CONF, cmdRipNetNexthop, applyRipNetNexthop, "RIP network nexthop")
-	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} nexthop {IPADDR} cost {RIPMETRIC}", command.CONF, cmdRipNetNexthopCost, applyRipNetNexthopCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip network {NETWORK} nexthop {IPADDR} cost (RIPMETRIC)", command.CONF, cmdRipNetNexthopCost, applyRipNetNexthopCost, "RIP network metric")
 	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipVrfNet, "Insert network into RIP protocol")
-	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipVrfNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} cost (RIPMETRIC)", command.CONF, cmdRipNetCost, applyRipVrfNetCost, "RIP network metric")
 	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} nexthop {IPADDR}", command.CONF, cmdRipNetNexthop, applyRipVrfNetNexthop, "RIP network nexthop")
-	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} nexthop {IPADDR} cost {RIPMETRIC}", command.CONF, cmdRipNetNexthopCost, applyRipVrfNetNexthopCost, "RIP network metric")
+	command.CmdInstall(root, cmdConH, "router rip vrf {VRFNAME} network {NETWORK} nexthop {IPADDR} cost (RIPMETRIC)", command.CONF, cmdRipNetNexthopCost, applyRipVrfNetNexthopCost, "RIP network metric")
 
 	// Node description is used for pretty display in command help.
 	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
@@ -203,23 +203,23 @@ func cmdRip(ctx command.ConfContext, node *command.CmdNode, line string, c comma
 }
 
 func cmdRipIfaceCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.SingleValueSetSimple(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdRipNetwork(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.MultiValueAdd(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdRipNetCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.SingleValueSetSimple(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdRipNetNexthop(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.MultiValueAdd(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func cmdRipNetNexthopCost(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.SingleValueSetSimple(ctx, c, node.Path, line)
+	command.SetSimple(ctx, c, node.Path, line)
 }
 
 func ripCtx(ctx command.ConfContext, c command.CmdClient) *Rip {

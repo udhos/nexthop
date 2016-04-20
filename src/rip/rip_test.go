@@ -198,7 +198,7 @@ func TestConf(t *testing.T) {
 
 func dumpConf(root *command.ConfNode, label string) {
 	fmt.Println(label)
-	command.WriteConfig(root, &outputWriter{}, false)
+	command.WriteConfig(root, &outputWriter{})
 }
 
 type outputWriter struct {
@@ -219,7 +219,8 @@ func Example_diff1() {
 		}
 	}
 
-	f("hostname rip")
+	f("hostname rip1")
+	f("hostname rip2")
 	f("router rip network 1.1.1.0/24")
 	f("router rip network 1.1.2.0/24")
 	f("router rip network 1.1.3.0/24 cost 2")
@@ -227,19 +228,25 @@ func Example_diff1() {
 	f("router rip vrf X network 1.1.1.0/24")
 	f("router rip vrf X network 1.1.2.0/24")
 	f("router rip vrf X network 1.1.3.0/24 cost 3")
+	f("router rip vrf X network 1.1.3.0/24 cost 4")
 	f("router rip vrf x network 1.1.1.1/32")
+	f("username guest1 password secret1")
+	f("username guest1 password secret2")
+	f("username guest2 password secret3")
 
-	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
+	command.WriteConfig(app.confRootCandidate, &outputWriter{})
 	// Output:
-	// hostname rip
+	// hostname rip2
 	// router rip network 1.1.1.0/24
 	// router rip network 1.1.2.0/24
 	// router rip network 1.1.3.0/24 cost 2
 	// router rip network 1.1.4.0/24 cost 15
 	// router rip vrf X network 1.1.1.0/24
 	// router rip vrf X network 1.1.2.0/24
-	// router rip vrf X network 1.1.3.0/24 cost 3
+	// router rip vrf X network 1.1.3.0/24 cost 4
 	// router rip vrf x network 1.1.1.1/32
+	// username guest1 password secret2
+	// username guest2 password secret3
 }
 
 func Example_diff2() {
@@ -252,7 +259,8 @@ func Example_diff2() {
 		}
 	}
 
-	f("hostname rip")
+	f("hostname rip1")
+	f("hostname rip2")
 	f("router rip network 1.1.1.0/24")
 	f("router rip network 1.1.2.0/24")
 	f("router rip network 1.1.3.0/24 cost 2")
@@ -260,7 +268,11 @@ func Example_diff2() {
 	f("router rip vrf X network 1.1.1.0/24")
 	f("router rip vrf X network 1.1.2.0/24")
 	f("router rip vrf X network 1.1.3.0/24 cost 3")
+	f("router rip vrf X network 1.1.3.0/24 cost 4")
 	f("router rip vrf x network 1.1.1.1/32")
+	f("username guest1 password secret1")
+	f("username guest1 password secret2")
+	f("username guest2 password secret3")
 
 	if err := command.Dispatch(app, "commit", c, command.CONF, false); err != nil {
 		log.Printf("dispatch: [commit]: %v", err)
@@ -280,13 +292,15 @@ func Example_diff2() {
 		return
 	}
 
-	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
+	command.WriteConfig(app.confRootCandidate, &outputWriter{})
 	// Output:
-	// hostname rip
+	// hostname rip2
 	// router rip vrf X network 1.1.1.0/24
 	// router rip vrf X network 1.1.2.0/24
-	// router rip vrf X network 1.1.3.0/24 cost 3
+	// router rip vrf X network 1.1.3.0/24 cost 4
 	// router rip vrf x network 1.1.1.1/32
+	// username guest1 password secret2
+	// username guest2 password secret3
 }
 
 func setup_diff() (*ripTestApp, *ripTestClient) {
@@ -319,17 +333,22 @@ func setup_diff() (*ripTestApp, *ripTestClient) {
 	command.CmdInstall(root, cmdNone, "show configuration compare", command.EXEC, command.HelperShowCompare, nil, "Show differences between active and candidate configurations")
 	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConf, "username {USERNAME} password (PASSWORD)", command.EXEC, cmdUsername, command.ApplyBogus, "User clear-text password")
+	command.CmdInstall(root, cmdConf, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdConf, "router rip", command.CONF, cmdRip, applyRip, "Enable RIP protocol")
 	command.CmdInstall(root, cmdConf, "router rip network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
-	command.CmdInstall(root, cmdConf, "router rip network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConf, "router rip network {NETWORK} cost (RIPMETRIC)", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
 	command.CmdInstall(root, cmdConf, "router rip vrf {VRFNAME} network {NETWORK}", command.CONF, cmdRipNetwork, applyRipNet, "Insert network into RIP protocol")
-	command.CmdInstall(root, cmdConf, "router rip vrf {VRFNAME} network {NETWORK} cost {RIPMETRIC}", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
+	command.CmdInstall(root, cmdConf, "router rip vrf {VRFNAME} network {NETWORK} cost (RIPMETRIC)", command.CONF, cmdRipNetCost, applyRipNetCost, "RIP network metric")
 
 	outputSinkFunc := func(m string) {
 	}
 	c := NewRipTestClient(outputSinkFunc)
 
 	return app, c
+}
+
+func cmdUsername(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	command.SetSimple(ctx, c, node.Path, line)
 }

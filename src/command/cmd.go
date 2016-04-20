@@ -125,14 +125,12 @@ func (n *ConfNode) Clone() *ConfNode {
 	return newNode
 }
 
-func (n *ConfNode) ValueIndex(value string) int {
-	return n.FindChild(value)
-}
-
+/*
 func (n *ConfNode) ValueSet(value string) {
 	n.Children = nil
 	n.ValueAdd(value)
 }
+*/
 
 // remove node from tree.
 // any node which loses all children is purged as well.

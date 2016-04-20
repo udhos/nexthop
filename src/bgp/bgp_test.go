@@ -118,7 +118,7 @@ func Example_diff1() {
 	f("router bgp 2 neighbor 4.4.4.4 remote-as 2")
 	f("router bgp 2 neighbor 4.4.4.4 remote-as 3")
 
-	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
+	command.WriteConfig(app.confRootCandidate, &outputWriter{})
 	// Output:
 	// hostname bgp2
 	// router bgp 1 neighbor 1.1.1.1 remote-as 1
@@ -157,7 +157,7 @@ func Example_diff2() {
 		return
 	}
 
-	command.WriteConfig(app.confRootCandidate, &outputWriter{}, false)
+	command.WriteConfig(app.confRootCandidate, &outputWriter{})
 	// Output:
 	// hostname bgp2
 	// router bgp 2 neighbor 3.3.3.3 remote-as 2
@@ -194,7 +194,7 @@ func setup_diff() (*bgpTestApp, *bgpTestClient) {
 	command.CmdInstall(root, cmdNone, "show configuration compare", command.EXEC, command.HelperShowCompare, nil, "Show differences between active and candidate configurations")
 	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConf, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} remote-as (ASN)", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
 
