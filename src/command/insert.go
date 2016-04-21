@@ -86,23 +86,3 @@ func (n *ConfNode) deleteChildByLabel(label string) error {
 
 	return nil
 }
-
-/*
-func (n *ConfNode) ValueAdd(value string) error {
-	newPath := fmt.Sprintf("%s %s", n.Path, value)
-	newNode := &ConfNode{Path: newPath}
-	pushConfChild(n, newNode)
-	return nil
-}
-
-func (n *ConfNode) ValueDelete(value string) error {
-	i := n.FindChild(value)
-	if i < 0 {
-		return fmt.Errorf("ConfNode.ValueDelete: value not found: path=[%s] value=[%s]", n.Path, value)
-	}
-
-	n.deleteChildByIndex(i)
-
-	return nil
-}
-*/

@@ -21,29 +21,6 @@ func SingleValueSet(ctx ConfContext, c LineSender, path, line, value string) {
 	pushConfChild(confNode, newNode)
 }
 
-/*
-func SingleValueSetSimple(ctx ConfContext, c LineSender, nodePath, fullLine string) {
-	line, value := StripLastToken(fullLine)
-	path, _ := StripLastToken(nodePath)
-
-	SingleValueSet(ctx, c, path, line, value)
-}
-
-func MultiValueAdd(ctx ConfContext, c LineSender, nodePath, fullLine string) {
-	line, value := StripLastToken(fullLine)
-	path, _ := StripLastToken(nodePath)
-
-	confCand := ctx.ConfRootCandidate()
-	confNode, err, _ := confCand.Set(path, line)
-	if err != nil {
-		c.Sendln(fmt.Sprintf("MultiValueAdd: error: %v", err))
-		return
-	}
-
-	confNode.ValueAdd(value)
-}
-*/
-
 func SetSimple(ctx ConfContext, c LineSender, nodePath, fullLine string) {
 	_, err, _ := ctx.ConfRootCandidate().Set(nodePath, fullLine)
 	if err != nil {

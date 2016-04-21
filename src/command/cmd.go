@@ -125,13 +125,6 @@ func (n *ConfNode) Clone() *ConfNode {
 	return newNode
 }
 
-/*
-func (n *ConfNode) ValueSet(value string) {
-	n.Children = nil
-	n.ValueAdd(value)
-}
-*/
-
 // remove node from tree.
 // any node which loses all children is purged as well.
 func (n *ConfNode) Prune(root *CmdNode, parent, child *ConfNode, out CmdClient) bool {
