@@ -155,7 +155,7 @@ func installCommands(root *command.CmdNode) {
 	cmdNone := command.CMD_NONE
 	cmdConH := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConH, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConH, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
 	//command.CmdInstall(root, cmdConH, "router bgp {ASN}", command.CONF, cmdBgp, applyBgp, "Enable BGP protocol")
 	command.CmdInstall(root, cmdConH, "router bgp {ASN} neighbor {IPADDR} remote-as (ASN)", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")

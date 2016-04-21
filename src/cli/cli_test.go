@@ -97,7 +97,7 @@ func TestConf(t *testing.T) {
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} ipv6 address {IFADDR6}", command.CONF, cmdBogus, command.ApplyBogus, "Assign IPv6 address to interface")
 	command.CmdInstall(root, cmdConf, "interface {IFNAME} shutdown", command.CONF, cmdBogus, command.ApplyBogus, "Disable interface")
 	command.CmdInstall(root, cmdConf, "ip routing", command.CONF, cmdBogus, command.ApplyBogus, "Enable IP routing")
-	command.CmdInstall(root, cmdConf, "hostname {HOSTNAME}", command.CONF, command.HelperHostname, command.ApplyBogus, "Assign hostname")
+	command.CmdInstall(root, cmdConf, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Assign hostname")
 	command.CmdInstall(root, cmdNone, "no {ANY}", command.CONF, command.HelperNo, nil, "Remove a configuration item")
 
 	c := &testClient{outputChannel: make(chan string)}
