@@ -111,6 +111,8 @@ func Example_diff1() {
 
 	f("hostname bgp1")
 	f("hostname bgp2")
+	f("router bgp 1 neighbor 1.1.1.1 description  A  BB   C")
+	f("router bgp 1 neighbor 1.1.1.1 description  AA  BB   C")
 	f("router bgp 1 neighbor 1.1.1.1 remote-as 1")
 	f("router bgp 1 neighbor 2.2.2.2 remote-as 1")
 	f("router bgp 1 neighbor 3.3.3.3 remote-as 2")
@@ -121,6 +123,7 @@ func Example_diff1() {
 	command.WriteConfig(app.confRootCandidate, &outputWriter{})
 	// Output:
 	// hostname bgp2
+	// router bgp 1 neighbor 1.1.1.1 description  AA  BB   C
 	// router bgp 1 neighbor 1.1.1.1 remote-as 1
 	// router bgp 1 neighbor 2.2.2.2 remote-as 1
 	// router bgp 1 neighbor 3.3.3.3 remote-as 2
@@ -196,6 +199,7 @@ func setup_diff() (*bgpTestApp, *bgpTestClient) {
 
 	command.CmdInstall(root, cmdConf, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
+	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} description {ANY}", command.CONF, cmdNeighDesc, command.ApplyBogus, "BGP neighbor description")
 	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} remote-as (ASN)", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
 
 	outputSinkFunc := func(m string) {

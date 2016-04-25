@@ -208,8 +208,9 @@ func WriteConfig(node *ConfNode, w LineWriter) error {
 
 	// show node children
 	if len(node.Children) == 0 {
-		size := len(node.Path)
-		count, err := w.WriteLine(node.Path)
+		decoded := decodeLine(node.Path)
+		size := len(decoded)
+		count, err := w.WriteLine(decoded)
 		if count < size || err != nil {
 			return fmt.Errorf("writeConfig: error: write=%d < size=%d: %v", count, size, err)
 		}
@@ -224,6 +225,14 @@ func WriteConfig(node *ConfNode, w LineWriter) error {
 	}
 
 	return nil
+}
+
+func decodeLine(line string) string {
+	fields := strings.Fields(line)
+	for i, f := range fields {
+		fields[i] = DescriptionDecode(f)
+	}
+	return strings.Join(fields, " ")
 }
 
 func LoadConfig(ctx ConfContext, path string, c CmdClient, abortOnError bool) (int, error) {

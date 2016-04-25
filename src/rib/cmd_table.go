@@ -60,7 +60,7 @@ func installRibCommands(root *command.CmdNode) {
 }
 
 func cmdDescr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
-	command.HelperDescription(ctx, node, line, c)
+	command.HelperIfaceDescr(ctx, node, line, c)
 }
 
 func cmdIfaceAddr(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {

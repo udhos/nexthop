@@ -153,12 +153,13 @@ func installCommands(root *command.CmdNode) {
 	command.InstallCommonHelpers(root)
 
 	cmdNone := command.CMD_NONE
-	cmdConH := command.CMD_CONF
+	cmdConf := command.CMD_CONF
 
-	command.CmdInstall(root, cmdConH, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
+	command.CmdInstall(root, cmdConf, "hostname (HOSTNAME)", command.CONF, command.HelperHostname, command.ApplyBogus, "Hostname")
 	command.CmdInstall(root, cmdNone, "show version", command.EXEC, cmdVersion, nil, "Show version")
-	//command.CmdInstall(root, cmdConH, "router bgp {ASN}", command.CONF, cmdBgp, applyBgp, "Enable BGP protocol")
-	command.CmdInstall(root, cmdConH, "router bgp {ASN} neighbor {IPADDR} remote-as (ASN)", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
+	//command.CmdInstall(root, cmdConf, "router bgp {ASN}", command.CONF, cmdBgp, applyBgp, "Enable BGP protocol")
+	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} description {ANY}", command.CONF, cmdNeighDesc, command.ApplyBogus, "BGP neighbor description")
+	command.CmdInstall(root, cmdConf, "router bgp {ASN} neighbor {IPADDR} remote-as (ASN)", command.CONF, cmdNeighAsn, applyNeighAsn, "BGP neighbor ASN")
 
 	// Node description is used for pretty display in command help.
 	// It is not strictly required, but its lack is reported by the command command.MissingDescription().
@@ -213,4 +214,11 @@ func applyNeighAsn(ctx command.ConfContext, node *command.CmdNode, action comman
 	}
 
 	return nil
+}
+
+func cmdNeighDesc(ctx command.ConfContext, node *command.CmdNode, line string, c command.CmdClient) {
+	// line: "router    bgp XXX  neighbor YYY    descr   AAA   BBB  CCC "
+	//                                                   ^^^^^^^^^^^
+	// seq=6 (6th space sequence)
+	command.HelperDescription(ctx, node, line, c, 6)
 }

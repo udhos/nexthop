@@ -298,36 +298,55 @@ func HelperIfaceAddr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	SetSimple(ctx, c, node.Path, line)
 }
 
-func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
+func HelperIfaceDescr(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
 	// line: "interf  XXXX   descrip   YYY ZZZ WWW"
 	//                                 ^^^^^^^^^^^
+	// seq=3 (3rd space sequence)
+	HelperDescription(ctx, node, line, c, 3)
+}
+
+func HelperDescription(ctx ConfContext, node *CmdNode, line string, c CmdClient, seq int) {
+	// line: "interf  XXXX   descrip   YYY ZZZ WWW"
+	//                                 ^^^^^^^^^^^
+	// seq=3 (3rd space sequence)
 
 	ln := strings.TrimLeft(line, " ") // drop leading spaces
 
-	// find 3rd space
-	i := IndexByte(ln, ' ', 3)
+	// find space sequence
+	i := IndexByte(ln, ' ', seq)
 	if i < 0 {
-		c.Sendln(fmt.Sprintf("cmdDescr: could not find description argument: [%s]", line))
+		c.Sendln(fmt.Sprintf("HelperDescription: could not find description argument seq=%d: [%s]", seq, line))
 		return
 	}
 
 	desc := ln[i+1:]
 
 	lineFields := strings.Fields(line)
-	linePath := strings.Join(lineFields[:3], " ")
+	linePath := strings.Join(lineFields[:seq], " ")
 
 	fields := strings.Fields(node.Path)
-	path := strings.Join(fields[:3], " ") // interface XXX description
+	path := strings.Join(fields[:seq], " ")
 
 	SingleValueSet(ctx, c, path, linePath, DescriptionEncode(desc))
 }
 
+const ENCODED_PREFIX = "<ENCODED>"
+
 func DescriptionEncode(desc string) string {
-	return strings.Replace(desc, " ", "(_)", -1)
+	if strings.IndexByte(desc, ' ') < 0 {
+		return desc // nothing to encode
+	}
+
+	return ENCODED_PREFIX + strings.Replace(desc, " ", "(_)", -1)
 }
 
 func DescriptionDecode(desc string) string {
-	return strings.Replace(desc, "(_)", " ", -1)
+	if !strings.HasPrefix(desc, ENCODED_PREFIX) {
+		return desc // nothing to decode
+	}
+
+	suffix := desc[len(ENCODED_PREFIX):] // remove prefix
+	return strings.Replace(suffix, "(_)", " ", -1)
 }
 
 func HelperHostname(ctx ConfContext, node *CmdNode, line string, c CmdClient) {
