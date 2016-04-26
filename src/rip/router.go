@@ -721,7 +721,8 @@ func ripSendTable(r *RipRouter, vrfname string, p *port, dst *net.UDPAddr, ifnam
 		if bufEntries > RIP_PKT_MAX_ENTRIES {
 			bufEntries = RIP_PKT_MAX_ENTRIES
 		}
-		b := buf[:RIP_HEADER_SIZE+RIP_ENTRY_SIZE*bufEntries]
+		batchSize := ripEntryOffset(bufEntries)
+		b := buf[:batchSize]
 
 		for i := 0; i < bufEntries; i++ {
 			route := validRoutes[entry]
