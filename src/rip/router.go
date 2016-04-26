@@ -56,11 +56,11 @@ func (route *ripRoute) Family() int {
 	return RIP_FAMILY_UNSPEC
 }
 
-func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time) *ripRoute {
-	r := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: now, routeChanged: true}
-	r.resetTimer(now)
-	log.Printf("newRipRoute: routeChanged=true start triggered update FIXME WRITEME")
-	return r
+func newRipRoute(addr net.IPNet, nexthop net.IP, metric int, now time.Time, r *RipRouter) *ripRoute {
+	newRoute := &ripRoute{addr: addr, nexthop: nexthop, metric: metric, creation: now, routeChanged: true}
+	newRoute.resetTimer(now)
+	r.trigUpdate(now) // since routeChanged=true, schedule triggered update
+	return newRoute
 }
 
 func (r *ripRoute) resetTimer(now time.Time) {
@@ -134,7 +134,7 @@ func (v *ripVrf) Empty() bool {
 	return len(v.nets) < 1
 }
 
-func (v *ripVrf) localRouteAdd(n *ripNet) {
+func (v *ripVrf) localRouteAdd(n *ripNet, r *RipRouter) {
 	//log.Printf("ripVrf.localRouteAdd: vrf[%s]: %v", v.name, n)
 
 	deleteList := []*ripRoute{}
@@ -171,7 +171,7 @@ func (v *ripVrf) localRouteAdd(n *ripNet) {
 	}
 
 	// add route
-	newRoute := newRipRoute(n.addr, n.nexthop, n.metric, now)
+	newRoute := newRipRoute(n.addr, n.nexthop, n.metric, now, r)
 	v.routeAdd(newRoute)
 }
 
@@ -274,7 +274,7 @@ func (v *ripVrf) netDel(index int) {
 	v.nets = v.nets[:last]       // shrink
 }
 
-func (v *ripVrf) NetAdd(prefix string) error {
+func (v *ripVrf) NetAdd(prefix string, r *RipRouter) error {
 	_, ipnet, err := net.ParseCIDR(prefix)
 	if err != nil {
 		return fmt.Errorf("ripVrf.NetAdd: parse error: addr=[%s]: %v", prefix, err)
@@ -287,7 +287,7 @@ func (v *ripVrf) NetAdd(prefix string) error {
 		return fmt.Errorf("ripVrf.NetAdd: net exists: '%s'", prefix)
 	}
 	n = v.netAdd(ipnet)
-	v.localRouteAdd(n)
+	v.localRouteAdd(n, r)
 	return nil
 }
 
@@ -308,7 +308,7 @@ func (v *ripVrf) NetDel(prefix string) error {
 	return nil
 }
 
-func (v *ripVrf) NetNexthopAdd(prefix string, nexthop net.IP) error {
+func (v *ripVrf) NetNexthopAdd(prefix string, nexthop net.IP, r *RipRouter) error {
 	_, ipnet, err := net.ParseCIDR(prefix)
 	if err != nil {
 		return fmt.Errorf("ripVrf.NetNexthopAdd: parse error: addr=[%s]: %v", prefix, err)
@@ -318,7 +318,7 @@ func (v *ripVrf) NetNexthopAdd(prefix string, nexthop net.IP) error {
 	}
 	n := v.netSet(ipnet)
 	n.nexthop = nexthop
-	v.localRouteAdd(n)
+	v.localRouteAdd(n, r)
 	return nil
 }
 
@@ -339,7 +339,7 @@ func (v *ripVrf) NetNexthopDel(prefix string, nexthop net.IP) error {
 	return nil
 }
 
-func (v *ripVrf) NetMetricAdd(prefix string, nexthop net.IP, metric int) error {
+func (v *ripVrf) NetMetricAdd(prefix string, nexthop net.IP, metric int, r *RipRouter) error {
 	_, ipnet, err := net.ParseCIDR(prefix)
 	if err != nil {
 		return fmt.Errorf("ripVrf.NetMetricAdd: parse error: addr=[%s]: %v", prefix, err)
@@ -349,7 +349,7 @@ func (v *ripVrf) NetMetricAdd(prefix string, nexthop net.IP, metric int) error {
 	}
 	n := v.nexthopSet(ipnet, nexthop)
 	n.metric = metric
-	v.localRouteAdd(n)
+	v.localRouteAdd(n, r)
 	return nil
 }
 
@@ -566,6 +566,7 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 	return r
 }
 
+// trigUpdate: schedule triggered update
 func (r *RipRouter) trigUpdate(now time.Time) {
 	log.Printf("RipRouter.trigUpdate: FIXME WRITEME")
 }
@@ -935,8 +936,8 @@ func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, n
 		if sameNexthop && metric != route.metric {
 			route.metric = metric
 			route.routeChanged = true
-			r.trigUpdate(now)
-			return // do not add route below
+			r.trigUpdate(now) // schedule triggered update
+			return            // do not add route below
 		}
 
 		if !sameNexthop && metric == route.metric {
@@ -954,7 +955,7 @@ func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, n
 	// from which the datagram came
 	newNexthop := router
 
-	newRoute := newRipRoute(netaddr, newNexthop, metric, now)
+	newRoute := newRipRoute(netaddr, newNexthop, metric, now, r)
 	newRoute.srcExternal = true
 	newRoute.srcIfIndex = ifindex
 	newRoute.srcIfName = ifname
@@ -1030,7 +1031,7 @@ func (r *RipRouter) NetAdd(vrf, netAddr string) error {
 	r.vrfMutex.Lock()
 
 	v := r.vrfSet(vrf)
-	err := v.NetAdd(netAddr)
+	err := v.NetAdd(netAddr, r)
 
 	//log.Printf("RipRouter.NetAdd(%s,%s) after:", vrf, netAddr)
 	//r.dump(&ripDumper{})
@@ -1058,7 +1059,7 @@ func (r *RipRouter) NetNexthopAdd(vrf, netAddr string, nexthop net.IP) error {
 	r.vrfMutex.Lock()
 
 	v := r.vrfSet(vrf)
-	return v.NetNexthopAdd(netAddr, nexthop)
+	return v.NetNexthopAdd(netAddr, nexthop, r)
 }
 
 func (r *RipRouter) NetNexthopDel(vrf, netAddr string, nexthop net.IP) error {
@@ -1081,7 +1082,7 @@ func (r *RipRouter) NetMetricAdd(vrf, netAddr string, nexthop net.IP, metric int
 	r.vrfMutex.Lock()
 
 	v := r.vrfSet(vrf)
-	err := v.NetMetricAdd(netAddr, nexthop, metric)
+	err := v.NetMetricAdd(netAddr, nexthop, metric, r)
 
 	//log.Printf("RipRouter.NetMetricAdd(%s,%s,%v,%d) after:", vrf, netAddr, nexthop, metric)
 	//r.dump(&ripDumper{})
