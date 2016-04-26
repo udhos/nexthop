@@ -459,8 +459,8 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 	defer r.vrfMutex.RUnlock()
 	r.vrfMutex.RLock()
 
-	header := fmt.Sprintf("%-13s %-18s %-15s %-3s", "VRF", "NETWORK", "NEXTHOP", "MET")
-	format := "%-13s %-18v %-15s %3d"
+	header := fmt.Sprintf("%-8s %-18s %-15s %-3s", "VRF", "NETWORK", "NEXTHOP", "MET")
+	format := "%-8s %-18v %-15s %3d"
 
 	c.Sendln("RIP local networks:")
 	c.Sendln(header)
@@ -471,8 +471,8 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 		}
 	}
 
-	h := fmt.Sprintf("%s %-5s %-6s %-8s %4s %3s %-8s", header, "FLAGS", "INTERF", "NEIGHBOR", "TOUT", "GC", "UPTIME")
-	f := fmt.Sprintf("%s %%-5s %%-6s %%-8s %%4d %%3d %%8s", format)
+	h := fmt.Sprintf("%s %-5s %-6s %-15s %4s %3s %-8s", header, "FLAGS", "INTERF", "NEIGHBOR", "TOUT", "GC", "UPTIME")
+	f := fmt.Sprintf("%s %%-5s %%-6s %%-15s %%4d %%3d %%8s", format)
 
 	c.Sendln("RIP routes:")
 	c.Sendln("Flags: G=Garbage I=Invalid E=External F=FIB")
@@ -496,9 +496,9 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 				flags += "F"
 			}
 
-			srcRouter := ""
+			var srcRouter string
 			if r.srcRouter != nil {
-				srcRouter = string(r.srcRouter)
+				srcRouter = r.srcRouter.String()
 			}
 
 			timeout := int(r.timeout.Sub(now).Seconds())
