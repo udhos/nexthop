@@ -89,7 +89,7 @@ func (d *linuxDataplane) InterfaceAddressDel(ifname, addr string) error {
 }
 
 func (d *linuxDataplane) VrfAddresses(vrfname string) ([]net.IPNet, error) {
-	log.Printf("linuxDataplane.VrfAddresses(%s): FIXME WRITEME", vrfname)
+	log.Printf("linuxDataplane.VrfAddresses(vrfname=[%s]): FIXME WRITEME", vrfname)
 	return nil, nil
 }
 

@@ -135,7 +135,7 @@ func (v *ripVrf) Empty() bool {
 }
 
 func (v *ripVrf) localRouteAdd(n *ripNet) {
-	log.Printf("ripVrf.localRouteAdd: vrf[%s]: %v", v.name, n)
+	//log.Printf("ripVrf.localRouteAdd: vrf[%s]: %v", v.name, n)
 
 	deleteList := []*ripRoute{}
 
@@ -623,8 +623,10 @@ func parseRipPacket(r *RipRouter, u *udpInfo) {
 }
 
 func ripParseRequest(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
-	log.Printf("ripParseRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
-		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+	/*
+		log.Printf("ripParseRequest: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+			entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+	*/
 
 	if entries == 1 {
 		/*
@@ -803,8 +805,10 @@ func parseEntry(buf []byte, entry int) (family int, tag uint16, netaddr net.IPNe
 }
 
 func ripParseResponse(r *RipRouter, u *udpInfo, p *port, size, version, entries int, vrf string) {
-	log.Printf("ripParseResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
-		entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+	/*
+		log.Printf("ripParseResponse: entries=%d version=%d size=%d from %v to %v on %s ifIndex=%d",
+			entries, version, size, &u.src, &u.dst, u.ifName, u.ifIndex)
+	*/
 
 	/*
 		RFC2453 3.9.2 Response Messages
