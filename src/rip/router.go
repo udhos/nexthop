@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
@@ -454,6 +455,18 @@ type udpInfo struct {
 	ifName  string
 }
 
+type sortByAddr []*ripRoute
+
+func (s sortByAddr) Len() int {
+	return len(s)
+}
+func (s sortByAddr) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s sortByAddr) Less(i, j int) bool {
+	return s[i].addr.IP.String() < s[j].addr.IP.String()
+}
+
 func (r *RipRouter) ShowRoutes(c command.LineSender) {
 
 	defer r.vrfMutex.RUnlock()
@@ -478,41 +491,51 @@ func (r *RipRouter) ShowRoutes(c command.LineSender) {
 	c.Sendln("Flags: G=Garbage I=Invalid E=External F=FIB")
 	c.Sendln(h)
 
-	now := time.Now()
+	var routeList []*ripRoute
+	var routeVrf []string
 
 	for _, v := range r.vrfs {
-		for _, r := range v.routes {
-			flags := ""
-			if r.isGarbage(now) {
-				flags += "G"
-			}
-			if !r.isValid(now) {
-				flags += "I"
-			}
-			if r.srcExternal {
-				flags += "E"
-			}
-			if r.installed {
-				flags += "F"
-			}
-
-			var srcRouter string
-			if r.srcRouter != nil {
-				srcRouter = r.srcRouter.String()
-			}
-
-			timeout := int(r.timeout.Sub(now).Seconds())
-			if timeout < 0 {
-				timeout = 0
-			}
-			gc := int(r.garbageCollection.Sub(now).Seconds())
-			if gc < 0 {
-				gc = 0
-			}
-			uptime := now.Sub(r.creation)
-
-			c.Sendln(fmt.Sprintf(f, v.name, &r.addr, r.nexthop, r.metric, flags, r.srcIfName, srcRouter, timeout, gc, uptime))
+		routeList = append(routeList, v.routes...)
+		for range v.routes {
+			routeVrf = append(routeVrf, v.name)
 		}
+	}
+
+	sort.Sort(sortByAddr(routeList))
+
+	now := time.Now()
+
+	for i, r := range routeList {
+		flags := ""
+		if r.isGarbage(now) {
+			flags += "G"
+		}
+		if !r.isValid(now) {
+			flags += "I"
+		}
+		if r.srcExternal {
+			flags += "E"
+		}
+		if r.installed {
+			flags += "F"
+		}
+
+		var srcRouter string
+		if r.srcRouter != nil {
+			srcRouter = r.srcRouter.String()
+		}
+
+		timeout := int(r.timeout.Sub(now).Seconds())
+		if timeout < 0 {
+			timeout = 0
+		}
+		gc := int(r.garbageCollection.Sub(now).Seconds())
+		if gc < 0 {
+			gc = 0
+		}
+		uptime := now.Sub(r.creation)
+
+		c.Sendln(fmt.Sprintf(f, routeVrf[i], &r.addr, r.nexthop, r.metric, flags, r.srcIfName, srcRouter, timeout, gc, uptime))
 	}
 }
 
