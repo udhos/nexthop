@@ -951,21 +951,32 @@ func (r *RipRouter) extRouteAdd(vrfname string, tag uint16, netaddr net.IPNet, n
 		}
 
 		if metric < route.metric {
-			// new route is better, remove the old one
+			// new route will be better, remove the old (current) one
 			route.disable(now)
 			continue
 		}
 
-		if sameNexthop && metric != route.metric {
-			route.metric = metric
-			route.routeChanged = true
-			r.trigUpdate(now) // schedule triggered update
-			return            // do not add route below
+		if sameNexthop {
+
+			// same prefix/nexthop
+
+			if metric != route.metric {
+				// only update metric
+				route.metric = metric
+				route.routeChanged = true
+				r.trigUpdate(now) // schedule triggered update
+			} // else: exact same prefix/nexthop/metric: do nothing (timer was reset above)
+
+			return // do not add route below
 		}
 
-		if !sameNexthop && metric == route.metric {
-			continue // add route below as ECMP
+		// distinct nexthop
+
+		if metric > route.metric {
+			return // new nexthop with worse metric: do not add route below
 		}
+
+		// distinc nexthop with same metric: could add route below as ECMP
 	}
 
 	// add new external route
