@@ -392,8 +392,8 @@ type RipRouter struct {
 }
 
 func (r *RipRouter) clearInterfaceRipCost(ifname string) {
-	defer r.configMutex.RUnlock()
-	r.configMutex.RLock()
+	defer r.configMutex.Unlock()
+	r.configMutex.Lock()
 
 	delete(r.config, ifname)
 }
@@ -404,7 +404,7 @@ func (r *RipRouter) getInterfaceRipCost(ifname string) int {
 
 	i := r.config[ifname]
 	if i == nil {
-		return RIP_DEFAULT_IFACE_COST // not found -- default RIP interface cost
+		return RIP_DEFAULT_IFACE_COST // not found
 	}
 	return i.cost
 }
