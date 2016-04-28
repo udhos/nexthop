@@ -604,11 +604,11 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 func (r *RipRouter) trigUpdate(now time.Time) {
 
 	if r.updateTicker == nil || r.triggeredTimer == nil {
-		log.Printf("RipRouter.trigUpdate: timers not ready")
+		log.Printf("RipRouter.trigUpdate: timers uninitialized")
 		return
 	}
 
-	if r.triggeredNext.After(now) {
+	if r.triggeredNext.Sub(now) >= 0 {
 		log.Printf("RipRouter.trigUpdate: timer already running: next=%v", r.triggeredNext)
 		return
 	}
