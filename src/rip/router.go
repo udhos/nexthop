@@ -376,19 +376,22 @@ type ripInterfaceConfig struct {
 }
 
 type RipRouter struct {
-	done         chan int // write into this channel (do not close) to request end of rip router
-	input        chan *udpInfo
-	vrfMutex     sync.RWMutex // both main and RipRouter goroutines access the routing table (under member vrfs)
-	vrfs         []*ripVrf
-	ports        []*port // rip interfaces
-	group        net.IP  // 224.0.0.9
-	readerDone   chan int
-	readerCount  int
-	hardware     fwd.Dataplane
-	configMutex  sync.RWMutex // both main and RipRouter goroutines access interface config
-	config       map[string]*ripInterfaceConfig
-	updateTicker *time.Ticker
-	updateNext   time.Time
+	done           chan int // write into this channel (do not close) to request end of rip router
+	input          chan *udpInfo
+	vrfMutex       sync.RWMutex // both main and RipRouter goroutines access the routing table (under member vrfs)
+	vrfs           []*ripVrf
+	ports          []*port // rip interfaces
+	group          net.IP  // 224.0.0.9
+	readerDone     chan int
+	readerCount    int
+	hardware       fwd.Dataplane
+	configMutex    sync.RWMutex // both main and RipRouter goroutines access interface config
+	config         map[string]*ripInterfaceConfig
+	updateTicker   *time.Ticker // regular updates
+	updateNext     time.Time
+	triggeredTimer *time.Timer // triggered updates
+	triggeredNext  time.Time
+	triggeredLast  time.Time
 }
 
 func (r *RipRouter) clearInterfaceRipCost(ifname string) {
@@ -557,9 +560,17 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 		defer r.updateTicker.Stop()
 		r.updateNext = time.Now().Add(updateInterval)
 
+		r.triggeredTimer = time.NewTimer(time.Second * time.Duration(10))
+		defer r.triggeredTimer.Stop()
+		r.triggeredTimer.Stop() // prevent from running now
+
 	LOOP:
 		for {
 			select {
+			case <-r.triggeredTimer.C:
+				log.Printf("rip router: FIXME WRITEME send triggered update")
+				r.triggeredLast = time.Now()                                            // keep track of most recent triggered update
+				r.triggeredNext = r.triggeredLast.Add(time.Second * time.Duration(-10)) // not running
 			case <-r.updateTicker.C:
 				r.updateNext = time.Now().Add(updateInterval)
 				log.Printf("rip router: FIXME WRITEME send periodic update: nextUpdate=%v", r.updateNext)
@@ -591,7 +602,38 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 
 // trigUpdate: schedule triggered update
 func (r *RipRouter) trigUpdate(now time.Time) {
-	log.Printf("RipRouter.trigUpdate: FIXME WRITEME")
+
+	if r.updateTicker == nil || r.triggeredTimer == nil {
+		log.Printf("RipRouter.trigUpdate: timers not ready")
+		return
+	}
+
+	if r.triggeredNext.After(now) {
+		log.Printf("RipRouter.trigUpdate: timer already running: next=%v", r.triggeredNext)
+		return
+	}
+
+	if r.updateNext.Sub(now) < time.Second*time.Duration(5) {
+		log.Printf("RipRouter.trigUpdate: too much close to a regular update: regularNext=%v", r.updateNext)
+		return
+	}
+
+	var triggeredInterval time.Duration
+
+	if now.Sub(r.triggeredLast) < time.Second*time.Duration(5) {
+		// we had a recent triggered update
+		// delay update for a random interval
+		log.Printf("RipRouter.trigUpdate: delaying triggered update due to recent recurrence: last=%v", r.triggeredLast)
+		interval := 5
+		triggeredInterval = time.Second * time.Duration(interval)
+		log.Printf("RipRouter.trigUpdate: FIXME randomize interval (now using %d seconds)", interval)
+	} else {
+		log.Printf("RipRouter.trigUpdate: scheduling immediate update")
+	}
+
+	r.triggeredNext = now.Add(triggeredInterval)
+	r.triggeredTimer.Reset(triggeredInterval)
+	log.Printf("RipRouter.trigUpdate: triggered update scheduled: %v", r.triggeredNext)
 }
 
 func parseRipPacket(r *RipRouter, u *udpInfo) {
