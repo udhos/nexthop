@@ -569,8 +569,8 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 			select {
 			case <-r.triggeredTimer.C:
 				log.Printf("rip router: FIXME WRITEME send triggered update")
-				r.triggeredLast = time.Now()                                            // keep track of most recent triggered update
-				r.triggeredNext = r.triggeredLast.Add(time.Second * time.Duration(-10)) // not running
+				r.triggeredLast = time.Now()  // keep track of most recent triggered update
+				r.triggeredNext = time.Time{} // not running
 			case <-r.updateTicker.C:
 				r.updateNext = time.Now().Add(updateInterval)
 				log.Printf("rip router: FIXME WRITEME send periodic update: nextUpdate=%v", r.updateNext)
@@ -608,7 +608,7 @@ func (r *RipRouter) trigUpdate(now time.Time) {
 		return
 	}
 
-	if r.triggeredNext.Sub(now) >= 0 {
+	if !r.triggeredNext.IsZero() {
 		log.Printf("RipRouter.trigUpdate: timer already running: next=%v", r.triggeredNext)
 		return
 	}
