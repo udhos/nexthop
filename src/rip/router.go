@@ -138,14 +138,17 @@ func (r *RipRouter) garbageCollect() {
 		routeList := []*ripRoute{}
 
 		for _, route := range v.routes {
-			if !route.isGarbage(now) {
-				if route.installed && !route.isValid(now) {
-					// remove timedout routes from FIB
-					route.disable(now)
-					invalid++
-				}
-				routeList = append(routeList, route)
+			if route.isGarbage(now) {
+				continue // drop this route
 			}
+
+			if route.installed && !route.isValid(now) {
+				// remove timedout route from FIB
+				route.disable(now)
+				invalid++
+			}
+
+			routeList = append(routeList, route) // keep route
 		}
 
 		removed := len(v.routes) - len(routeList)
