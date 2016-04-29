@@ -124,6 +124,40 @@ func (r *ripRoute) isGarbage(now time.Time) bool {
 	return r.garbageCollection.Before(now)
 }
 
+func (r *RipRouter) garbageCollect() {
+
+	defer r.vrfMutex.Unlock()
+	r.vrfMutex.Lock()
+
+	now := time.Now()
+
+	invalid := 0
+
+	for _, v := range r.vrfs {
+
+		routeList := []*ripRoute{}
+
+		for _, route := range v.routes {
+			if !route.isGarbage(now) {
+				if !route.isValid(now) {
+					route.disable(now)
+					invalid++
+				}
+				routeList = append(routeList, route)
+			}
+		}
+
+		removed := len(v.routes) - len(routeList)
+		if removed != 0 {
+			v.routes = routeList // replace slice
+		}
+
+		log.Printf("RipRouter.garbageCollect(): vrf=[%s] removed %d garbage routes", v.name, removed)
+	}
+
+	log.Printf("RipRouter.garbageCollect(): disabled %d invalid routes", invalid)
+}
+
 type ripVrf struct {
 	name   string
 	nets   []*ripNet   // locally configured networks
@@ -568,10 +602,11 @@ func NewRipRouter(hw fwd.Dataplane /*, ctx command.ConfContext*/) *RipRouter {
 		for {
 			select {
 			case <-r.triggeredTimer.C:
-				log.Printf("rip router: FIXME WRITEME send triggered update")
 				r.triggeredLast = time.Now()  // keep track of most recent triggered update
 				r.triggeredNext = time.Time{} // not running
+				log.Printf("rip router: FIXME WRITEME send triggered update")
 			case <-r.updateTicker.C:
+				r.garbageCollect()
 				r.updateNext = time.Now().Add(updateInterval)
 				log.Printf("rip router: FIXME WRITEME send periodic update: nextUpdate=%v", r.updateNext)
 			case <-r.done:
