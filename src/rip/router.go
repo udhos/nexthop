@@ -23,6 +23,7 @@ type ripNet struct {
 	metric  int
 }
 
+// FIXME type ripRoute struct: concurrenct access from both main goroutine and NewRipRouter goroutine
 type ripRoute struct {
 	tag     uint16
 	addr    net.IPNet
@@ -124,6 +125,7 @@ func (r *ripRoute) isGarbage(now time.Time) bool {
 	return r.garbageCollection.Before(now)
 }
 
+// garbageCollect(): called from NewRipRouter() goroutine
 func (r *RipRouter) garbageCollect() {
 
 	defer r.vrfMutex.Unlock()
@@ -173,6 +175,7 @@ func (v *ripVrf) Empty() bool {
 	return len(v.nets) < 1
 }
 
+// FIXME localRouteAdd(): called indirectly from main goroutine, but calls route.disable()
 func (v *ripVrf) localRouteAdd(n *ripNet, r *RipRouter) {
 	//log.Printf("ripVrf.localRouteAdd: vrf[%s]: %v", v.name, n)
 
