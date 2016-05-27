@@ -1,6 +1,8 @@
 nexthop
 =======
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/udhos/nexthop)](https://goreportcard.com/report/github.com/udhos/nexthop)
+
 Dynamic Internet Routing Suite in Go
 
 quick start - Linux
