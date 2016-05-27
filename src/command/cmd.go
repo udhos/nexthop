@@ -378,16 +378,16 @@ func cmdAdd(root *CmdNode, opt uint64, path string, min int, cmd CmdFunc, apply 
 		// not found
 
 		for ; i < size-1; i++ {
-			// intermmediate label
-			label = labelList[i]
+			// handle intermmediate label
+			//label = labelList[i]
 			currPath = strings.Join(labelList[:i+1], " ")
 			newNode := &CmdNode{Path: currPath, MinLevel: min, Options: opt}
 			pushCmdChild(parent, newNode)
 			parent = newNode
 		}
 
-		// last label
-		label = labelList[size-1]
+		// handle last label
+		//label = labelList[size-1]
 		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd, Apply: apply, Options: opt}
 		pushCmdChild(parent, newNode)
 
