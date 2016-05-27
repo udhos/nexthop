@@ -69,7 +69,8 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 
 		for ; i < size-1; i++ {
 			// handle intermmediate label
-			label = labelList[i]
+			
+			//label = labelList[i]
 			currPath = strings.Join(labelList[:i+1], " ")
 			//log.Printf("cmdInstall: %d: intermmediate curr=[%s] label=[%s]", i, currPath, label)
 			newNode := &CmdNode{Path: currPath, MinLevel: EXEC}
@@ -78,6 +79,7 @@ func cmdAdd(root *CmdNode, path string, min int, cmd CmdFunc, desc string) error
 		}
 
 		// handle last label
+		
 		//label = labelList[size-1]
 		//log.Printf("cmdInstall: %d: leaf curr=[%s] label=[%s]", i, path, label)
 		newNode := &CmdNode{Path: path, Desc: desc, MinLevel: min, Handler: cmd}
