@@ -12,7 +12,7 @@ install:
 
 script:
   - #find $TRAVIS_BUILD_DIR -type d
-  - export NH_SRC=github.com/udhos/nexthop/src
+  - export NHSRC=github.com/udhos/nexthop/src
   - go install $NHSRC/rib-old
   - go install $NHSRC/rib
   - go install $NHSRC/rip
