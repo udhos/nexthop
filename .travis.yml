@@ -11,5 +11,9 @@ install:
   - go get honnef.co/go/simple/cmd/gosimple
 
 script:
-  - go install nexthop/rib-old nexthop/rib nexthop/rip nexthop/bgp nexthop/tools/rip-query
+  - go install github.com/udhos/nexthop/rib-old
+  - go install github.com/udhos/nexthop/rib
+  - go install github.com/udhos/nexthop/rip
+  - go install github.com/udhos/nexthop/bgp
+  - go install github.com/udhos/nexthop/tools/rip-query
   - go test addr bgp cli command netorder rip sock
