@@ -25,4 +25,4 @@ script:
   - go test github.com/udhos/nexthop/command
   - go test github.com/udhos/nexthop/netorder
   - go test github.com/udhos/nexthop/rip
-  - sudo go test github.com/udhos/nexthop/sock
+  - sudo GOPATH=$GOPATH /home/travis/.gimme/versions/go/bin/go test github.com/udhos/nexthop/sock
