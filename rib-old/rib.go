@@ -9,8 +9,8 @@ import (
 
 	//"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 
-	"rib-old/iface"
-	"rib-old/route"
+	"github.com/udhos/nexthop/rib-old/iface"
+	"github.com/udhos/nexthop/rib-old/route"
 )
 
 /*

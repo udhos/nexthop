@@ -1,13 +1,7 @@
 #! /bin/bash
 
-export DEVEL=$HOME/devel
-export NEXTHOP=$DEVEL/nexthop
-export GOPATH=$NEXTHOP
-
-[ -d $DEVEL ] || mkdir -p $DEVEL
-cd $DEVEL
-
-git clone https://github.com/udhos/nexthop
+DEVEL=$HOME/devel
+export GOPATH=$DEVEL/gopath
 
 go_get () {
 	local i=$1
@@ -15,7 +9,7 @@ go_get () {
 	go get $i
 }
 
-#go_get code.google.com/p/go.net/ipv4
+#go_get github.com/udhos/nexthop
 go_get golang.org/x/net/ipv4
 go_get github.com/udhos/netlink
 go_get github.com/golang/lint/golint

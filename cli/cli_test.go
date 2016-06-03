@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"command"
-	"fwd"
+	"github.com/udhos/nexthop/command"
+	"github.com/udhos/nexthop/fwd"
 )
 
 type testApp struct {

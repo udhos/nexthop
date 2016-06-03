@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"telnet"
+	"github.com/udhos/nexthop/telnet"
 )
 
 const (

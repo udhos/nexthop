@@ -11,9 +11,9 @@ import (
 	//"strings"
 	"time"
 
-	"cli"
-	"command"
-	"fwd"
+	"github.com/udhos/nexthop/cli"
+	"github.com/udhos/nexthop/command"
+	"github.com/udhos/nexthop/fwd"
 	//"golang.org/x/net/ipv4" // "code.google.com/p/go.net/ipv4" // https://code.google.com/p/go/source/checkout?repo=net
 )
 

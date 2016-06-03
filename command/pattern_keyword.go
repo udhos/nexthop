@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"unicode"
 
-	"addr"
+	"github.com/udhos/nexthop/addr"
 )
 
 type interfaceListFunc func() ([]string, []string) // ifname, ifvrf

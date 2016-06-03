@@ -11,17 +11,16 @@ install:
   - go get honnef.co/go/simple/cmd/gosimple
 
 script:
-  - #find $TRAVIS_BUILD_DIR -type d
-  - export NHSRC=github.com/udhos/nexthop/src
-  - go install $NHSRC/rib-old
-  - go install $NHSRC/rib
-  - go install $NHSRC/rip
-  - go install $NHSRC/bgp
-  - go install $NHSRC/tools/rip-query
-  - go test $NHSRC/addr 
-  - go test $NHSRC/bgp
-  - go test $NHSRC/cli
-  - go test $NHSRC/command
-  - go test $NHSRC/netorder
-  - go test $NHSRC/rip
-  - go test $NHSRC/sock
+  - export NHPATH=github.com/udhos/nexthop
+  - go install github.com/udhos/nexthop/rib-old
+  - go install github.com/udhos/nexthop/rib
+  - go install github.com/udhos/nexthop/rip
+  - go install github.com/udhos/nexthop/bgp
+  - go install github.com/udhos/nexthop/tools/rip-query
+  - go test github.com/udhos/nexthop/addr
+  - go test github.com/udhos/nexthop/bgp
+  - go test github.com/udhos/nexthop/cli
+  - go test github.com/udhos/nexthop/command
+  - go test github.com/udhos/nexthop/netorder
+  - go test github.com/udhos/nexthop/rip
+  - go test github.com/udhos/nexthop/sock

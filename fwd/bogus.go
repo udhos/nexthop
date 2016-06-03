@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"addr"
+	"github.com/udhos/nexthop/addr"
 )
 
 func NewDataplaneBogus() *bogusDataplane {

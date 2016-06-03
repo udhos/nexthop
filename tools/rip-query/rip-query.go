@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"addr"
-	"netorder"
+	"github.com/udhos/nexthop/addr"
+	"github.com/udhos/nexthop/netorder"
 )
 
 func main() {

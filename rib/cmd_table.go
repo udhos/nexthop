@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	//"cli"
-	"command"
+	"github.com/udhos/nexthop/command"
 )
 
 func installRibCommands(root *command.CmdNode) {

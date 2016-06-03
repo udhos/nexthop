@@ -5,7 +5,7 @@ import (
 	"log"
 	//"strings"
 
-	"command"
+	"github.com/udhos/nexthop/command"
 )
 
 func Execute(ctx command.ConfContext, line string, isLine, history bool, c *Client) {

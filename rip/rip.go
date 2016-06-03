@@ -3,15 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"fwd"
 	"log"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
-	"cli"
-	"command"
+	"github.com/udhos/nexthop/cli"
+	"github.com/udhos/nexthop/command"
+	"github.com/udhos/nexthop/fwd"
 )
 
 type Rip struct {

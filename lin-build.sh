@@ -3,33 +3,66 @@
 # lin-build
 
 DEVEL=$HOME/devel
-NEXTHOP=$DEVEL/nexthop
-export GOPATH=$NEXTHOP
+export GOPATH=$DEVEL/gopath
+PATH=$GOPATH/bin:$PATH
+NHPATH=github.com/udhos/nexthop
+NEXTHOP=$GOPATH/src/$NHPATH
 
-PATH=$NEXTHOP/bin:$PATH
+src="addr bgp cli command fwd netorder rib rib-old rip sock telnet tools           sample"
+unu="addr bgp cli command fwd netorder rib rib-old rip sock telnet tools/rip-query"
 
-src="addr bgp cli command fwd netorder rib rib-old rip sample sock telnet tools"
-unu="addr bgp cli command fwd netorder rib rib-old rip        sock telnet tools/rip-query"
-
-for i in $src; do
-    j=$NEXTHOP/src/$i
-    echo $j
+fix() {
+    local i=$1
+    j=$NEXTHOP/$i
+    echo build: go tool fix $j
     go tool fix $j
+    echo build: go tool vet $j
     go tool vet $j
+    echo build: gofmt -s -w $j
     gofmt -s -w $j
-    gosimple $i
+    k=$NHPATH/$i
+    echo build: gosimple $k
+    gosimple $k
     #golint $j     ;# golint is verbose, enable only when actually needed
+}
+static() {
+for i in $src; do
+    fix $i	
 done
 
-unused $unu ;# unused is slow
+for i in $unu; do
+    j=$NHPATH/$i
+    echo build: unused $j
+    unused $j
+done
+}
 
-go install rib-old rib rip bgp tools/rip-query
+install() {
 
+inst='rib-old rib rip bgp tools/rip-query'
+
+for i in $inst; do
+    j=$NHPATH/$i
+    echo install: go install $j
+    go install $j
+done
+}
+
+test() {
 save=$PWD
 cd $NEXTHOP
-test_dirs=`ls src/*/*_test.go | awk -F/ '{ print $2 }'`
+test_dirs=`ls */*_test.go | awk -F/ '{ print $1 }'`
 cd $save
 
-go test $test_dirs
+for i in $test_dirs; do
+    j=$NHPATH/$i
+    echo test: go test $j
+    go test $j
+done
+}
+
+static
+install
+test
 
 # eof

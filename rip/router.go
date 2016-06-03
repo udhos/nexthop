@@ -10,11 +10,11 @@ import (
 
 	"golang.org/x/net/ipv4"
 
-	"addr"
-	"command"
-	"fwd"
-	"netorder"
-	"sock"
+	"github.com/udhos/nexthop/addr"
+	"github.com/udhos/nexthop/command"
+	"github.com/udhos/nexthop/fwd"
+	"github.com/udhos/nexthop/netorder"
+	"github.com/udhos/nexthop/sock"
 )
 
 type ripNet struct {

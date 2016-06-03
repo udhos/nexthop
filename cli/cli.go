@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"command"
+	"github.com/udhos/nexthop/command"
 )
 
 type Server struct {

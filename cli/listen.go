@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 
-	"telnet"
+	"github.com/udhos/nexthop/telnet"
 )
 
 func ListenTelnet(addr string, cliServer *Server) {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"fwd"
+	"github.com/udhos/nexthop/fwd"
 )
 
 func TestLongestPrefix(t *testing.T) {
