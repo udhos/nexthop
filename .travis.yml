@@ -11,6 +11,7 @@ install:
   - go get honnef.co/go/simple/cmd/gosimple
 
 script:
+  - find $TRAVIS_BUILD_DIR -type d
   - go install github.com/udhos/nexthop/rib-old
   - go install github.com/udhos/nexthop/rib
   - go install github.com/udhos/nexthop/rip
