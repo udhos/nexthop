@@ -8,7 +8,7 @@ import (
 func TestJoin(t *testing.T) {
 	ifname := "eth2"
 
-	mcastSock, err1 := MulticastListener(2000, "eth2")
+	mcastSock, err1 := MulticastListener(2000, "lo")
 	if err1 != nil {
 		t.Errorf("Unable to create multicast listener socket: %v", err1)
 		return
