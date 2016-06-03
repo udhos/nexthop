@@ -3,6 +3,8 @@ nexthop
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/udhos/nexthop)](https://goreportcard.com/report/github.com/udhos/nexthop)
 
+[![Build Status](https://travis-ci.org/udhos/nexthop.svg?branch=master)](https://travis-ci.org/udhos/nexthop)
+
 Dynamic Internet Routing Suite in Go
 
 quick start - Linux
