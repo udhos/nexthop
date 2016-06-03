@@ -17,7 +17,7 @@ func TestJoin(t *testing.T) {
 	group := net.IPv4(224, 0, 0, 9)
 
 	if err := Join(mcastSock, group, ifname); err != nil {
-		t.Errorf("Unable to join multicast group: %v", err1)
+		t.Errorf("Unable to join multicast group: %v", err)
 		Close(mcastSock)
 		return
 	}
@@ -45,7 +45,7 @@ func TestJoin(t *testing.T) {
 	}
 
 	if err := Leave(mcastSock, group, ifi); err != nil {
-		t.Errorf("Unable to leave multicast group: %v", err1)
+		t.Errorf("Unable to leave multicast group: %v", err)
 		Close(mcastSock)
 		return
 	}
