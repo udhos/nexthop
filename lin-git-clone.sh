@@ -9,7 +9,7 @@ go_get () {
 	go get $i
 }
 
-#go_get github.com/udhos/nexthop
+go_get github.com/udhos/nexthop
 go_get golang.org/x/net/ipv4
 go_get github.com/udhos/netlink
 go_get github.com/golang/lint/golint

@@ -56,7 +56,7 @@ cd $save
 
 for i in $test_dirs; do
     j=$NHPATH/$i
-    echo test: go test $j
+    #echo test: go test $j
     go test $j
 done
 }
