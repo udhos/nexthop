@@ -1,7 +1,9 @@
 #! /bin/bash
 
-DEVEL=$HOME/devel
-export GOPATH=$DEVEL/gopath
+if [ "$GOPATH" == "" ]; then
+    DEVEL=$HOME/devel
+    export GOPATH=$DEVEL/gopath
+fi
 
 go_get () {
 	local i=$1

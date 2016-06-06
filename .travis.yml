@@ -14,15 +14,15 @@ install:
 
 script:
   - export NHPATH=github.com/udhos/nexthop
-  - go install github.com/udhos/nexthop/rib-old
-  - go install github.com/udhos/nexthop/rib
-  - go install github.com/udhos/nexthop/rip
-  - go install github.com/udhos/nexthop/bgp
-  - go install github.com/udhos/nexthop/tools/rip-query
-  - go test github.com/udhos/nexthop/addr
-  - go test github.com/udhos/nexthop/bgp
-  - go test github.com/udhos/nexthop/cli
-  - go test github.com/udhos/nexthop/command
-  - go test github.com/udhos/nexthop/netorder
-  - go test github.com/udhos/nexthop/rip
-  - sudo GOPATH=$GOPATH /home/travis/.gimme/versions/go/bin/go test github.com/udhos/nexthop/sock
+  - go install $NHPATH/rib-old
+  - go install $NHPATH/rib
+  - go install $NHPATH/rip
+  - go install $NHPATH/bgp
+  - go install $NHPATH/tools/rip-query
+  - go test $NHPATH/addr
+  - go test $NHPATH/bgp
+  - go test $NHPATH/cli
+  - go test $NHPATH/command
+  - go test $NHPATH/netorder
+  - go test $NHPATH/rip
+  - sudo GOPATH=$GOPATH /home/travis/.gimme/versions/go/bin/go test $NHPATH/sock
