@@ -8,7 +8,7 @@ sudo: required
 install:
   - go get golang.org/x/net/ipv4
   - go get github.com/udhos/netlink
-  - go get github.com/golang/lint/golint
+  - go get golang.org/x/lint/golint
   - go get honnef.co/go/unused/cmd/unused
   - go get honnef.co/go/simple/cmd/gosimple
 
